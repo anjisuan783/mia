@@ -2,11 +2,22 @@ cmake_minimum_required(VERSION 2.6)
 
 project(media_server)
 
-set(CMAKE_C_COMPILER "/opt/rh/devtoolset-7/root/usr/bin/gcc")
-set(CMAKE_CXX_COMPILER "/opt/rh/devtoolset-7/root/usr/bin/g++")
+find_package(PkgConfig)
 
-#set(CMAKE_C_COMPILER "/usr/local/gcc-7.3.0/bin/gcc")
-#set(CMAKE_CXX_COMPILER "/usr/local/gcc-7.3.0/bin/g++")
+function(test_lib LIB_NAME) 
+  if (${LIB_NAME} MATCHES "^.*-NOTFOUND") 
+    message(FATAL_ERROR "lib not found: " ${LIB_NAME} " check README") 
+    return() 
+  endif(${LIB_NAME} MATCHES "^.*-NOTFOUND") 
+endfunction(test_lib)
+
+set(MA_BUILD_TYPE "debug")
+
+if(${MA_BUILD_TYPE} STREQUAL "debuggs") 
+	set(CMAKE_C_COMPILER "/usr/local/gcc-7.3.0/bin/gcc")
+	set(CMAKE_CXX_COMPILER "/usr/local/gcc-7.3.0/bin/g++")
+	set(CMAKE_CXX_GS_FLAGS "-D__GS__ -DOS_LINUX -DLINUX -DUNIX -D_REENTRANT -D_GNU_SOURCE")
+endif()
 
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
   execute_process(COMMAND ${CMAKE_C_COMPILER} -dumpversion
@@ -22,11 +33,8 @@ if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
   endif()
 endif()
 
-set(MA_BUILD_TYPE "debug")
-
-
 set(MYRTC_CMAKE_CXX_FLAGS "-fexceptions -DWEBRTC_POSIX -DWEBRTC_LINUX -DLINUX -DNOLINUXIF -DNO_REG_RPC=1 -DHAVE_VFPRINTF=1 -DRETSIGTYPE=void -DNEW_STDIO -DHAVE_STRDUP=1 -DHAVE_STRLCPY=1 -DHAVE_LIBM=1 -DHAVE_SYS_TIME_H=1 -DTIME_WITH_SYS_TIME_H=1 -D_LIBCPP_ABI_UNSTABLE")
-set(MA_CMAKE_CXX_FLAGS "-g -Wall -std=gnu++17 -fPIC -DOS_LINUX -DLINUX -D_REENTRANT -D_GNU_SOURCE -DUNIX -D__STDC_FORMAT_MACROS ${MYRTC_CMAKE_CXX_FLAGS}")
+set(MA_CMAKE_CXX_FLAGS "-D_GNU_SOURCE -g -Wall -std=gnu++17 -fPIC -D__STDC_FORMAT_MACROS ${MYRTC_CMAKE_CXX_FLAGS} ${CMAKE_CXX_GS_FLAGS}")
 
 if(${MA_BUILD_TYPE} STREQUAL "debug")
   set(CMAKE_CXX_FLAGS "-O0 -ggdb ${MA_CMAKE_CXX_FLAGS}")
@@ -36,18 +44,22 @@ endif()
 
 message("Generating ma ${MA_BUILD_TYPE} project with ${CMAKE_CXX_FLAGS}")
 
+
+# LOG4CXX 
+find_library(LOG log4cxx) 
+test_lib(${LOG})
+
 set(MA_SOURCE_PATH "${CMAKE_CURRENT_SOURCE_DIR}")
 
 include_directories(
 	${CMAKE_CURRENT_SOURCE_DIR}
-	${CMAKE_CURRENT_SOURCE_DIR}/../../include 
-	${CMAKE_CURRENT_SOURCE_DIR}/../../include/platform
-	${CMAKE_CURRENT_SOURCE_DIR}/../../platform/include
-	${CMAKE_CURRENT_SOURCE_DIR}/../..
-	${CMAKE_CURRENT_SOURCE_DIR}/..
-	${CMAKE_CURRENT_SOURCE_DIR}/../rtc_stack/src
-	${CMAKE_CURRENT_SOURCE_DIR}/../rtc_stack/src/myrtc
-	${CMAKE_CURRENT_SOURCE_DIR}/../rtc_stack/src/owt
+	${CMAKE_CURRENT_SOURCE_DIR}/../../../include 
+	${CMAKE_CURRENT_SOURCE_DIR}/../../../include/platform
+	${CMAKE_CURRENT_SOURCE_DIR}/../../../platform/include
+	${CMAKE_CURRENT_SOURCE_DIR}/../../..
+	${CMAKE_CURRENT_SOURCE_DIR}/../../rtc_stack/src
+	${CMAKE_CURRENT_SOURCE_DIR}/../../rtc_stack/src/myrtc
+	${CMAKE_CURRENT_SOURCE_DIR}/../../rtc_stack/src/owt
 )
 
 set(

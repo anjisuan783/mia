@@ -10,6 +10,8 @@
 #include <string>
 #include <vector>
 
+#include "common/media_log.h"
+
 namespace ma {
 
 ////////////////////////////////////////////////////////////////////////
@@ -95,6 +97,8 @@ public:
 
 class SrsJsonObject : public SrsJsonAny
 {
+  MDECLARE_LOGGER();
+
 private:
     typedef std::pair<std::string, SrsJsonAny*> SrsJsonObjectPropertyType;
     std::vector<SrsJsonObjectPropertyType> properties;

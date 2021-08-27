@@ -5,7 +5,7 @@
 
 namespace ma {
 
-class GsDummyConnection : public IMediaConnection {
+class MediaDummyConnection : public IMediaConnection {
  public:
   void Start() override { }
   void Disconnect() override { }

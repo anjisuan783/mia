@@ -6,6 +6,8 @@
 namespace ma
 {
 
+static log4cxx::LoggerPtr logger = log4cxx::Logger::getLogger("media_codec");
+
 // H.264 nalu header type mask.
 const uint8_t kNalTypeMask      = 0x1F;
 

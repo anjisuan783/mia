@@ -3,16 +3,17 @@
 #include <inttypes.h>
 
 #include "common/media_message.h"
-#include "media_bridge.h"
 #include "media_source_mgr.h"
 #include "encoder/media_codec.h"
 #include "media_gop_cache.h"
-#include "common/media_log.h"
+
 #include "media_meta_cache.h"
 #include "media_server.h"
 
 namespace ma
 {
+
+MDEFINE_LOGGER(MediaSource, "MediaSource");
 
 MediaSource::MediaSource(const std::string& id)
   : id_(id),
@@ -68,16 +69,15 @@ void MediaSource::on_audio_async(std::shared_ptr<MediaMessage> shared_audio) {
   RTC_DCHECK_RUN_ON(&thread_check_);
   srs_error_t err = srs_success;
   
-  bool is_sequence_header = SrsFlvAudio::sh(shared_audio->payload_->GetTopLevelReadPtr(),
-                                            shared_audio->payload_->GetTopLevelLength());
+  bool is_sequence_header = SrsFlvAudio::sh(shared_audio->payload_->GetFirstMsgReadPtr(),
+                                            shared_audio->payload_->GetFirstMsgLength());
 
   // whether consumer should drop for the duplicated sequence header.
   bool drop_for_reduce = false;
   if (is_sequence_header && meta_->previous_ash()) {
     if (meta_->previous_ash()->size_ == shared_audio->size_) {
-      //TODO need optimize
-      drop_for_reduce = (meta_->previous_vsh()->payload_->FlattenPackage() == 
-          shared_audio->payload_->FlattenPackage());
+
+      drop_for_reduce = (*(meta_->previous_vsh()->payload_) == *(shared_audio->payload_));
 
       MLOG_WARN("drop for reduce sh audio, size=" << shared_audio->size_);
     }
@@ -96,7 +96,8 @@ void MediaSource::on_audio_async(std::shared_ptr<MediaMessage> shared_audio) {
     }
   
     if ((err = meta_->update_ash(sh_update)) != srs_success) {
-      MLOG_CERROR("meta consume audio, code:%d desc:%s", srs_error_code(err), srs_error_desc(err).c_str());
+      MLOG_CERROR("meta consume audio, code:%d desc:%s", 
+          srs_error_code(err), srs_error_desc(err).c_str());
       delete err;
       return ;
     }
@@ -167,8 +168,8 @@ void MediaSource::on_video_async(std::shared_ptr<MediaMessage> shared_video) {
 
   srs_error_t err = srs_success;
 
-  bool is_sequence_header = SrsFlvVideo::sh(shared_video->payload_->GetTopLevelReadPtr(), 
-                                            shared_video->payload_->GetTopLevelLength());
+  bool is_sequence_header = SrsFlvVideo::sh(shared_video->payload_->GetFirstMsgReadPtr(), 
+                                            shared_video->payload_->GetFirstMsgLength());
 
   // whether consumer should drop for the duplicated sequence header.
   bool drop_for_reduce = false;
@@ -176,8 +177,7 @@ void MediaSource::on_video_async(std::shared_ptr<MediaMessage> shared_video) {
     if (meta_->previous_vsh()->size_ == shared_video->size_) {
     
       //TODO need optimize
-      drop_for_reduce = (meta_->previous_vsh()->payload_->FlattenPackage() == 
-          shared_video->payload_->FlattenPackage());
+      drop_for_reduce = (*(meta_->previous_vsh()->payload_) == *(shared_video->payload_));
 
       MLOG_CWARN("drop for reduce sh video, size=%d", shared_video->size_);
     }
@@ -195,7 +195,8 @@ void MediaSource::on_video_async(std::shared_ptr<MediaMessage> shared_video) {
     }
   
     if ((err = meta_->update_vsh(sh_update)) != srs_success) {
-      MLOG_CERROR("meta update video, code:%d desc:%s", srs_error_code(err), srs_error_desc(err).c_str());
+      MLOG_CERROR("meta update video, code:%d desc:%s", 
+          srs_error_code(err), srs_error_desc(err).c_str());
       delete err;
       return ;
     }
@@ -264,11 +265,11 @@ srs_error_t MediaSource::on_video(std::shared_ptr<MediaMessage> shared_video) {
   
   // drop any unknown header video.
   // @see https://github.com/ossrs/srs/issues/421
-  if (!SrsFlvVideo::acceptable(shared_video->payload_->GetTopLevelReadPtr(), 
-                               shared_video->payload_->GetTopLevelLength())) {
+  if (!SrsFlvVideo::acceptable(shared_video->payload_->GetFirstMsgReadPtr(), 
+                               shared_video->payload_->GetFirstMsgLength())) {
     char b0 = 0x00;
     if (shared_video->size_ > 0) {
-      shared_video->payload_->Read(&b0, 1, nullptr, FALSE);
+      shared_video->payload_->Peek(&b0, 1);
     }
     MLOG_CWARN("drop unknown header video, size=%d, bytes[0]=%#x", shared_video->size_, b0);
     return err;

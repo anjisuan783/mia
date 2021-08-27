@@ -11,7 +11,6 @@
 #include <vector>
 #include <sstream>
 
-#include "common/media_log.h"
 #include "common/srs_kernel_error.h"
 #include "utils/srs_kernel_buffer.h"
 #include "rtmp/media_json.h"

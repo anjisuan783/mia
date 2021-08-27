@@ -1,8 +1,8 @@
 #ifndef __MEDIA_SERVER_API_H__
 #define __MEDIA_SERVER_API_H__
 
-class IHttpServer;
-class CDataPackage;
+#include <string>
+#include <vector>
 
 namespace ma {
 
@@ -11,7 +11,7 @@ namespace ma {
 // 2. zero, only ensure sttream start at zero, ignore timestamp jitter.
 // 3. off, disable the time jitter algorithm, like atc.
 enum JitterAlgorithm {
-  JitterAlgorithmFULL = 0x01,
+  JitterAlgorithmFULL = 0x01, //TODO not implement
   JitterAlgorithmZERO,
   JitterAlgorithmOFF
 };
@@ -19,22 +19,23 @@ enum JitterAlgorithm {
 class MediaServerApi {
  public:
   struct config {
+    uint32_t workers_{1};
+    uint32_t ioworkers_{1};          // TODO multi-theads not implement
     bool enable_gop_{true};
     bool enable_atc_{false};
     bool flv_record_{false};
-    int consumer_queue_size_{1000};
+    int consumer_queue_size_{30000};
     JitterAlgorithm jotter_algo_{JitterAlgorithmZERO};
+    std::vector<std::string> listen_addr_;   // [schema://ip:port]
   };
  
   virtual ~MediaServerApi() { }
  
   /*
    *  num1 : thread num of media thread pool
-   *  num2 : thread num of connection thread pool
+   *  num2 : thread num of connection thread pool  TODO not implement
    */
-  virtual void Init(unsigned int num1, unsigned int num2) = 0;
-
-  virtual bool OnHttpConnect(IHttpServer*, CDataPackage*) = 0;
+  virtual int Init(const config&) = 0;
 };
 
 class MediaServerFactory {

@@ -1,61 +1,10 @@
 #include "media_msg_chain.h"
 
-#include "common/media_log.h"
-
 namespace ma {
 
-/*
- * The concept of <DataBlock> is mainly copyed by <ACE_Data_Block>
- * http://www.cs.wustl.edu/~schmidt/ACE.html
- *
- * @brief Stores the data payload that is accessed via one or more
- * <CRtMessageBlock>s.
- *
- * This data structure is reference counted to maximize sharing.
- * memory pool is used to allocate the memory.
- * Only allocate once including <DataBlock> and size of buffer.
- *
- * The internal structure of <DataBlock>:
- *              ------------
- *              | size_    |
- *           -----data_    |
- *           |  |----------|
- *           -->| (buffer) |
- *              |          |
- *              ------------
- */
-class DataBlock final {
-  friend struct DataBlockDeleter;
- public:
-  DataBlock(uint32_t aSize, char* aData)
-  	: size_(aSize), data_(aData) {
-  }
-  
-  ~DataBlock() = default;
-  DataBlock(const DataBlock&) = delete;
-  void operator = (const DataBlock&) = delete;
-  DataBlock(DataBlock&&) = delete;
-  void operator = (DataBlock&&) = delete;
-
-  static std::shared_ptr<DataBlock> Create(
-      uint32_t aSize, char* inData);
-  
-  inline char* GetBasePtr() const {
-    return data_;
-  }
-
-  inline uint32_t GetLength() const {
-    return size_;
-  }
-
-  inline uint32_t GetCapacity() const {
-    return size_;
-  }
-
- private:
-  uint32_t size_;
-  char* data_;
-};
+DataBlock::DataBlock(int32_t aSize, const char* aData)
+  : size_{aSize}, data_{const_cast<char*>(aData)} {
+}
 
 struct DataBlockDeleter {
   void operator()(DataBlock* data_block) const {
@@ -67,25 +16,24 @@ struct DataBlockDeleter {
   }
 };
 
+
 std::shared_ptr<DataBlock> DataBlock::Create(
-    uint32_t aSize, char* inData)
-{
-	MA_ASSERT(aSize > 0);
+    int32_t aSize, const char* inData) {
 
   //static MyAllocator<DataBlock> block_allocator;
   //static_assert(std::is_same_v<DataBlock, decltype(block_allocator)::value_type>);
 
-	// alloc sizeof(DataBlock) and <aSize> at one time.
-	std::allocator<char> allocChar;
-  char *pBuf = allocChar.allocate(sizeof(DataBlock) + aSize, NULL);
+  // alloc sizeof(DataBlock) and <aSize> at one time.
+  std::allocator<char> allocChar;
+  char *pBuf = allocChar.allocate(sizeof(DataBlock) + aSize, nullptr);
 
   char* pData = pBuf + sizeof(DataBlock);
   if (inData) {
-	  ::memcpy(pData, inData, aSize);
-	}
-	
-	return std::shared_ptr<DataBlock>(
-	    new (pBuf) DataBlock(aSize, inData), DataBlockDeleter());
+    ::memcpy(pData, inData, aSize);
+  }
+  
+  return std::shared_ptr<DataBlock>(
+      new (pBuf) DataBlock(aSize, inData), DataBlockDeleter());
 }
 
 
@@ -105,6 +53,9 @@ std::shared_ptr<DataBlock> DataBlock::Create(
 #else
 	#define SELFCHECK_MessageChain(pmb)
 #endif // MEDIA_NDEBUG
+
+
+MDEFINE_LOGGER(MessageChain, "MessageChain"); 
 
 int MessageChain::s_block_createcount = 0;
 int MessageChain::s_block_destoycount = 0;
@@ -339,8 +290,8 @@ int MessageChain::AdvanceChainedWritePtr(
     MA_ASSERT(pCurrent->begin_ == pCurrent->read_);
     if (pCurrent->begin_ != pCurrent->read_) {
         MLOG_ERROR("can't advance."
-                   " begin_=" << (LPVOID)pCurrent->begin_ <<
-                   " read_=" << (LPVOID)pCurrent->read_);
+                   " begin_=" << (void*)pCurrent->begin_ <<
+                   " read_=" << (void*)pCurrent->read_);
       if (aBytesWritten) {
         *aBytesWritten = aCount - dwNeedWrite;
       }
@@ -645,6 +596,8 @@ void MessageChain::LockWriting() {
   MA_SET_BITS(flag_, WRITE_LOCKED);
 }
 
+
+//TODO need optimizing
 bool MessageChain::operator ==(const MessageChain& right) {
   if(this->GetChainedLength() != right.GetChainedLength()) {
     return false;

@@ -2,7 +2,8 @@
 #define __MEDIA_MESSAGE_DEFINE_H__
 
 #include <stdint.h>
-#include "datapackage.h"
+#include "utils/media_msg_chain.h"
+#include "common/media_log.h"
 
 namespace ma
 {
@@ -40,13 +41,20 @@ struct MessageHeader {
 };
 
 class MediaMessage final {
+  MDECLARE_LOGGER();
  public:
   MediaMessage();
   MediaMessage(const MediaMessage&);
-  MediaMessage(MessageHeader* pheader, CDataPackage* data);
+  MediaMessage(MessageHeader* pheader, MessageChain* data);
   ~MediaMessage();
 
-  void create(MessageHeader* pheader, CDataPackage* data);
+  void create(MessageHeader* pheader, MessageChain* data);
+
+  static std::shared_ptr<MediaMessage> 
+      create(MessageHeader* pheader, const char* payload);
+      
+  static std::shared_ptr<MediaMessage> 
+      create(MessageHeader* pheader, std::shared_ptr<DataBlock> payload);
 
   bool is_av();
 
@@ -60,7 +68,7 @@ class MediaMessage final {
  public:
   int64_t& timestamp_;
   int32_t& size_;
-  CDataPackage* payload_{nullptr};
+  MessageChain* payload_{nullptr};
 };
 
 }

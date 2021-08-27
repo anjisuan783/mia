@@ -1,8 +1,7 @@
 #include "media_rtmp_stack.h"
 
-#include "datapackage.h"
+#include "utils/media_msg_chain.h"
 #include "common/media_message.h"
-#include "common/media_log.h"
 #include "rtmp/media_amf0.h"
 #include "utils/srs_kernel_buffer.h"
 #include "rtmp/media_rtmp_const.h"
@@ -13,6 +12,7 @@ SrsPacket::SrsPacket() = default;
 
 SrsPacket::~SrsPacket() = default;
 
+/*
 srs_error_t SrsPacket::to_msg(std::shared_ptr<MediaMessage> msg, int stream_id)
 {
     srs_error_t err = srs_success;
@@ -36,31 +36,25 @@ srs_error_t SrsPacket::to_msg(std::shared_ptr<MediaMessage> msg, int stream_id)
     header.stream_id = stream_id;
     header.perfer_cid = get_prefer_cid();
 
-    CDataPackage _payload(size, (LPCSTR)payload, CDataPackage::DONT_DELETE, size);
+    MessageChain _payload(size, (const char*)payload, MessageChain::DONT_DELETE, size);
     msg->create(&header, &_payload);
     return err;
 }
+*/
 
-srs_error_t SrsPacket::encode(int& psize, char*& ppayload)
+srs_error_t SrsPacket::encode(std::shared_ptr<DataBlock> payload)
 {
     srs_error_t err = srs_success;
     
     int size = get_size();
-    char* payload = NULL;
-    
+
     if (size > 0) {
-        payload = new char[size];
-        
-        SrsBuffer stream(payload, size);
+        SrsBuffer stream(payload->GetBasePtr(), payload->GetCapacity());
 
         if ((err = encode_packet(&stream)) != srs_success) {
-            srs_freepa(payload);
             return srs_error_wrap(err, "encode packet");
         }
     }
-    
-    psize = size;
-    ppayload = payload;
     
     return err;
 }

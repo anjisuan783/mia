@@ -7,10 +7,10 @@
 
 namespace ma {
 
-#define RTC_PALY_PREFIX  "/rtc/v1/play/"
-#define RTC_PUBLISH_PREFIX  "/rtc/v1/publish/"
+#define RTC_PALY_PREFIX      "/rtc/v1/play/"
+#define RTC_PUBLISH_PREFIX   "/rtc/v1/publish/"
 #define LIVE_PUBLISH_PREFIX  "/live/v1/publish/"
-#define LIVE_PLAY_PREFIX  "/live/v1/play/"
+#define LIVE_PLAY_PREFIX     "/live/v1/play/"
 
 class ISrsHttpMessage;
 class IHttpResponseWriter;
@@ -18,10 +18,10 @@ class IMediaConnection;
 class MediaSource;
 class MediaRequest;
 
-class IGsHttpHandler {
-public:
-  IGsHttpHandler() = default;
-  virtual ~IGsHttpHandler() = default;
+class IMediaHttpHandler {
+ public:
+  IMediaHttpHandler() = default;
+  virtual ~IMediaHttpHandler() = default;
 
   virtual srs_error_t serve_http(IHttpResponseWriter*, ISrsHttpMessage*) = 0;
 
@@ -41,7 +41,7 @@ class ServerHandlerFactor {
  public:
   ServerHandlerFactor() = default;
 
-  std::unique_ptr<IGsHttpHandler> Create();
+  std::unique_ptr<IMediaHttpHandler> Create();
 };
 
 }

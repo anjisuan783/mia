@@ -12,6 +12,9 @@
 
 #include <map>
 #include <string>
+#include <memory>
+
+#include "http/h/http_message.h"
 
 namespace ma {
 
@@ -66,50 +69,93 @@ public:
   static srs_error_t path_unescape(std::string s, std::string& value);
 };
 
-// A Header represents the key-value pairs in an HTTP header.
-class SrsHttpHeader
-{
-private:
-  // The order in which header fields with differing field names are
-  // received is not significant. However, it is "good practice" to send
-  // general-header fields first, followed by request-header or response-
-  // header fields, and ending with the entity-header fields.
-  // @doc https://tools.ietf.org/html/rfc2616#section-4.2
-  std::map<std::string, std::string> headers;
-public:
-  SrsHttpHeader() = default;
-  ~SrsHttpHeader() = default;
-public:
-  // Add adds the key, value pair to the header.
-  // It appends to any existing values associated with key.
-  void set(std::string key, std::string value);
-  // Get gets the first value associated with the given key.
-  // If there are no values associated with the key, Get returns "".
-  // To access multiple values of a key, access the map directly
-  // with CanonicalHeaderKey.
-  std::string get(const std::string& key) const;
-  // Delete the http header indicated by key.
-  // Return the removed header field.
-  void del(const std::string&);
-  // Get the count of headers.
-  int count();
-public:
-  // Get the content length. -1 if not set.
-  int64_t content_length();
-  // set the content length by header "Content-Length"
-  void set_content_length(int64_t size);
-public:
-  // Get the content type. empty string if not set.
-  std::string content_type();
-  // set the content type by header "Content-Type"
-  void set_content_type(std::string ct);
-public:
-  // write all headers to string stream.
-  void write(std::stringstream& ss);
-  const std::map<std::string, std::string>& header();
+class HttpMessage final : public ISrsHttpMessage {
+ public:
+  HttpMessage(const std::string& body);
+  ~HttpMessage() = default;
 
-  void clear() { headers.clear(); }
+  void set_basic(uint8_t type, const std::string& method, uint16_t status, int64_t content_length);
+  void set_header(const SrsHttpHeader&, bool keep_alive);
+  srs_error_t set_url(const std::string& url, bool allow_jsonp);
+  void set_https(bool v);
+
+  std::shared_ptr<IMediaConnection> connection() override;
+  void connection(std::shared_ptr<IMediaConnection>) override;
+
+public:
+  // The schema, http or https.
+  const std::string& schema() override;
+  const std::string& method() override;
+  uint16_t status_code() override;
+
+  //method helper
+  bool is_http_get() override;
+  bool is_http_put() override;
+  bool is_http_post() override;
+  bool is_http_delete() override;
+  bool is_http_options() override;
+  // Whether body is chunked encoding, for reader only.
+  bool is_chunked();
+  // Whether should keep the connection alive.
+  bool is_keep_alive() override;
+  // The uri contains the host and path.
+  std::string uri() override;
+  // The url maybe the path.
+  std::string url() override;
+  std::string host() override;
+  int port();
+  std::string path() override;
+  std::string query() override;
+  std::string ext() override;
+  // Get the RESTful matched id.
+  std::string parse_rest_id(std::string pattern) override;
+
+  bool is_jsonp() override;
+
+  SrsHttpHeader& header() override;
+
+  std::string query_get(const std::string& key) override;
+
+  const std::string& get_body() override;
+
+  int64_t content_length() override;
+  
+private:
+  // The request type defined as
+  //      enum http_parser_type { HTTP_REQUEST, HTTP_RESPONSE, HTTP_BOTH };
+  uint8_t type_{0};
+  // The HTTP method defined by HTTP_METHOD_MAP
+  std::string _method;
+  uint16_t _status;
+  int64_t _content_length{-1};
+
+  std::string _body;
+
+  // The http headers
+  SrsHttpHeader _header;
+  // Whether the request indicates should keep alive for the http connection.
+  bool _keep_alive{true};
+  // Whether the body is chunked.
+  bool chunked{false};
+
+  std::string schema_{"http"};
+  // The parsed url.
+  std::string _url;
+  // The extension of file, for example, .flv
+  std::string _ext;
+  // The uri parser
+  std::unique_ptr<SrsHttpUri> _uri;
+  // The query map
+  std::map<std::string, std::string> _query;
+
+  // Whether request is jsonp.
+  bool jsonp{false};
+  // The method in QueryString will override the HTTP method.
+  std::string jsonp_method;
+
+  std::shared_ptr<IMediaConnection> owner_;
 };
+
 
 std::string_view generate_http_status_text(int status);
 

@@ -3,16 +3,17 @@
 
 namespace ma {
 
-typedef int GsRtcCode;
+typedef int MediaCode;
 
 enum {
-  kRtc_ok = 0,
-  kRtc_already_initilized = 0,
-  kRtc_unimplement,
-  kRtc_url_parse_failed,
-  kRtc_failure,
-  kRtc_streamurl_error,
-  kRtc_wrong_status,
+  kma_ok = 0,
+  kma_already_initilized = 0,
+  kma_unimplement,
+  kma_url_parse_failed,
+  kma_failure,
+  kma_streamurl_error,
+  kma_wrong_status,
+  kma_listen_failed,
 };
 
 }

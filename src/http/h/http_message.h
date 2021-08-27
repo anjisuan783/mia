@@ -10,6 +10,51 @@
 
 namespace ma {
 
+// A Header represents the key-value pairs in an HTTP header.
+class SrsHttpHeader
+{
+private:
+  // The order in which header fields with differing field names are
+  // received is not significant. However, it is "good practice" to send
+  // general-header fields first, followed by request-header or response-
+  // header fields, and ending with the entity-header fields.
+  // @doc https://tools.ietf.org/html/rfc2616#section-4.2
+  std::map<std::string, std::string> headers;
+public:
+  SrsHttpHeader() = default;
+  ~SrsHttpHeader() = default;
+public:
+  // Add adds the key, value pair to the header.
+  // It appends to any existing values associated with key.
+  void set(std::string key, std::string value);
+  // Get gets the first value associated with the given key.
+  // If there are no values associated with the key, Get returns "".
+  // To access multiple values of a key, access the map directly
+  // with CanonicalHeaderKey.
+  std::string get(const std::string& key) const;
+  // Delete the http header indicated by key.
+  // Return the removed header field.
+  void del(const std::string&);
+  // Get the count of headers.
+  int count();
+public:
+  // Get the content length. -1 if not set.
+  int64_t content_length();
+  // set the content length by header "Content-Length"
+  void set_content_length(int64_t size);
+public:
+  // Get the content type. empty string if not set.
+  std::string content_type();
+  // set the content type by header "Content-Type"
+  void set_content_type(std::string ct);
+public:
+  // write all headers to string stream.
+  void write(std::stringstream& ss);
+  const std::map<std::string, std::string>& header();
+
+  void clear() { headers.clear(); }
+};
+
 class IMediaConnection;
 
 // A Request represents an HTTP request received by a server

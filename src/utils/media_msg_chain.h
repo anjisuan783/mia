@@ -6,6 +6,8 @@
 #include <memory>
 #include <string>
 
+#include "common/media_log.h"
+
 namespace ma {
 
 class DataBlock;
@@ -41,6 +43,8 @@ class DataBlock;
  */
 
 class MessageChain final {
+  MDECLARE_LOGGER();
+  
  public:
   enum {
     error_ok,
@@ -79,9 +83,8 @@ class MessageChain final {
                         const char * aData = NULL, 
                         MFlag aFlag = 0, 
                         uint32_t aAdvanceWritePtrSize = 0);
-
+                        
   explicit MessageChain(std::shared_ptr<DataBlock> aDb, MFlag aFlag);
-
   ~MessageChain();
 
   MessageChain(const MessageChain &) = delete;
@@ -206,7 +209,7 @@ class MessageChain final {
 
  private:
   void Reset(std::shared_ptr<DataBlock> aDb);
-
+  
  private:
   MessageChain *next_{nullptr};
   std::shared_ptr<DataBlock> data_block_;
@@ -221,6 +224,57 @@ class MessageChain final {
 
   static int   s_block_createcount;
   static int   s_block_destoycount;
+};
+
+/*
+ * The concept of <DataBlock> is mainly copyed by <ACE_Data_Block>
+ * http://www.cs.wustl.edu/~schmidt/ACE.html
+ *
+ * @brief Stores the data payload that is accessed via one or more
+ * <CRtMessageBlock>s.
+ *
+ * This data structure is reference counted to maximize sharing.
+ * memory pool is used to allocate the memory.
+ * Only allocate once including <DataBlock> and size of buffer.
+ *
+ * The internal structure of <DataBlock>:
+ *              ------------
+ *              | size_    |
+ *           -----data_    |
+ *           |  |----------|
+ *           -->| (buffer) |
+ *              |          |
+ *              ------------
+ */
+class DataBlock final {
+  friend struct DataBlockDeleter;
+ public:
+  DataBlock(int32_t aSize, const char* aData);
+  
+  ~DataBlock() = default;
+  DataBlock(const DataBlock&) = delete;
+  void operator = (const DataBlock&) = delete;
+  DataBlock(DataBlock&&) = delete;
+  void operator = (DataBlock&&) = delete;
+
+  static std::shared_ptr<DataBlock> Create(
+      int32_t aSize, const char* inData);
+  
+  inline char* GetBasePtr() const {
+    return data_;
+  }
+
+  inline int32_t GetLength() const {
+    return size_;
+  }
+
+  inline int32_t GetCapacity() const {
+    return size_;
+  }
+
+ private:
+  int32_t size_;
+  char* data_;
 };
 
 }

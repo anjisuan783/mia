@@ -62,7 +62,6 @@
 #define json_char char
 #endif //!json_char
 
-#include "common/media_log.h"
 #include "utils/protocol_utility.h"
 #include "rtmp/media_amf0.h"
 
@@ -1690,6 +1689,8 @@ SrsJsonAny* SrsJsonAny::loads(string str)
   
   return sj;
 }
+
+MDEFINE_LOGGER(SrsJsonObject, "SrsJsonObject");
 
 SrsJsonObject::SrsJsonObject()
 {

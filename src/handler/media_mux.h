@@ -14,11 +14,11 @@ class IHttpResponseWriter;
 class ISrsHttpMessage;
 class IMediaConnection;
 
-class GsHttpServeMux final: public IGsHttpHandler,
+class MediaHttpServeMux final: public IMediaHttpHandler,
                             public sigslot::has_slots<> {
 public:
-  GsHttpServeMux();
-  ~GsHttpServeMux();
+  MediaHttpServeMux();
+  ~MediaHttpServeMux();
   
   srs_error_t serve_http(IHttpResponseWriter*, ISrsHttpMessage*) override;
 
@@ -27,9 +27,8 @@ public:
 
   void conn_destroy(std::shared_ptr<IMediaConnection>) override;
 private:
-  std::map<std::string, IGsHttpHandler*> entry_;
-
-  std::unique_ptr<IGsHttpHandler> flv_sevice_;
+  std::unique_ptr<IMediaHttpHandler> flv_sevice_;
+  std::unique_ptr<IMediaHttpHandler> rtc_sevice_;
 };
 
 }

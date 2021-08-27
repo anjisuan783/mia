@@ -5,6 +5,7 @@
 #include <map>
 #include <mutex>
 
+#include "common/media_log.h"
 #include "encoder/media_flv_encoder.h"
 #include "handler/h/media_handler.h"
 
@@ -16,10 +17,13 @@ class IMediaConnection;
 class ISrsHttpMessage;
 class StreamEntry;
 
-class GsFlvPlayHandler : public IGsHttpHandler {
+class MediaFlvPlayHandler : public IMediaHttpHandler {
+
+  MDECLARE_LOGGER();
+
  public:
-  GsFlvPlayHandler();
-  ~GsFlvPlayHandler();
+  MediaFlvPlayHandler();
+  ~MediaFlvPlayHandler();
 
   srs_error_t mount_service(std::shared_ptr<MediaSource> s, 
                             std::shared_ptr<MediaRequest> r) override;

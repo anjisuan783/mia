@@ -17,19 +17,21 @@ namespace ma {
 class IHttpResponseWriter;
 class ISrsHttpMessage;
 
-srs_error_t srs_go_http_error(IHttpResponseWriter* w, int code);
 
 
 // NotFound replies to the request with an HTTP 404 not found error.
-class HttpNotFoundHandler : public IGsHttpHandler {
+class HttpNotFoundHandler : public IMediaHttpHandler {
  public:
   HttpNotFoundHandler() = default;
   virtual ~HttpNotFoundHandler() = default;
-
+  
   srs_error_t serve_http(IHttpResponseWriter*, ISrsHttpMessage*) override;
  private:
   void conn_destroy(std::shared_ptr<IMediaConnection>) override { }
+  
 };
+
+srs_error_t srs_go_http_error(IHttpResponseWriter* w, int code);
 
 }
 

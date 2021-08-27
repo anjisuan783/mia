@@ -1,4 +1,6 @@
-#include "media_bridge.h"
+#ifdef __GS__
+
+#include "media_gs_bridge.h"
 
 #include "tsvideoflv.h"
 #include "common/media_message.h"
@@ -120,7 +122,11 @@ void MediaBridge::on_audio(CDataPackage& data, DWORD dwTimeStamp) {
 
   header.timestamp = dwTimeStamp;
 
-  auto a = std::make_shared<MediaMessage>(&header, &data);
+  auto audio_block = DataBlock::Create(header.payload_length, nullptr);
+
+  data.Write(audio_block->GetBasePtr(), audio_block->GetCapacity());
+  
+  auto a = MediaMessage::create(&header, std::move(audio_block));
 
   if (debug_) {
     std::vector<std::shared_ptr<MediaMessage>> msgs{a};
@@ -135,7 +141,7 @@ void MediaBridge::on_audio(CDataPackage& data, DWORD dwTimeStamp) {
   source_->on_audio(std::move(a));
 }
 
-void MediaBridge::on_video(CDataPackage& data, DWORD dwTimeStamp, AVCPackageType packageType) {
+void MediaBridge::on_video(CDataPackage& data, DWORD dwTimeStamp, AVCPackageType) {
 
   MessageHeader header;
 
@@ -145,7 +151,11 @@ void MediaBridge::on_video(CDataPackage& data, DWORD dwTimeStamp, AVCPackageType
 
   header.timestamp = dwTimeStamp;
 
-  auto a = std::make_shared<MediaMessage>(&header, &data);
+  auto video_block = DataBlock::Create(header.payload_length, nullptr);
+
+  data.Write(video_block->GetBasePtr(), video_block->GetCapacity());
+
+  auto a = MediaMessage::create(&header, std::move(video_block));
 
   if (debug_) {
     std::vector<std::shared_ptr<MediaMessage>> msgs{a};
@@ -191,4 +201,7 @@ std::shared_ptr<IMediaPublisher> MediaPublisherFactory::Create() {
   return std::make_shared<MediaBridge>();
 }
 
-}
+} //namespace ma
+
+#endif //__GS__
+

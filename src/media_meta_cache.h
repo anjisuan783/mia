@@ -9,6 +9,7 @@
 #define __MEDIA_META_CACHE_H__
 
 #include <memory>
+#include "common/media_log.h"
 #include "common/srs_kernel_error.h"
 #include "media_consumer.h"
 
@@ -25,6 +26,8 @@ class MessageHeader;
 // This class cache and update the meta.
 class MediaMetaCache final
 {
+  MDECLARE_LOGGER();
+
 public:
     MediaMetaCache();
     ~MediaMetaCache();

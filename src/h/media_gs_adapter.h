@@ -1,3 +1,5 @@
+#ifdef __GS__
+
 #ifndef __MEDIA_OBSERVER_H__
 #define __MEDIA_OBSERVER_H__
 
@@ -5,6 +7,7 @@
 #include <memory>
 
 #include "datapackage.h"
+#include "httpapi.h"
 
 namespace ma{
 
@@ -45,7 +48,21 @@ class IMediaSubscriber {
   virtual void OnUnpublish() = 0;
 };
 
+class IGsServer {
+ public:
+  virtual ~IGsServer() = default;
+
+  virtual bool OnHttpConnect(IHttpServer*, CDataPackage*) = 0;
+};
+
+class GsServerFactory {
+ public:
+  IGsServer* Create();
+};
+
 }
 
 #endif  //!MediaObserver
+
+#endif //#ifdef __GS__
 

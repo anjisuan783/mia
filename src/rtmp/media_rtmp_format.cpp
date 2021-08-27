@@ -23,7 +23,7 @@ srs_error_t SrsRtmpFormat::on_metadata(SrsOnMetaDataPacket*)
 srs_error_t SrsRtmpFormat::on_audio(std::shared_ptr<MediaMessage> shared_audio)
 {
   //TODO need optimizing
-  std::string msg = shared_audio->payload_->FlattenPackage();
+  std::string msg = shared_audio->payload_->FlattenChained();
   char* data = const_cast<char*>(msg.c_str());
   int size = msg.length();
   
@@ -38,7 +38,7 @@ srs_error_t SrsRtmpFormat::on_audio(int64_t timestamp, char* data, int size)
 srs_error_t SrsRtmpFormat::on_video(std::shared_ptr<MediaMessage> shared_video)
 {
   //TODO need optimizing
-  std::string msg = shared_video->payload_->FlattenPackage();
+  std::string msg = shared_video->payload_->FlattenChained();
   char* data = const_cast<char*>(msg.c_str());
   int size = msg.length();
   

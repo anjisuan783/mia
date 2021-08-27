@@ -1,15 +1,18 @@
+#ifdef __GS__
+
 #ifndef __HTTP_PROTOCAL_GS_IMPL_H__
 #define __HTTP_PROTOCAL_GS_IMPL_H__
 
-#include "http/h/http_protocal.h"
-
 #include <string>
+
+#include "http/h/http_protocal.h"
 
 #include "tpapi.h"
 #include "httpapi.h"
 #include "refctl.h"
 #include "datapackage.h"
 
+#include "common/media_log.h"
 #include "http/http_stack.h"
 #include "http/h/http_message.h"
 
@@ -94,9 +97,13 @@ private:
   static constexpr int SRS_HTTP_HEADER_CACHE_SIZE{64};
   char header_cache_[SRS_HTTP_HEADER_CACHE_SIZE];
 
+#ifdef __DUMP_PEER_STREAM__
   std::unique_ptr<SrsFileWriter> file_dump_;
+#endif
 };
 
 }
 #endif //!__HTTP_PROTOCAL_GS_IMPL_H__
+
+#endif //__GS__
 

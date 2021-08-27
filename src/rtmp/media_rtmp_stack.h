@@ -9,6 +9,7 @@ namespace ma {
 class SrsAmf0Object;
 class SrsBuffer;
 class MediaMessage;
+class DataBlock;
 
 // The decoded message payload.
 // @remark we seperate the packet from message,
@@ -23,13 +24,13 @@ public:
     virtual ~SrsPacket();
 public:
     // Covert packet to common message.
-    virtual srs_error_t to_msg(std::shared_ptr<MediaMessage> msg, int stream_id);
+    //virtual srs_error_t to_msg(std::shared_ptr<MediaMessage> msg, int stream_id);
 public:
     // The subpacket can override this encode,
     // For example, video and audio will directly set the payload withou memory copy,
     // other packet which need to serialize/encode to bytes by override the
     // get_size and encode_packet.
-    virtual srs_error_t encode(int& size, char*& payload);
+    virtual srs_error_t encode(std::shared_ptr<DataBlock> payload);
 // Decode functions for concrete packet to override.
 public:
     // The subpacket must override to decode packet from stream.
@@ -60,24 +61,24 @@ protected:
 class SrsOnMetaDataPacket final : public SrsPacket
 {
 public:
-    // Name of metadata. Set to "onMetaData"
-    std::string name;
-    // Metadata of stream.
-    // @remark, never be NULL, an AMF0 object instance.
-    SrsAmf0Object* metadata;
-public:
-    SrsOnMetaDataPacket();
-    virtual ~SrsOnMetaDataPacket();
+  // Name of metadata. Set to "onMetaData"
+  std::string name;
+  // Metadata of stream.
+  // @remark, never be NULL, an AMF0 object instance.
+  SrsAmf0Object* metadata;
+  
+  SrsOnMetaDataPacket();
+  virtual ~SrsOnMetaDataPacket();
 // Decode functions for concrete packet to override.
 public:
-    virtual srs_error_t decode(SrsBuffer* stream);
-// Encode functions for concrete packet to override.
-public:
-    virtual int get_prefer_cid();
-    virtual int get_message_type();
-protected:
-    virtual int get_size();
-    virtual srs_error_t encode_packet(SrsBuffer* stream);
+  srs_error_t decode(SrsBuffer* stream) override;
+  // Encode functions for concrete packet to override.
+
+  int get_size() override;
+  int get_prefer_cid() override;
+  int get_message_type() override;
+protected:  
+  srs_error_t encode_packet(SrsBuffer* stream) override;
 };
 
 } //namespace ma

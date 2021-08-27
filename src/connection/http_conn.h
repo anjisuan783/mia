@@ -3,21 +3,24 @@
 
 #include<memory>
 
+#include "common/media_log.h"
 #include "common/srs_kernel_error.h"
 #include "http/h/http_protocal.h"
 #include "connection/h/conn_interface.h"
 
 namespace ma {
 
-class IGsHttpHandler;
-class GsHttpCorsMux;
+class IMediaHttpHandler;
+class MediaHttpCorsMux;
 
-class GsHttpConn : public IMediaConnection,
+class MediaHttpConn : public IMediaConnection,
                    public IHttpRequestReader::CallBack{
+  MDECLARE_LOGGER();
+                   
  public:
-  GsHttpConn(std::unique_ptr<IHttpProtocalFactory> fac, IGsHttpHandler* m);
-  GsHttpConn() = default;
-  virtual ~GsHttpConn();
+  MediaHttpConn(std::unique_ptr<IHttpProtocalFactory> fac, IMediaHttpHandler* m);
+  MediaHttpConn() = default;
+  virtual ~MediaHttpConn();
 
   void Start() override;
 
@@ -32,14 +35,15 @@ class GsHttpConn : public IMediaConnection,
   std::unique_ptr<IHttpRequestReader>  reader_;
   std::unique_ptr<IHttpResponseWriter> writer_;
   std::unique_ptr<IHttpMessageParser>  parser_;
-  IGsHttpHandler* http_mux_;
-  std::unique_ptr<GsHttpCorsMux> cors_;
+  IMediaHttpHandler* http_mux_;
+  std::unique_ptr<MediaHttpCorsMux> cors_;
 };
 
-class GsResponseOnlyHttpConn : public GsHttpConn {
+class MediaResponseOnlyHttpConn : public MediaHttpConn {
+  MDECLARE_LOGGER();
  public:
-  GsResponseOnlyHttpConn(std::unique_ptr<IHttpProtocalFactory> fac, IGsHttpHandler* m);
-  ~GsResponseOnlyHttpConn();
+  MediaResponseOnlyHttpConn(std::unique_ptr<IHttpProtocalFactory> fac, IMediaHttpHandler* m);
+  ~MediaResponseOnlyHttpConn();
 };
 
 }

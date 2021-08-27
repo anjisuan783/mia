@@ -1,6 +1,5 @@
 #include "media_404_handler.h"
 
-#include "common/media_log.h"
 #include "http/http_consts.h"
 #include "http/http_stack.h"
 #include "http/h/http_protocal.h"
@@ -14,7 +13,6 @@ srs_error_t HttpNotFoundHandler::serve_http(IHttpResponseWriter* w, ISrsHttpMess
 srs_error_t srs_go_http_error(IHttpResponseWriter* w, int code) {
   std::string_view error = generate_http_status_text(code);
 
-  MLOG_TRACE(error);
   w->header()->set_content_type("text/plain; charset=utf-8");
   w->header()->set_content_length(error.length());
   w->write_header(code);
@@ -30,4 +28,5 @@ srs_error_t srs_go_http_error(IHttpResponseWriter* w, int code) {
   return err;
 }
 
-}
+} //namespace ma
+

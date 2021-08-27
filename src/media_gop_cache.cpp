@@ -1,5 +1,5 @@
 #include "media_gop_cache.h"
-#include "common/media_log.h"
+
 #include "media_consumer.h"
 #include "common/media_message.h"
 #include "encoder/media_codec.h"
@@ -7,6 +7,8 @@
 namespace ma {
 
 #define SRS_PURE_AUDIO_GUESS_COUNT 115
+
+MDEFINE_LOGGER(SrsGopCache, "SrsGopCache");
 
 void SrsGopCache::dispose() {
   clear();
@@ -37,7 +39,7 @@ srs_error_t SrsGopCache::cache(std::shared_ptr<MediaMessage> msg) {
   // got video, update the video count if acceptable
   if (msg->is_video()) {
     // drop video when not h.264
-    if (!SrsFlvVideo::h264(msg->payload_->GetTopLevelReadPtr(), msg->size_)) {
+    if (!SrsFlvVideo::h264(msg->payload_->GetFirstMsgReadPtr(), msg->size_)) {
       return err;
     }
     
@@ -64,7 +66,7 @@ srs_error_t SrsGopCache::cache(std::shared_ptr<MediaMessage> msg) {
   
   // clear gop cache when got key frame
   if (msg->is_video() && 
-      SrsFlvVideo::keyframe(msg->payload_->GetTopLevelReadPtr(), msg->size_)) {
+      SrsFlvVideo::keyframe(msg->payload_->GetFirstMsgReadPtr(), msg->size_)) {
     clear();
     
     // curent msg is video frame, so we set to 1.

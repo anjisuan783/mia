@@ -9,6 +9,8 @@
 
 namespace ma {
 
+static log4cxx::LoggerPtr logger = log4cxx::Logger::getLogger("MediaConsumer");
+
 #define CONST_MAX_JITTER_MS         250
 #define CONST_MAX_JITTER_MS_NEG         -250
 #define DEFAULT_FRAME_TIME_MS         10
@@ -45,7 +47,7 @@ void MessageQueue::enqueue(std::shared_ptr<MediaMessage> msg, bool* is_overflow)
   
   msgs.emplace_back(std::move(msg));
 
-  MLOG_CTRACE("start:%lld, end:%lld, diff:%lld", av_start_time, av_end_time, av_end_time-av_start_time);
+  //MLOG_CTRACE("start:%lld, end:%lld, diff:%lld", av_start_time, av_end_time, av_end_time-av_start_time);
   while (av_end_time - av_start_time > max_queue_size) {
     // notice the caller queue already overflow and shrinked.
     if (is_overflow) {
@@ -110,12 +112,12 @@ void MessageQueue::shrink() {
     auto& msg = msgs.at(i);
     
     if (msg->is_video() && SrsFlvVideo::sh(
-        msg->payload_->GetTopLevelReadPtr(), msg->payload_->GetTopLevelLength())) {
+        msg->payload_->GetFirstMsgReadPtr(), msg->payload_->GetFirstMsgLength())) {
       video_sh = msg;
       continue;
     }
     else if (msg->is_audio() && SrsFlvAudio::sh(
-        msg->payload_->GetTopLevelReadPtr(), msg->payload_->GetTopLevelLength())) {
+        msg->payload_->GetFirstMsgReadPtr(), msg->payload_->GetFirstMsgLength())) {
       audio_sh = msg;
       continue;
     }

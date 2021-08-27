@@ -1,7 +1,7 @@
 #include "media_meta_cache.h"
 
 #include <sstream>
-#include "common/media_log.h"
+
 #include "common/media_message.h"
 #include "encoder/media_codec.h"
 #include "rtmp/media_rtmp_format.h"
@@ -11,6 +11,9 @@ namespace ma {
 
 #define RTMP_SIG_SRS_SERVER "lydemo"
 #define RTMP_SIG_SRS_VERSION "test"
+
+
+MDEFINE_LOGGER(MediaMetaCache, "MediaMetaCache");
 
 MediaMetaCache::MediaMetaCache()
   : vformat{std::make_unique<SrsRtmpFormat>()},
@@ -62,17 +65,12 @@ srs_error_t MediaMetaCache::dumps(MediaConsumer* consumer,
   
   // copy metadata.
   if (dump_meta && meta) {
-    MLOG_TRACE("dumps meta");
     consumer->enqueue(meta, atc, jitter_algo);
   }
   
   if (dump_seq_header) {
     if (audio) {
-      MLOG_TRACE("dumps audio seq header");
       consumer->enqueue(audio, atc, jitter_algo);
-      bool is_sequence_header = SrsFlvAudio::sh(audio->payload_->GetTopLevelReadPtr(),
-                                                audio->payload_->GetTopLevelLength());
-      assert(is_sequence_header);
     }
     if (video) {
       consumer->enqueue(video, atc, jitter_algo);
@@ -135,23 +133,19 @@ srs_error_t MediaMetaCache::update_data(MessageHeader* header,
   metadata->metadata->set("server_version", SrsAmf0Any::str(RTMP_SIG_SRS_VERSION));
   
   // encode the metadata to payload
-  int size = 0;
-  char* payload = NULL;
-  if ((err = metadata->encode(size, payload)) != srs_success) {
-    return srs_error_wrap(err, "encode metadata");
-  }
-  
-  if (size <= 0) {
-    MLOG_WARN("ignore the invalid metadata. size=" << size);
-    return err;
+  if (metadata->get_size() > 0) {
+    auto data_block = DataBlock::Create(metadata->get_size(), nullptr);
+    if ((err = metadata->encode(data_block)) != srs_success) {
+      return srs_error_wrap(err, "encode metadata");
+    }
+
+    // create a shared ptr message.
+    meta = MediaMessage::create(header, std::move(data_block));
+    updated = true;
+   } else {
+    MLOG_WARN("ignore the invalid metadata. size=0");
   }
 
-  CDataPackage _payload(size, (LPCSTR)payload, CDataPackage::DONT_DELETE, size);
-  
-  // create a shared ptr message.
-  meta = std::make_shared<MediaMessage>(header, &_payload);
-  updated = true;
- 
   return err;
 }
 

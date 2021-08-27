@@ -5,8 +5,9 @@
 #include <mutex>
 #include <list>
 
+#include "common/media_log.h"
 #include "rtc_base/sequence_checker.h"
-#include "rtc_stack/src/utils/Worker.h"
+#include "utils/Worker.h"
 #include "common/srs_kernel_error.h"
 #include "media_consumer.h"
 
@@ -18,6 +19,8 @@ class MediaMetaCache;
 
 // live streaming source.
 class MediaSource final : public std::enable_shared_from_this<MediaSource> {
+  MDECLARE_LOGGER();
+  
  public:
   MediaSource(const std::string& id);
   ~MediaSource();

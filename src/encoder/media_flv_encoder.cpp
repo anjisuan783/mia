@@ -1,5 +1,5 @@
 #include "media_flv_encoder.h"
-#include "common/media_log.h"
+
 #include "common/srs_kernel_error.h"
 #include "utils/srs_kernel_buffer.h"
 #include "common/media_io.h"
@@ -218,6 +218,7 @@ srs_error_t SrsFlvTransmuxer::write_tags(std::vector<std::shared_ptr<MediaMessag
     pts = ppts = new char[SRS_FLV_PREVIOUS_TAG_SIZE * count];
   }
 
+  //TOD need optimizing
   std::vector<std::string> data_buffer;
   
   // the cache is ok, write each messages.
@@ -225,9 +226,7 @@ srs_error_t SrsFlvTransmuxer::write_tags(std::vector<std::shared_ptr<MediaMessag
   for (int i = 0; i < count; i++) {
     auto& msg = msgs[i];
 
-    data_buffer.emplace_back(std::move(msg->payload_->FlattenPackage()));
-
-    assert(msg->size_ == data_buffer[i].length());
+    data_buffer.emplace_back(std::move(msg->payload_->FlattenChained()));
     
     // cache all flv header.
     if (msg->is_audio()) {
@@ -355,6 +354,7 @@ srs_error_t SrsFlvTransmuxer::write_tag(char* header, int header_size, char* tag
   return err;
 }
 
+MDEFINE_LOGGER(SrsFlvStreamEncoder, "SrsFlvStreamEncoder");
 
 SrsFlvStreamEncoder::SrsFlvStreamEncoder()
   : enc{std::make_unique<SrsFlvTransmuxer>()} {

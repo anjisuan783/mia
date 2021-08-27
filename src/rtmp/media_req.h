@@ -8,6 +8,8 @@
 #define __MEDIA_REQUEST_H__
 
 #include <string>
+
+#include "common/media_log.h"
 #include "common/media_define.h"
 
 namespace ma {
@@ -15,8 +17,8 @@ namespace ma {
 class SrsAmf0Object;
 
 // The original request from client.
-class MediaRequest final
-{
+class MediaRequest final {
+  MDECLARE_LOGGER();
 public:
     // The client ip.
     std::string ip;

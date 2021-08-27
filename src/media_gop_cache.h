@@ -9,6 +9,7 @@
 #define __MEDIA_SRC_GOP_CACHE_H__
 #include <memory>
 
+#include "common/media_log.h"
 #include "common/media_define.h"
 #include "common/srs_kernel_error.h"
 #include "media_consumer.h"
@@ -22,6 +23,8 @@ class MediaMessage;
 // delivery at the connect of flash player,
 // To enable it to fast startup.
 class SrsGopCache final {
+  MDECLARE_LOGGER();
+
  public:
   SrsGopCache() = default;
   ~SrsGopCache() = default;

@@ -1,8 +1,10 @@
+#ifdef __GS__
+
 #include "http/http_protocal_gs_impl.h"
 
-#include "common/media_log.h"
+#include "netaddress.h"
 #include "http/http_consts.h"
-#include "http/http_message_impl.h"
+#include "http/http_stack.h"
 #include "networkbase.h"
 #include "common/media_io.h"
 
@@ -137,13 +139,20 @@ GsHttpResponseWriter::GsHttpResponseWriter(IHttpServer* p, bool flag_stream)
     conn_->SetOption(TP_OPT_HTTP_STREAM, &stream);
   }
 
+#ifdef __DUMP_PEER_STREAM__
+  CNetAddress peer_addr;  
+  int ret = conn_->GetOption(TP_OPT_TRANSPORT_PEER_ADDR, &peer_addr);
+  MA_ASSERT(ret == 0);
+
+  std::string peer_name = peer_addr.GetWholeAddress();  
   file_dump_ = std::make_unique<SrsFileWriter>();
 
-  srs_error_t result = file_dump_->open("/tmp/peer.flv");
+  srs_error_t result = file_dump_->open("/tmp/" + peer_name + ".flv");
   if (result != srs_success) {
     MLOG_ERROR("open file dump failed.");
     delete result;  
   }
+#endif
 }
 
 //IHttpResponseWriter implement
@@ -220,11 +229,12 @@ srs_error_t GsHttpResponseWriter::write(const char* data, int size) {
     return err;
   }
 
-  MLOG_TRACE(" length:" << size);
+#ifdef __DUMP_PEER_STREAM__
   if ((err = file_dump_->write((void*)data, size, nullptr)) != srs_success) {
     MLOG_CERROR("write file dump error, %d:%s", srs_error_code(err), srs_error_desc(err).c_str());
     delete err;
   }
+#endif
 
   // directly send with content length
   if (content_length_ != -1) {
@@ -376,4 +386,6 @@ CreateDefaultHttpProtocalFactory(void* p1, void* p2) {
 }
 
 }
+
+#endif //__GS__
 

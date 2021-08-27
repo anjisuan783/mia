@@ -1,12 +1,9 @@
 #include "connection/http_conn.h"
 
-#include "common/media_log.h"
 #include "h/media_return_code.h"
 #include "http/http_consts.h"
 #include "http/http_stack.h"
 #include "http/h/http_message.h"
-#include "networkbase.h"
-#include "datapackage.h"
 #include "handler/h/media_handler.h"
 #include "connection/h/media_conn_mgr.h"
 
@@ -14,26 +11,26 @@ namespace ma {
 
 // The filter http mux, directly serve the http CORS requests,
 // while proxy to the worker mux for services.
-class GsHttpCorsMux : public IGsHttpHandler
+class MediaHttpCorsMux : public IMediaHttpHandler
 {
 public:
-  void initialize(IGsHttpHandler* worker, bool cros_enabled);
+  void initialize(IMediaHttpHandler* worker, bool cros_enabled);
 
   srs_error_t serve_http(IHttpResponseWriter* w, ISrsHttpMessage* r) override;
   void conn_destroy(std::shared_ptr<IMediaConnection>) override {}
 private:
   bool required{false};
   bool enabled{false};
-  IGsHttpHandler* next{nullptr};
+  IMediaHttpHandler* next{nullptr};
 };
 
 
-void GsHttpCorsMux::initialize(IGsHttpHandler* mux, bool cros_enabled) {
+void MediaHttpCorsMux::initialize(IMediaHttpHandler* mux, bool cros_enabled) {
   next = mux;
   enabled = cros_enabled;
 }
 
-srs_error_t GsHttpCorsMux::serve_http(IHttpResponseWriter* w, ISrsHttpMessage* r) {
+srs_error_t MediaHttpCorsMux::serve_http(IHttpResponseWriter* w, ISrsHttpMessage* r) {
   // If CORS enabled, and there is a "Origin" header, it's CORS.
   if (enabled) {
     SrsHttpHeader& h = r->header();
@@ -66,27 +63,29 @@ srs_error_t GsHttpCorsMux::serve_http(IHttpResponseWriter* w, ISrsHttpMessage* r
   return next->serve_http(w, r);  
 }
 
-GsHttpConn::GsHttpConn(std::unique_ptr<IHttpProtocalFactory> fac, 
-                       IGsHttpHandler* mux)
+
+MDEFINE_LOGGER(MediaHttpConn, "MediaHttpConn");
+
+MediaHttpConn::MediaHttpConn(std::unique_ptr<IHttpProtocalFactory> fac, 
+                       IMediaHttpHandler* mux)
     : reader_{std::move(fac->CreateReader(this))},
       writer_{std::move(fac->CreateWriter(false))},
       parser_{std::move(fac->CreateParser())},
       http_mux_{mux},
-      cors_{std::make_unique<GsHttpCorsMux>()} {
+      cors_{std::make_unique<MediaHttpCorsMux>()} {
   MLOG_TRACE("");
 }
 
-GsHttpConn::~GsHttpConn() {
+MediaHttpConn::~MediaHttpConn() {
   MLOG_TRACE("");
 }
 
-void GsHttpConn::Start() {
-  MLOG_TRACE("");
+void MediaHttpConn::Start() {
   this->set_crossdomain_enabled(true);
   reader_->open();
 }
 
-srs_error_t GsHttpConn::set_crossdomain_enabled(bool v) {
+srs_error_t MediaHttpConn::set_crossdomain_enabled(bool v) {
   srs_error_t err = srs_success;
 
   // initialize the cors, which will proxy to mux.
@@ -95,18 +94,18 @@ srs_error_t GsHttpConn::set_crossdomain_enabled(bool v) {
   return err;
 }
 
-srs_error_t GsHttpConn::process_request(const std::string& body) {
+srs_error_t MediaHttpConn::process_request(const std::string& body) {
   std::optional<ISrsHttpMessage*> result = parser_->parse_message(body);
 
   if(!result){
-    return srs_error_new(kRtc_url_parse_failed, "parse_message failed");
+    return srs_error_new(kma_url_parse_failed, "parse_message failed");
   }
 
   std::unique_ptr<ISrsHttpMessage> object(*result);
 
   object->connection(shared_from_this());
 
-  OS_INFO_TRACE_THIS("url:" << object->uri());
+  MLOG_TRACE("url:" << object->uri());
 
   srs_error_t err = srs_success;
   if ((err = cors_->serve_http(writer_.get(), result.value())) != srs_success) {
@@ -116,13 +115,13 @@ srs_error_t GsHttpConn::process_request(const std::string& body) {
   return err;
 }
 
-void GsHttpConn::on_disconnect() {
+void MediaHttpConn::on_disconnect() {
   MLOG_TRACE("");
   g_conn_mgr_.RemoveConnection(shared_from_this());
 }
 
 #if 0
-GsRtcCode GsHttpConn::response(int code, const std::string& msg,
+GsRtcCode MediaHttpConn::response(int code, const std::string& msg,
     const std::string& sdp, const std::string& msid) {
   header_.set("Connection", "Close");
 
@@ -150,7 +149,7 @@ GsRtcCode GsHttpConn::response(int code, const std::string& msg,
 }
 #endif
 
-void GsHttpConn::Disconnect() {
+void MediaHttpConn::Disconnect() {
   if(reader_){
     reader_->disconnect();
     reader_ = nullptr;
@@ -159,18 +158,20 @@ void GsHttpConn::Disconnect() {
   g_conn_mgr_.RemoveConnection(shared_from_this());
 }
 
-GsResponseOnlyHttpConn::GsResponseOnlyHttpConn(
-    std::unique_ptr<IHttpProtocalFactory> fac, IGsHttpHandler* m)
-    : GsHttpConn() {
+MDEFINE_LOGGER(MediaResponseOnlyHttpConn, "MediaResponseOnlyHttpConn");
+
+MediaResponseOnlyHttpConn::MediaResponseOnlyHttpConn(
+    std::unique_ptr<IHttpProtocalFactory> fac, IMediaHttpHandler* m)
+    : MediaHttpConn() {
   MLOG_TRACE("");
   reader_ = std::move(fac->CreateReader(this));
   writer_ = std::move(fac->CreateWriter(true));
   parser_ = std::move(fac->CreateParser());
   http_mux_ = m;
-  cors_ = std::make_unique<GsHttpCorsMux>();
+  cors_ = std::make_unique<MediaHttpCorsMux>();
 }
 
-GsResponseOnlyHttpConn::~GsResponseOnlyHttpConn() {
+MediaResponseOnlyHttpConn::~MediaResponseOnlyHttpConn() {
   MLOG_TRACE("");
 }
 

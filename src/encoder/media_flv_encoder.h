@@ -10,6 +10,7 @@
 
 #include <memory>
 
+#include "common/media_log.h"
 #include "common/srs_kernel_error.h"
 #include "common/media_message.h"
 #include "media_consumer.h"
@@ -49,6 +50,8 @@ class SrsFlvTransmuxer;
 // Transmux RTMP to HTTP Live Streaming.
 class SrsFlvStreamEncoder : public ISrsBufferEncoder
 {
+  MDECLARE_LOGGER();
+
  public:
   SrsFlvStreamEncoder();
   virtual ~SrsFlvStreamEncoder();

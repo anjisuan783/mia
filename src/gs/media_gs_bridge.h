@@ -1,3 +1,5 @@
+#ifdef __GS__
+
 #ifndef __MEDIA_Bridge_H__
 #define __MEDIA_Bridge_H__
 
@@ -48,3 +50,5 @@ class MediaBridge : public IMediaPublisher,
 
 }
 #endif //!__MEDIA_Bridge_H__
+
+#endif

@@ -16,7 +16,6 @@
 #include "common/media_io.h"
 #include "http/h/http_protocal.h"
 #include "rtmp/media_req.h"
-#include "common/media_log.h"
 #include "common/media_performance.h"
 #include "media_server.h"
 
@@ -24,6 +23,9 @@ namespace ma {
 
 class StreamEntry final 
     : public std::enable_shared_from_this<StreamEntry> {
+
+  MDECLARE_LOGGER();
+
   struct customer {
     customer(std::shared_ptr<MediaConsumer> consumer,
              std::unique_ptr<SrsFileWriter> buffer,
@@ -78,6 +80,9 @@ class StreamEntry final
 
   webrtc::SequenceChecker thread_check_;
 };
+
+
+MDEFINE_LOGGER(StreamEntry, "StreamEntry");
 
 StreamEntry::StreamEntry(std::shared_ptr<MediaSource> s, 
                          std::shared_ptr<MediaRequest> r) 
@@ -293,11 +298,13 @@ void StreamEntry::async_task(std::function<void()> f) {
   });
 }
 
-GsFlvPlayHandler::GsFlvPlayHandler() = default;
+MDEFINE_LOGGER(MediaFlvPlayHandler, "MediaFlvPlayHandler");
 
-GsFlvPlayHandler::~GsFlvPlayHandler() = default;
+MediaFlvPlayHandler::MediaFlvPlayHandler() = default;
 
-srs_error_t GsFlvPlayHandler::mount_service(
+MediaFlvPlayHandler::~MediaFlvPlayHandler() = default;
+
+srs_error_t MediaFlvPlayHandler::mount_service(
     std::shared_ptr<MediaSource> s, std::shared_ptr<MediaRequest> r) {
 
   srs_error_t result = srs_success;
@@ -322,7 +329,7 @@ srs_error_t GsFlvPlayHandler::mount_service(
   return result;
 }
 
-void GsFlvPlayHandler::unmount_service(std::shared_ptr<MediaSource>, 
+void MediaFlvPlayHandler::unmount_service(std::shared_ptr<MediaSource>, 
                                        std::shared_ptr<MediaRequest> r) {
 
   std::string service_id = srs_generate_stream_url("", r->app, r->stream);
@@ -330,7 +337,7 @@ void GsFlvPlayHandler::unmount_service(std::shared_ptr<MediaSource>,
   steams_.erase(service_id);
 }
 
-void GsFlvPlayHandler::conn_destroy(std::shared_ptr<IMediaConnection> conn) {
+void MediaFlvPlayHandler::conn_destroy(std::shared_ptr<IMediaConnection> conn) {
 
   std::shared_ptr<StreamEntry> handler;
   {
@@ -347,7 +354,7 @@ void GsFlvPlayHandler::conn_destroy(std::shared_ptr<IMediaConnection> conn) {
   }
 }
 
-srs_error_t GsFlvPlayHandler::serve_http(IHttpResponseWriter* writer, 
+srs_error_t MediaFlvPlayHandler::serve_http(IHttpResponseWriter* writer, 
                                          ISrsHttpMessage* msg) {
 
   assert(msg->is_http_get());

@@ -3,7 +3,6 @@
 #include <fcntl.h>
 #include <unistd.h>
 
-#include "common/media_log.h"
 #include "http/h/http_protocal.h"
 
 namespace ma {
@@ -21,6 +20,8 @@ srs_write_t _srs_write_fn = ::write;
 srs_read_t _srs_read_fn = ::read;
 srs_lseek_t _srs_lseek_fn = ::lseek;
 srs_close_t _srs_close_fn = ::close;
+
+MDEFINE_LOGGER(SrsFileWriter, "SrsFileWriter");
 
 SrsFileWriter::SrsFileWriter()
 {

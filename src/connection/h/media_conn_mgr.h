@@ -4,15 +4,21 @@
 #include <memory>
 #include <map>
 #include <mutex>
+#include <vector>
+#include <string>
 
 #include "utils/sigslot.h"
+#include "common/media_log.h"
 
 namespace ma {
 
 class IMediaConnection;
 class IHttpProtocalFactory;
+class MediaListener;
 
 class MediaConnMgr {
+  MDECLARE_LOGGER();
+  
  public:
   enum ConnType {
     e_unknow,
@@ -21,7 +27,7 @@ class MediaConnMgr {
     e_rtmp
   };
 
-  void Init(unsigned int num);
+  int Init(uint32_t, const std::vector<std::string>& addr);
  
   std::shared_ptr<IMediaConnection>CreateConnection(ConnType, 
       std::unique_ptr<IHttpProtocalFactory> factory);
@@ -33,6 +39,10 @@ class MediaConnMgr {
  private: 
   std::mutex source_lock_;
   std::map<IMediaConnection*, std::shared_ptr<IMediaConnection>> connections_;
+
+  std::unique_ptr<MediaListener> listener_;
+
+  //std::shared_ptr<wa::ThreadPool>  g_workers_;
 };
 
 extern MediaConnMgr g_conn_mgr_;
