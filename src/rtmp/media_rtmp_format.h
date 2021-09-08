@@ -3,12 +3,14 @@
 //
 // SPDX-License-Identifier: MIT
 //
+// This file is borrowed from srs with some modifications.
+
 
 #ifndef __MEDIA_RTMP_FORMAT_H__
 #define __MEDIA_RTMP_FORMAT_H__
 
 #include <memory>
-#include "common/srs_kernel_error.h"
+#include "common/media_kernel_error.h"
 #include "rtmp/media_rtmp_stack.h"
 #include "encoder/media_codec.h"
 

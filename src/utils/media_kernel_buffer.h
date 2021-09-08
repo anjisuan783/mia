@@ -3,6 +3,7 @@
 //
 // SPDX-License-Identifier: MIT
 //
+// This file is borrowed from srs with some modifications.
 
 #ifndef SRS_KERNEL_BUFFER_HPP
 #define SRS_KERNEL_BUFFER_HPP
@@ -11,7 +12,7 @@
 #include <sys/types.h>
 #include <string>
 
-#include "common/srs_kernel_error.h"
+#include "common/media_kernel_error.h"
 
 namespace ma {
 

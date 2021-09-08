@@ -3,7 +3,7 @@
 #include "utils/media_msg_chain.h"
 #include "common/media_message.h"
 #include "rtmp/media_amf0.h"
-#include "utils/srs_kernel_buffer.h"
+#include "utils/media_kernel_buffer.h"
 #include "rtmp/media_rtmp_const.h"
 
 namespace ma {

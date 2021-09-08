@@ -290,7 +290,6 @@ srs_error_t MediaSource::consumer_dumps(MediaConsumer* consumer,
   RTC_DCHECK_RUN_ON(&thread_check_);
 
   srs_error_t err = srs_success;
-   // TODO gop cache
 
   srs_utime_t queue_size = g_server_.config_.consumer_queue_size_ * SRS_UTIME_MILLISECONDS;
   consumer->set_queue_size(queue_size);

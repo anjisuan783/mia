@@ -1,10 +1,10 @@
 #include "media_flv_encoder.h"
 
-#include "common/srs_kernel_error.h"
-#include "utils/srs_kernel_buffer.h"
+#include "common/media_kernel_error.h"
+#include "utils/media_kernel_buffer.h"
 #include "common/media_io.h"
 #include "encoder/media_codec.h"
-#include "utils/srs_kernel_buffer.h"
+#include "utils/media_kernel_buffer.h"
 
 namespace ma {
 

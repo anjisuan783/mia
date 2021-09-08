@@ -9,10 +9,6 @@
 
 namespace ma {
 
-#define RTMP_SIG_SRS_SERVER "lydemo"
-#define RTMP_SIG_SRS_VERSION "test"
-
-
 MDEFINE_LOGGER(MediaMetaCache, "MediaMetaCache");
 
 MediaMetaCache::MediaMetaCache()

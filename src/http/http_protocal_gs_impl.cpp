@@ -10,40 +10,12 @@
 
 namespace ma {
 
-namespace {
-// bodyAllowedForStatus reports whether a given response status code
-// permits a body.  See RFC2616, section 4.4.
-bool srs_go_http_body_allowd(int status) {
-  if (status >= SRS_CONSTS_HTTP_Continue && status < SRS_CONSTS_HTTP_OK) {
-    return false;
-  } else if (status == SRS_CONSTS_HTTP_NoContent || status == SRS_CONSTS_HTTP_NotModified) {
-    return false;
-  }
-  
-  return true;
-}
-
-// DetectContentType implements the algorithm described
-// at http://mimesniff.spec.whatwg.org/ to determine the
-// Content-Type of the given data.  It considers at most the
-// first 512 bytes of data.  DetectContentType always returns
-// a valid MIME type: if it cannot determine a more specific one, it
-// returns "application/octet-stream".
-inline std::string srs_go_http_detect() {
-  // TODO: Implement the request content-type detecting.
-  return "application/octet-stream"; // fallback
-}
-
-}
-
 GsHttpMessageParser::GsHttpMessageParser(IHttpServer* p) 
     : conn_(p) {
 }
 
-enum http_parser_type { HTTP_REQUEST, HTTP_RESPONSE, HTTP_BOTH };
-
-std::optional<ISrsHttpMessage*> 
-GsHttpMessageParser::parse_message(const std::string& body)
+std::optional<std::shared_ptr<ISrsHttpMessage>> 
+GsHttpMessageParser::parse_message(std::string_view body)
 {
   std::string method;
   conn_->GetRequestMethod(method);
@@ -57,7 +29,7 @@ GsHttpMessageParser::parse_message(const std::string& body)
   }
 
   //product message
-  std::unique_ptr<HttpMessage> msg(std::make_unique<HttpMessage>(body));
+  std::shared_ptr<HttpMessage> msg(std::make_shared<HttpMessage>(body));
 
   // Initialize the basic information.
   msg->set_basic(HTTP_REQUEST, 
@@ -76,7 +48,7 @@ GsHttpMessageParser::parse_message(const std::string& body)
   }
   
   // parse ok, return the msg.
-  return msg.release();
+  return msg;
 }
 
 GsHttpRequestReader::GsHttpRequestReader(
@@ -355,34 +327,39 @@ srs_error_t GsHttpResponseWriter::send_header(const char* data) {
 
 class GsHttpProtocalImplFactory : public IHttpProtocalFactory {
  public:
-  GsHttpProtocalImplFactory(void* p1, void* p2) {
-    IHttpServer* conn = reinterpret_cast<IHttpServer*>(p1);
-    conn_ = conn;
-
-    CDataPackage* data = reinterpret_cast<CDataPackage*>(p2);
-    req_ = data;
+  GsHttpProtocalImplFactory(IHttpServer* p1, CDataPackage* p2)
+    : conn_{p1}, req_{p2} {
   }
 
-  std::unique_ptr<IHttpRequestReader> 
-  CreateReader(IHttpRequestReader::CallBack* callback) override {
-    return std::make_unique<GsHttpRequestReader>(conn_.Get(), req_.Get(), callback);
+  std::shared_ptr<IHttpRequestReader> 
+  CreateRequestReader(IHttpRequestReader::CallBack* callback) override {
+    return std::make_shared<GsHttpRequestReader>(conn_.Get(), req_.Get(), callback);
   }
   
-  std::unique_ptr<IHttpResponseWriter> CreateWriter(bool flag_stream) override {
-    return std::make_unique<GsHttpResponseWriter>(conn_.Get(), flag_stream);
+  std::shared_ptr<IHttpResponseWriter> 
+  CreateResponseWriter(bool flag_stream) override {
+    return std::make_shared<GsHttpResponseWriter>(conn_.Get(), flag_stream);
   }
   
-  std::unique_ptr<IHttpMessageParser> CreateParser() override {
-    return std::make_unique<GsHttpMessageParser>(conn_.Get());
+  std::shared_ptr<IHttpMessageParser> 
+  CreateMessageParser() override {
+    return std::make_shared<GsHttpMessageParser>(conn_.Get());
+  }
+
+  std::shared_ptr<IHttpResponseReader> 
+  CreateResponseReader() override {
+    return std::make_shared<GsHttpResponseDummyReader>();
   }
  private:
-   CSmartPointer<IHttpServer> conn_;
+   CSmartPointer<T1> conn_;
    CDataPackageSmartPoint req_;
 };
 
-std::unique_ptr<IHttpProtocalFactory> 
+std::unique_ptr<IHttpProtocalFactory>
 CreateDefaultHttpProtocalFactory(void* p1, void* p2) {
-  return std::make_unique<GsHttpProtocalImplFactory>(p1, p2);
+  return std::make_unique<GsHttpProtocalImplFactory>(
+      reinterpret_cast<IHttpServer*>(p1), 
+      reinterpret_cast<CDataPackage*>(p2));
 }
 
 }

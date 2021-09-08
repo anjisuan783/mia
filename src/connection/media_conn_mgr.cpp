@@ -26,165 +26,17 @@
 #include "utils/protocol_utility.h"
 #include "media_server.h"
 #include "utils/Worker.h"
-#include "rtc_base/socket_address.h"
-#include "rtc_base/async_packet_socket.h"
-#include "network/basic_packet_socket_factory.h"
-#include "rtc_base/thread.h"
-#include "utils/sigslot.h"
+#include "connection/media_listener.h"
 
 namespace ma {
 
-class MediaRtmpListener : public sigslot::has_slots<> {
-  MDECLARE_LOGGER();
-  
- public:
-  int Listen(const rtc::SocketAddress&, rtc::PacketSocketFactory*);
- protected:
-  void OnConnectEvent(rtc::AsyncPacketSocket*);
-  void OnNewConnectionEvent(rtc::AsyncPacketSocket*, rtc::AsyncPacketSocket*);
-  void OnAddressReadyEvent(rtc::AsyncPacketSocket*, const rtc::SocketAddress&);
-  void OnReadEvent(rtc::AsyncPacketSocket*,
-                   const char*,
-                   size_t,
-                   const rtc::SocketAddress&,
-                   const int64_t&);
-  void OnSentEvent(rtc::AsyncPacketSocket*, const rtc::SentPacket&);
-  void OnWriteEvent(rtc::AsyncPacketSocket* socket);
-  void OnCloseEvent(rtc::AsyncPacketSocket* socket, int err);
-
- private:
-  std::unique_ptr<rtc::AsyncPacketSocket> listen_socket_;
-};
-
-MDEFINE_LOGGER(MediaRtmpListener, "MediaRtmpListener");
-
-void MediaRtmpListener::OnConnectEvent(rtc::AsyncPacketSocket*) {
-  MLOG_INFO("");
-}
-
-void MediaRtmpListener::OnNewConnectionEvent(rtc::AsyncPacketSocket*, rtc::AsyncPacketSocket*) {
-  MLOG_INFO("");
-}
-
-void MediaRtmpListener::OnAddressReadyEvent(rtc::AsyncPacketSocket*, const rtc::SocketAddress&) {
-  MLOG_INFO("");
-}
-
-void MediaRtmpListener::OnReadEvent(rtc::AsyncPacketSocket*,
-                                    const char*,
-                                    size_t,
-                                    const rtc::SocketAddress&,
-                                    const int64_t&) {
-  MLOG_INFO("");
-}
-
-void MediaRtmpListener::OnSentEvent(rtc::AsyncPacketSocket*, const rtc::SentPacket&) {
-  MLOG_INFO("");
-}
-
-void MediaRtmpListener::OnWriteEvent(rtc::AsyncPacketSocket* socket) {
-  MLOG_INFO("");
-}
-
-void MediaRtmpListener::OnCloseEvent(rtc::AsyncPacketSocket* socket, int err) {
-  MLOG_INFO("");
-}
-
-
-int MediaRtmpListener::Listen(const rtc::SocketAddress& address, 
-                              rtc::PacketSocketFactory* factory) {
-  
-  rtc::AsyncPacketSocket* s = factory->CreateServerTcpSocket(address, 0, 0, 0);
-
-  if (!s) {
-    MLOG_ERROR("listen failed, address:" << address.ToString());
-    return kma_listen_failed;
-  }
-  listen_socket_.reset(s);
-  
-  listen_socket_->SignalReadPacket.connect(this, &MediaRtmpListener::OnReadEvent);
-  listen_socket_->SignalSentPacket.connect(this, &MediaRtmpListener::OnSentEvent);
-  listen_socket_->SignalReadyToSend.connect(this, &MediaRtmpListener::OnWriteEvent);
-  listen_socket_->SignalAddressReady.connect(this, &MediaRtmpListener::OnAddressReadyEvent);
-  listen_socket_->SignalConnect.connect(this, &MediaRtmpListener::OnConnectEvent);
-  listen_socket_->SignalClose.connect(this, &MediaRtmpListener::OnCloseEvent);
-  listen_socket_->SignalNewConnection.connect(this, &MediaRtmpListener::OnNewConnectionEvent);
-
-  return kma_ok;
-}
-
-class MediaListener {
-  MDECLARE_LOGGER();
-  
- public:
-  MediaListener();
-  int Init(const std::vector<std::string>& addr);
-
- private:
-  int listen_rtmp(const rtc::SocketAddress& address);
- 
-  std::unique_ptr<rtc::Thread> worker_;
-  std::unique_ptr<rtc::PacketSocketFactory> socket_factory_;
-  std::vector<std::unique_ptr<MediaRtmpListener>> rtmp_listeners_;
-};
-
-MDEFINE_LOGGER(MediaListener, "MediaListener");
-
-MediaListener::MediaListener() = default;
-
-int MediaListener::Init(const std::vector<std::string>& addr) {
-
-  worker_ = std::move(rtc::Thread::CreateWithSocketServer());
-
-  worker_->SetName("media_listener", nullptr);
-  bool ret = worker_->Start();
-  MA_ASSERT(ret);
-
-  socket_factory_.reset(new rtc::BasicPacketSocketFactory);
-
-  int result = kma_ok;
-
-  for(auto& i : addr) {
-    std::string_view schema, host;
-    int port;
-    
-    split_schema_host_port(i, schema, host, port);
-
-    if (schema == "rtmp") {
-      rtc::SocketAddress host_port(host.data(), port);
-      result = worker_->Invoke<int>(RTC_FROM_HERE, [this, host_port]() {
-        return listen_rtmp(host_port);
-      });
-
-      if (result != 0) {
-        MLOG_CERROR("listen rtmp failed, code:%d, address:%s", result, i.c_str());
-        return kma_listen_failed;
-      }
-    } else if (schema == "http") {
-    } else if (schema == "https") {
-    }
-  }
-
-  return kma_ok;
-}
-
-int MediaListener::listen_rtmp(const rtc::SocketAddress& address) {
-  auto listener = std::make_unique<MediaRtmpListener>();
-  int ret = listener->Listen(address, socket_factory_.get());
-  
-  rtmp_listeners_.emplace_back(std::move(listener));
-  return ret;
-}
-
-MDEFINE_LOGGER(MediaConnMgr, "MediaConnMgr");
-
-int MediaConnMgr::Init(uint32_t ioworkers, const std::vector<std::string>& addr) {
-  if (addr.empty()) {
+int MediaConnMgr::Init(uint32_t ioworkers, const std::vector<std::string>& addrs) {
+  if (addrs.empty()) {
     return kma_ok;
   }
   
-  listener_ = std::move(std::make_unique<MediaListener>());
-  return listener_->Init(addr);
+  listener_ = std::move(std::make_unique<MediaListenerMgr>());
+  return listener_->Init(addrs);
 }
 
 std::shared_ptr<IMediaConnection> MediaConnMgr::CreateConnection(

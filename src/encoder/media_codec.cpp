@@ -1,7 +1,7 @@
 #include "encoder/media_codec.h"
 
 #include "common/media_log.h"
-#include "utils/srs_kernel_buffer.h"
+#include "utils/media_kernel_buffer.h"
 
 namespace ma
 {

@@ -3,6 +3,7 @@
 //
 // SPDX-License-Identifier: MIT
 //
+// This file is borrowed from srs with some modifications.
 
 #ifndef __MEDIA_COMMON_DEFINE_H__
 #define __MEDIA_COMMON_DEFINE_H__
@@ -10,6 +11,10 @@
 #include "stdint.h"
 
 namespace ma {
+
+#define RTMP_SIG_SRS_SERVER "ma server"
+#define RTMP_SIG_SRS_VERSION "test"
+
 // Time and duration unit, in us.
 typedef int64_t srs_utime_t;
 
@@ -32,5 +37,14 @@ typedef int64_t srs_utime_t;
 // Never timeout.
 #define SRS_UTIME_NO_TIMEOUT ((srs_utime_t) -1LL)
 
+#ifdef __GNUC__
+# define LIKELY(X) __builtin_expect(!!(X), 1)
+# define UNLIKELY(X) __builtin_expect(!!(X), 0)
+#else
+# define LIKELY(X) (X)
+# define UNLIKELY(X) (X)
+#endif
+
 }
 #endif //!__MEDIA_COMMON_DEFINE_H__
+

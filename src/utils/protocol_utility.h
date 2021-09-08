@@ -3,6 +3,7 @@
 //
 // SPDX-License-Identifier: MIT
 //
+// This file is borrowed from srs with some modifications.
 
 #ifndef SRS_PROTOCOL_UTILITY_HPP
 #define SRS_PROTOCOL_UTILITY_HPP

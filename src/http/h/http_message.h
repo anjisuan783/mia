@@ -8,11 +8,15 @@
 #ifndef __HTTP_MESSAGE_INTERFACE_H__
 #define __HTTP_MESSAGE_INTERFACE_H__
 
+#include <sstream>
+#include <string>
+#include <map>
+#include "rtc_base/sigslot.h"
+
 namespace ma {
 
 // A Header represents the key-value pairs in an HTTP header.
-class SrsHttpHeader
-{
+class SrsHttpHeader {
 private:
   // The order in which header fields with differing field names are
   // received is not significant. However, it is "good practice" to send
@@ -72,8 +76,7 @@ class IMediaConnection;
 //      ISrsHttpMessage* r = ...;
 //      while (!r->eof()) r->read(); // Read in mode 1 or 3.
 // @rmark for mode 2, the infinite chunked, all left data is body.
-class ISrsHttpMessage
-{
+class ISrsHttpMessage {
 public:
     ISrsHttpMessage() = default;
     virtual ~ISrsHttpMessage() = default;
@@ -81,7 +84,7 @@ public:
     virtual std::shared_ptr<IMediaConnection> connection() = 0;
     virtual void connection(std::shared_ptr<IMediaConnection> conn) = 0;
 public:
-    virtual const std::string& method() = 0;
+    virtual std::string method() = 0;
     virtual uint16_t status_code() = 0;
     // Method helpers.
     virtual bool is_http_get() = 0;
@@ -120,10 +123,15 @@ public:
     virtual SrsHttpHeader& header() = 0;
 
     virtual const std::string& get_body() = 0;
+
+    virtual bool is_body_eof() = 0;
 public:
     // Whether the current request is JSONP,
     // which has a "callback=xxx" in QueryString.
     virtual bool is_jsonp() = 0;
+
+    // Used only for body notify.
+    sigslot::signal1<const std::string&> SignalOnBody_;
 };
 
 }

@@ -12,7 +12,7 @@
 #include <vector>
 
 #include "common/media_define.h"
-#include "common/srs_kernel_error.h"
+#include "common/media_kernel_error.h"
 #include "h/media_server_api.h"
 
 namespace ma {

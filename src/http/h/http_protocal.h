@@ -4,7 +4,7 @@
 #include <sys/uio.h>
 #include <optional>
 #include <memory>
-#include "common/srs_kernel_error.h"
+#include "common/media_kernel_error.h"
 
 namespace ma {
 
@@ -18,7 +18,7 @@ public:
    public:
     virtual ~CallBack() = default;
 
-    virtual srs_error_t process_request(const std::string&) = 0;
+    virtual srs_error_t process_request(std::string_view) = 0;
     virtual void on_disconnect() = 0;
   };
 
@@ -33,6 +33,8 @@ class IHttpResponseWriter
 public:
   virtual ~IHttpResponseWriter() = default;
 public:
+  virtual void open() = 0;
+
   virtual srs_error_t final_request() = 0;
   
   virtual SrsHttpHeader* header() = 0;
@@ -44,32 +46,62 @@ public:
   virtual void write_header(int code) = 0;
 };
 
+enum http_parser_type { 
+  HTTP_REQUEST, 
+  HTTP_RESPONSE, 
+  HTTP_BOTH 
+};  
+
 class IHttpMessageParser {
- public:
+ public: 
   virtual ~IHttpMessageParser() = default;
-  // always parse a http message,
-  // that is, the *ppmsg always NOT-NULL when return success.
-  // or error and *ppmsg must be NULL.
-  // @remark, if success, *ppmsg always NOT-NULL, *ppmsg always is_complete().
-  // @remark user must free the ppmsg if not NULL.
-  virtual std::optional<ISrsHttpMessage*> parse_message(const std::string&) = 0;
+
+  virtual void initialize(enum http_parser_type type) = 0;
+  
+  // Whether allow jsonp parser, which indicates the method in query string.
+  virtual void set_jsonp(bool allow_jsonp) = 0;
+  
+  // parse a http message one by one
+  // give you a message by out_msg, when the http header is parsed.
+  // It'll continue parse the body util the body end.
+  virtual std::optional<std::shared_ptr<ISrsHttpMessage>> 
+      parse_message(std::string_view) = 0;
 };
 
+class IHttpResponseReaderSink {
+ public:
+  virtual ~IHttpResponseReaderSink() = default;
+  virtual void OnRead(char* buf, size_t size) = 0;
+};
+
+class IHttpResponseReader {
+ public:
+  virtual ~IHttpResponseReader() = default;
+
+  virtual void open(IHttpResponseReaderSink*) = 0;
+};
 
 class IHttpProtocalFactory {
   public:
    virtual ~IHttpProtocalFactory() = default;
    
-   virtual std::unique_ptr<IHttpRequestReader> 
-      CreateReader(IHttpRequestReader::CallBack*) = 0;
+   virtual std::shared_ptr<IHttpRequestReader> 
+      CreateRequestReader(IHttpRequestReader::CallBack*) = 0;
 
-   virtual std::unique_ptr<IHttpResponseWriter> CreateWriter(bool flag_stream) = 0;
+   virtual std::shared_ptr<IHttpResponseWriter> 
+      CreateResponseWriter(bool flag_stream) = 0;
 
-   virtual std::unique_ptr<IHttpMessageParser> CreateParser() = 0;
+   virtual std::unique_ptr<IHttpMessageParser> 
+      CreateMessageParser() = 0;
+
+   virtual std::shared_ptr<IHttpResponseReader> 
+      CreateResponseReader() = 0;
 };
 
-std::unique_ptr<IHttpProtocalFactory> CreateDefaultHttpProtocalFactory(void*, void*);
+std::unique_ptr<IHttpProtocalFactory> 
+CreateDefaultHttpProtocalFactory(void* p1, void* p2);
 
 }
 
 #endif //!__HTTP_PROTOCAL_INTERFACE__H__
+

@@ -11,20 +11,6 @@ namespace ma {
 
 #ifdef __GS__
 
-inline void MaTrace(int level, const char* fun_name, int line_no, const char* fmt, ...) {
-  constexpr int LOG_MAX_SIZE = 4096;
-  char log_data[LOG_MAX_SIZE];
-  int size = 0;
-  
-  va_list ap;
-  va_start(ap, fmt);
-  // we reserved 1 bytes for the new line.
-  size += vsnprintf(log_data + size, LOG_MAX_SIZE - size, fmt, ap);
-  va_end(ap);
-
-  OS_LOG(level, OS_LOG_MODULE_TRACE, "(" << fun_name << ":" << line_no << "):" << log_data);
-}
-
 #define MDECLARE_LOGGER() 
 #define MDEFINE_LOGGER(a, b) 
 
@@ -35,6 +21,20 @@ inline void MaTrace(int level, const char* fun_name, int line_no, const char* fm
 #define MLOG_ERROR(msg)   OS_ERROR_TRACE(msg)
 #define MLOG_FATAL(msg)   do{OS_ERROR_TRACE(msg); assert(false);}while(0);
 
+#define LOG_FMT(fmt) \
+  constexpr int LOG_MAX_SIZE = 4096; \
+  char log_data[LOG_MAX_SIZE]; \
+  int size = 0; \
+  va_list ap; \
+  va_start(ap, fmt); \
+  size += vsnprintf(log_data + size, LOG_MAX_SIZE - size, fmt, ap); \
+  va_end(ap);
+
+#define MaTrace(level, fun_name, line_no, fmt) \
+  do {\
+    LOG_FMT(fmt) \
+    OS_LOG(level, OS_LOG_MODULE_TRACE, fun_name << ":" << line_no << ">" << log_data); \
+  } while(0);
 
 #define MLOG_CTRACE(msg, ...) \
     MaTrace(OS_LOG_LEVEL_INFO, __FUNCTION__, __LINE__, msg, ##__VA_ARGS__)
@@ -61,33 +61,41 @@ inline void MaTrace(int level, const char* fun_name, int line_no, const char* fm
 #define MDECLARE_LOGGER DECLARE_LOGGER
 #define MDEFINE_LOGGER(namespace, logName)  DEFINE_LOGGER(namespace, logName)
 
-#define MLOG_TRACE(msg)   OLOG_TRACE(msg)
-#define MLOG_DEBUG(msg)   OLOG_DEBUG(msg)
-#define MLOG_INFO(msg)    OLOG_INFO(msg)
-#define MLOG_WARN(msg)    OLOG_WARN(msg)
-#define MLOG_ERROR(msg)   OLOG_ERROR(msg)
-#define MLOG_FATAL(msg)   do{OLOG_FATAL(msg); assert(false);}while(0);
+#define MLOG_TRACE(msg)   OLOG_TRACE(__FUNCTION__ << ":" << __LINE__ << ">" << msg)
+#define MLOG_DEBUG(msg)   OLOG_DEBUG(__FUNCTION__ << ":" << __LINE__ << ">" << msg)
+#define MLOG_INFO(msg)    OLOG_INFO(__FUNCTION__ << ":" << __LINE__ << ">" << msg)
+#define MLOG_WARN(msg)    OLOG_WARN(__FUNCTION__ << ":" << __LINE__ << ">" << msg)
+#define MLOG_ERROR(msg)   OLOG_ERROR(__FUNCTION__ << ":" << __LINE__ << ">" << msg)
+#define MLOG_FATAL(msg)   do{OLOG_FATAL(__FUNCTION__ << ":" << __LINE__ << ">" << msg); assert(false);}while(0);
 
-#define MLOG_TRACE_THIS(msg)   OLOG_TRACE_THIS(msg)
-#define MLOG_DEBUG_THIS(msg)   OLOG_DEBUG_THIS(msg)
-#define MLOG_INFO_THIS(msg)    OLOG_INFO_THIS(msg)
-#define MLOG_WARN_THIS(msg)    OLOG_WARN_THIS(msg)
-#define MLOG_ERROR_THIS(msg)   OLOG_ERROR_THIS(msg)
-#define MLOG_FATAL_THIS(msg)   do{OLOG_FATAL_THIS(msg); assert(false);}while(0);
+#define MLOG_TRACE_THIS(msg)   OLOG_TRACE_THIS(__FUNCTION__ << ":" << __LINE__ << ">" << msg)
+#define MLOG_DEBUG_THIS(msg)   OLOG_DEBUG_THIS(__FUNCTION__ << ":" << __LINE__ << ">" << msg)
+#define MLOG_INFO_THIS(msg)    OLOG_INFO_THIS(__FUNCTION__ << ":" << __LINE__ << ">" << msg)
+#define MLOG_WARN_THIS(msg)    OLOG_WARN_THIS(__FUNCTION__ << ":" << __LINE__ << ">" << msg)
+#define MLOG_ERROR_THIS(msg)   OLOG_ERROR_THIS(__FUNCTION__ << ":" << __LINE__ << ">" << msg)
+#define MLOG_FATAL_THIS(msg)   do{OLOG_FATAL_THIS(__FUNCTION__ << ":" << __LINE__ << ">" << msg); assert(false);}while(0);
 
-
-#define MLOG_CTRACE   ELOG_TRACE
-#define MLOG_CDEBUG   ELOG_DEBUG
-#define MLOG_CINFO    ELOG_INFO
-#define MLOG_CWARN    ELOG_WARN
-#define MLOG_CERROR   ELOG_ERROR
-#define MLOG_CFATAL   ELOG_FATAL
+#define MLOG_CTRACE(fmt, ...) \
+    ELOG_TRACE("%s:%d>" fmt, __FUNCTION__, __LINE__, ##__VA_ARGS__)
+#define MLOG_CDEBUG(fmt, ...) \
+    ELOG_DEBUG("%s:%d>" fmt, __FUNCTION__, __LINE__, ##__VA_ARGS__)
+#define MLOG_CINFO(fmt, ...) \
+    ELOG_INFO("%s:%d>" fmt, __FUNCTION__, __LINE__, ##__VA_ARGS__)
+#define MLOG_CWARN(fmt, ...) \
+    ELOG_WARN("%s:%d>" fmt, __FUNCTION__, __LINE__, ##__VA_ARGS__)
+#define MLOG_CERROR(fmt, ...) \
+    ELOG_ERROR("%s:%d>" fmt, __FUNCTION__, __LINE__, ##__VA_ARGS__)
+#define MLOG_CFATAL(fmt, ...) \
+  do { \
+    ELOG_FATAL("%s:%d>" fmt, __FUNCTION__, __LINE__, ##__VA_ARGS__) \
+    assert(false); \
+  } while(0);
 
 #define MA_ASSERT LOG_ASSERT
 #define MA_ASSERT_RETURN(expr, rv) \
   do { \
     if (!(expr)) { \
-      ELOG_ERROR("%s:%s Assert failed: %s", __FILE__, __LINE__, #expr); \
+      ELOG_ERROR("%s:%d Assert failed: %s", __FILE__, __LINE__, #expr); \
       return rv; \
     } \
  } while (0)

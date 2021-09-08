@@ -1,3 +1,9 @@
+//
+// Copyright (c) 2021- anjisuan783
+//
+// SPDX-License-Identifier: MIT
+//
+
 #include <stdio.h>
 #include <unistd.h>
 
@@ -16,12 +22,15 @@ int main(int argc, char* argv[]) {
   LOG4CXX_INFO(rootLogger, "init log4cxx with log4cxx.properties");
 
   ma::MediaServerApi::config _config;
-  _config.listen_addr_.push_back("rtmp://0.0.0.0:1935");
+  _config.listen_addr_.push_back("rtmp://0.0.0.0:1936");
+  _config.listen_addr_.push_back("http://0.0.0.0:8080");
   
-  std::unique_ptr<ma::MediaServerApi> server(ma::MediaServerFactory().Create());
+  ma::MediaServerApi* server = ma::MediaServerFactory().Create();
   int ret = server->Init(_config);
   if (ma::kma_ok != ret) {
-    ::printf("initialize failed, code:%d \n", ret);
+    char buffer[1024]; \
+    snprintf(buffer, 1024, "initialize failed, code:%d \n", ret);
+    LOG4CXX_INFO(rootLogger, buffer);
 
     return ret;
   }

@@ -3,9 +3,10 @@
 //
 // SPDX-License-Identifier: MIT
 //
+// This file is borrowed from srs with some modifications.
 
-#ifndef SRS_KERNEL_ERROR_HPP
-#define SRS_KERNEL_ERROR_HPP
+#ifndef media_kernel_error_HPP
+#define media_kernel_error_HPP
 
 #include <string>
 
@@ -100,6 +101,8 @@
 #define ERROR_SOCKET_SETCLOSEEXEC           1080
 #define ERROR_SOCKET_ACCEPT                 1081
 #define ERROR_SOCKET_WOULD_BLOCK            1082
+#define ERROR_SOCKET_ERROR                  1083
+
 
 ///////////////////////////////////////////////////////
 // RTMP protocol error.

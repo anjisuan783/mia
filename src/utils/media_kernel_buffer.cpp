@@ -4,10 +4,10 @@
 // SPDX-License-Identifier: MIT
 //
 
-#include "utils/srs_kernel_buffer.h"
+#include "utils/media_kernel_buffer.h"
 
 #include<cstring>
-#include "common/srs_kernel_error.h"
+#include "common/media_kernel_error.h"
 
 using namespace std;
 

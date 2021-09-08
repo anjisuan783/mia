@@ -6,6 +6,10 @@
 #include "connection/h/media_conn_mgr.h"
 
 namespace ma {
+MDEFINE_LOGGER(MediaServerImp, "MediaServer");
+
+MediaServerImp::~MediaServerImp() {
+}
 
 int MediaServerImp::Init(const config& _config) {
   if (inited_) {
@@ -15,6 +19,8 @@ int MediaServerImp::Init(const config& _config) {
   inited_ = true;
 
   config_ = _config;
+
+  rtc::LogMessage::AddLogToStream(this, rtc::LS_INFO);
 
   ServerHandlerFactor factory;
   
@@ -38,6 +44,10 @@ srs_error_t MediaServerImp::on_publish(std::shared_ptr<MediaSource> s,
 void MediaServerImp::on_unpublish(std::shared_ptr<MediaSource> s, 
                                   std::shared_ptr<MediaRequest> r) {
   mux_->unmount_service(s, r);
+}
+
+void MediaServerImp::OnLogMessage(const std::string& message) {
+  MLOG_INFO(message);
 }
 
 MediaServerImp g_server_;

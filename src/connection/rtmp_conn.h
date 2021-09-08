@@ -1,3 +1,9 @@
+//
+// Copyright (c) 2021- anjisuan783
+//
+// SPDX-License-Identifier: MIT
+//
+
 #ifndef __MEDIA_RTMP_CONNECTION_H__
 #define __MEDIA_RTMP_CONNECTION_H__
 

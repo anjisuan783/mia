@@ -1,3 +1,9 @@
+//
+// Copyright (c) 2021- anjisuan783
+//
+// SPDX-License-Identifier: MIT
+//
+
 #ifndef __MEDIA_CONNECTION_MANAGER_H__
 #define __MEDIA_CONNECTION_MANAGER_H__
 
@@ -8,21 +14,20 @@
 #include <string>
 
 #include "utils/sigslot.h"
-#include "common/media_log.h"
 
 namespace ma {
 
 class IMediaConnection;
 class IHttpProtocalFactory;
-class MediaListener;
+class MediaListenerMgr;
 
 class MediaConnMgr {
-  MDECLARE_LOGGER();
-  
+
  public:
   enum ConnType {
     e_unknow,
     e_http,
+    e_https,
     e_flv,
     e_rtmp
   };
@@ -40,7 +45,7 @@ class MediaConnMgr {
   std::mutex source_lock_;
   std::map<IMediaConnection*, std::shared_ptr<IMediaConnection>> connections_;
 
-  std::unique_ptr<MediaListener> listener_;
+  std::unique_ptr<MediaListenerMgr> listener_;
 
   //std::shared_ptr<wa::ThreadPool>  g_workers_;
 };

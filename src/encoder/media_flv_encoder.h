@@ -11,7 +11,7 @@
 #include <memory>
 
 #include "common/media_log.h"
-#include "common/srs_kernel_error.h"
+#include "common/media_kernel_error.h"
 #include "common/media_message.h"
 #include "media_consumer.h"
 

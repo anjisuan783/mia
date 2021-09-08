@@ -1,6 +1,6 @@
 #include "handler/media_mux.h"
 
-#include "common/srs_kernel_error.h"
+#include "common/media_kernel_error.h"
 #include "utils/json.h"
 #include "connection/http_conn.h"
 #include "http/http_stack.h"

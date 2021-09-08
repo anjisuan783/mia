@@ -7,6 +7,36 @@
 
 namespace ma {
 
+#if 0
+GsRtcCode MediaHttpConn::response(int code, const std::string& msg,
+    const std::string& sdp, const std::string& msid) {
+  header_.set("Connection", "Close");
+
+  json::Object jroot;
+  jroot["code"] = code;
+  jroot["server"] = "ly rtc";
+  //jroot["msg"] = msg;
+  jroot["sdp"] = sdp;
+  jroot["sessionid"] = msid;
+  
+  std::string jsonStr = json::Serialize(jroot);
+
+  srs_error_t err = this->write(jsonStr.c_str(), jsonStr.length());
+
+  int ret = kRtc_ok;
+  if(err != srs_success){
+    OS_ERROR_TRACE_THIS("http: multiple write_header calls, code=" << srs_error_desc(err));
+    ret = srs_error_code(err);
+    delete err;
+  }
+
+  assert(srs_success == final_request());
+
+  return ret;
+}
+#endif
+
+
 class GsHttpPlayHandler : public IMediaHttpHandler {
  public: 
   GsHttpPlayHandler() { }

@@ -2,7 +2,7 @@
 #define __MEDIA_RTC_HANDLER_H__
 
 #include "handler/h/media_handler.h"
-#include "common/srs_kernel_error.h"
+#include "common/media_kernel_error.h"
 
 namespace ma {
 

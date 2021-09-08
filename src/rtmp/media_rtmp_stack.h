@@ -1,8 +1,15 @@
+//
+// Copyright (c) 2013-2021 Winlin
+//
+// SPDX-License-Identifier: MIT
+//
+// This file is borrowed from srs with some modifications.
+
 #ifndef __MEDIA_RTMP_STACK_H__
 #define __MEDIA_RTMP_STACK_H__
 
 #include <memory>
-#include "common/srs_kernel_error.h"
+#include "common/media_kernel_error.h"
 
 namespace ma {
 

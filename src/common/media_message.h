@@ -1,3 +1,9 @@
+//
+// Copyright (c) 2021- anjisuan783
+//
+// SPDX-License-Identifier: MIT
+// 
+
 #ifndef __MEDIA_MESSAGE_DEFINE_H__
 #define __MEDIA_MESSAGE_DEFINE_H__
 
@@ -5,8 +11,7 @@
 #include "utils/media_msg_chain.h"
 #include "common/media_log.h"
 
-namespace ma
-{
+namespace ma {
 
 struct MessageHeader {
   // 3bytes.

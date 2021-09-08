@@ -18,7 +18,7 @@ bool GsServer::OnHttpConnect(IHttpServer* http_conn, CDataPackage* data) {
   MediaConnMgr::ConnType cType{MediaConnMgr::e_unknow};
   size_t pos = path.find(".flv");
  
-  if (/*path == RTC_PALY_PREFIX || */path == RTC_PUBLISH_PREFIX) {
+  if (path == RTC_PUBLISH_PREFIX) {
     cType = MediaConnMgr::e_http;
   } else if(pos != path.npos) {
     cType = MediaConnMgr::e_flv;
@@ -30,7 +30,8 @@ bool GsServer::OnHttpConnect(IHttpServer* http_conn, CDataPackage* data) {
 
   MLOG_TRACE("connection:" << http_conn << ", path:" << path);
 
-  auto factory = CreateDefaultHttpProtocalFactory((void*)http_conn, (void*)data);
+  auto factory = CreateDefaultHttpProtocalFactory<IHttpServer, CDataPackage>(
+      http_conn, data);
 
   auto conn = g_conn_mgr_.CreateConnection(cType, std::move(factory));
 

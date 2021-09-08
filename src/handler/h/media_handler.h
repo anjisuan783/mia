@@ -1,9 +1,15 @@
+//
+// Copyright (c) 2021- anjisuan783
+//
+// SPDX-License-Identifier: MIT
+//
+
 #ifndef __MEDIA_SERVER_HANDLER_H__
 #define __MEDIA_SERVER_HANDLER_H__
 
 #include <memory>
 
-#include "common/srs_kernel_error.h"
+#include "common/media_kernel_error.h"
 
 namespace ma {
 

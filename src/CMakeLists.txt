@@ -2,15 +2,6 @@ cmake_minimum_required(VERSION 2.6)
 
 project(media_server)
 
-find_package(PkgConfig)
-
-function(test_lib LIB_NAME) 
-  if (${LIB_NAME} MATCHES "^.*-NOTFOUND") 
-    message(FATAL_ERROR "lib not found: " ${LIB_NAME} " check README") 
-    return() 
-  endif(${LIB_NAME} MATCHES "^.*-NOTFOUND") 
-endfunction(test_lib)
-
 set(MA_BUILD_TYPE "debug")
 
 if(${MA_BUILD_TYPE} STREQUAL "debuggs") 
@@ -45,10 +36,6 @@ endif()
 message("Generating ma ${MA_BUILD_TYPE} project with ${CMAKE_CXX_FLAGS}")
 
 
-# LOG4CXX 
-find_library(LOG log4cxx) 
-test_lib(${LOG})
-
 set(MA_SOURCE_PATH "${CMAKE_CURRENT_SOURCE_DIR}")
 
 include_directories(
@@ -60,6 +47,7 @@ include_directories(
 	${CMAKE_CURRENT_SOURCE_DIR}/../../rtc_stack/src
 	${CMAKE_CURRENT_SOURCE_DIR}/../../rtc_stack/src/myrtc
 	${CMAKE_CURRENT_SOURCE_DIR}/../../rtc_stack/src/owt
+	${CMAKE_CURRENT_SOURCE_DIR}/../../rtc_stack/src/3rd/abseil-cpp
 )
 
 set(

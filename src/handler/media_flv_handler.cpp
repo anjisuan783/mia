@@ -195,6 +195,7 @@ void StreamEntry::consumer_push(customer& c, std::vector<std::shared_ptr<MediaMe
   int count;
   do {
     cache.clear();
+    count = 0;
     c.consumer_->fetch_packets(SRS_PERF_MW_MSGS, cache, count);
 
     if (count == 0) {
@@ -290,7 +291,7 @@ void StreamEntry::conn_destroy(std::shared_ptr<IMediaConnection> conn) {
 }
 
 void StreamEntry::async_task(std::function<void()> f) {
-  std::weak_ptr<StreamEntry> weak_this = shared_from_this();
+  std::weak_ptr<StreamEntry> weak_this{weak_from_this()};
   worker_->task([weak_this, f] {
     if (auto this_ptr = weak_this.lock()) {
       f();

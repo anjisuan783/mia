@@ -11,7 +11,7 @@
 #include <sys/uio.h>
 
 #include "common/media_log.h"
-#include "common/srs_kernel_error.h"
+#include "common/media_kernel_error.h"
 
 namespace ma {
 

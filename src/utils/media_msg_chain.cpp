@@ -1,5 +1,7 @@
 #include "media_msg_chain.h"
 
+#include <atomic>
+
 namespace ma {
 
 DataBlock::DataBlock(int32_t aSize, const char* aData)
@@ -33,7 +35,7 @@ std::shared_ptr<DataBlock> DataBlock::Create(
   }
   
   return std::shared_ptr<DataBlock>(
-      new (pBuf) DataBlock(aSize, inData), DataBlockDeleter());
+      new (pBuf) DataBlock(aSize, pData), DataBlockDeleter());
 }
 
 
@@ -57,15 +59,14 @@ std::shared_ptr<DataBlock> DataBlock::Create(
 
 MDEFINE_LOGGER(MessageChain, "MessageChain"); 
 
-int MessageChain::s_block_createcount = 0;
-int MessageChain::s_block_destoycount = 0;
+std::atomic<int> s_block_createcount = 0;
+std::atomic<int> s_block_destoycount = 0;
 
-std::string MessageChain::GetBlockStatics()
-{
+std::string MessageChain::GetBlockStatics() {
 	char szBuffer[128] = {0};
 	snprintf(szBuffer, sizeof(szBuffer), 
 		" [msgblock c-%d d-%d]",
-		s_block_createcount, s_block_destoycount);
+		s_block_createcount.load(), s_block_destoycount.load());
 	return std::string(szBuffer);
 }
 
@@ -88,9 +89,8 @@ MessageChain::MessageChain(uint32_t aSize,
 #endif // MEDIA_NDEBUG
 		MA_CLR_BITS(aFlag, MessageChain::DONT_DELETE);
 		if (aSize > 0) {
-			data_block_ = std::move(DataBlock::Create(aSize, nullptr));
+		  Reset(std::move(DataBlock::Create(aSize, nullptr)));
 	  }
-		Reset(data_block_);
 	}
 	
 	if (aAdvanceWritePtrSize > 0)
@@ -112,6 +112,19 @@ MessageChain::MessageChain(std::shared_ptr<DataBlock> aDb, MFlag aFlag) {
   MA_CLR_BITS(flag_, MessageChain::MALLOC_AND_COPY);
   MA_CLR_BITS(flag_, MessageChain::INTERNAL_MASK);
 }
+
+/*
+MessageChain::MessageChain(MessageChain && r)
+  : next_{r.next_},
+    data_block_{std::move(r.data_block_)},
+    read_{r.read_},
+    write_{r.write_},
+    begin_{r.begin_},
+    end_{r.end_},
+    save_read_{r.save_read_},
+    flag_{r.end_}, {
+}
+*/
 
 MessageChain::~MessageChain() {
   ++ s_block_destoycount;
@@ -362,7 +375,7 @@ MessageChain* MessageChain::DuplicateFirstMsg() const {
     MA_SET_BITS(flagNew, MessageChain::MALLOC_AND_COPY);
     pRet = new MessageChain(dwLen, begin_, flagNew);
 
-    if (pRet && dwLen) {
+    if (dwLen) {
 #ifdef _ENABLE_EXCEPTION_
       try {
 #endif
@@ -379,14 +392,13 @@ MessageChain* MessageChain::DuplicateFirstMsg() const {
     pRet = new MessageChain(data_block_, flag_);
   }
 
-  if (pRet) {
-    /// <DataBlock> maybe realloc if DONT_DELETE,
-    /// so can't do "pRet->read_ = read_;"
-    pRet->read_ += read_ - begin_;
-    pRet->write_ += write_ - begin_;
-    MA_SET_BITS(pRet->flag_, DUPLICATED);
-    SELFCHECK_MessageChain(pRet);
-  }
+  /// <DataBlock> maybe realloc if DONT_DELETE,
+  /// so can't do "pRet->read_ = read_;"
+  pRet->read_ += read_ - begin_;
+  pRet->write_ += write_ - begin_;
+  MA_SET_BITS(pRet->flag_, DUPLICATED);
+  SELFCHECK_MessageChain(pRet);
+
   return pRet;
 }
 
@@ -543,11 +555,11 @@ std::string MessageChain::FlattenChained() {
 }
 
 void MessageChain::Reset(std::shared_ptr<DataBlock> aDb) {
-  data_block_ = aDb;
-  begin_ = data_block_ ? data_block_->GetBasePtr() : nullptr;
+  begin_ = (aDb ? aDb->GetBasePtr() : nullptr);
   read_ = begin_;
   write_ = const_cast<char*>(begin_);
-  end_ = begin_ + (data_block_ ? data_block_->GetLength() : (uint32_t)0);
+  end_ = begin_ + (aDb ? aDb->GetLength() : (uint32_t)0);
+  data_block_ = std::move(aDb);
 }
 
 uint32_t MessageChain::GetFirstMsgLength() const {
@@ -559,11 +571,7 @@ uint32_t MessageChain::GetFirstMsgSpace() const {
   MA_ASSERT(end_ >= write_);
   return (uint32_t)(end_ - write_);
 }
-
-inline MessageChain* MessageChain::GetNext() {
-  return next_;
-}
-
+
 const char* MessageChain::GetFirstMsgReadPtr() const {
   MA_ASSERT(MA_BIT_DISABLED(flag_, READ_LOCKED));
   return read_;
@@ -595,7 +603,6 @@ void MessageChain::LockReading() {
 void MessageChain::LockWriting() {
   MA_SET_BITS(flag_, WRITE_LOCKED);
 }
-
 
 //TODO need optimizing
 bool MessageChain::operator ==(const MessageChain& right) {

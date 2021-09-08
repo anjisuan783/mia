@@ -4,7 +4,7 @@
 // SPDX-License-Identifier: MIT
 //
 
-#include "common/srs_kernel_error.h"
+#include "common/media_kernel_error.h"
 
 #include <errno.h>
 #include <sstream>

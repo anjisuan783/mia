@@ -1,3 +1,10 @@
+//
+// Copyright (c) 2013-2021 Winlin
+//
+// SPDX-License-Identifier: MIT
+//
+// This file is borrowed from srs with some modifications.
+
 #ifndef __MEDIA_RTMP_CONST_H__
 #define __MEDIA_RTMP_CONST_H__
 

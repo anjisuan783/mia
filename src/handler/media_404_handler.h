@@ -9,7 +9,7 @@
 #ifndef __MEDIA_NOT_FOUND_HANDLER_H__
 #define __MEDIA_NOT_FOUND_HANDLER_H__
 
-#include "common/srs_kernel_error.h"
+#include "common/media_kernel_error.h"
 #include "handler/h/media_handler.h"
 
 namespace ma {

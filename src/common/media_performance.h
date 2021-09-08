@@ -3,6 +3,8 @@
 //
 // SPDX-License-Identifier: MIT
 //
+// This file is borrowed from srs with some modifications.
+
 
 #ifndef __MEDIA_PERFORMACE_H__
 #define __MEDIA_PERFORMACE_H__
@@ -10,6 +12,7 @@
 #include <chrono>
 
 namespace ma {
+// following annotation is useless
 
 /**
  * the MW(merged-write) send cache time in srs_utime_t.
@@ -52,7 +55,7 @@ namespace ma {
  * for the mw sleep set to 1800, the msgs is about 133.
  * @remark, recomment to 128.
  */
-constexpr int SRS_PERF_MW_MSGS = 128;
+constexpr int SRS_PERF_MW_MSGS = 3;
 
 } //namespace ma
 

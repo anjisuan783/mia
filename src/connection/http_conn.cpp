@@ -63,17 +63,17 @@ srs_error_t MediaHttpCorsMux::serve_http(IHttpResponseWriter* w, ISrsHttpMessage
   return next->serve_http(w, r);  
 }
 
-
 MDEFINE_LOGGER(MediaHttpConn, "MediaHttpConn");
 
 MediaHttpConn::MediaHttpConn(std::unique_ptr<IHttpProtocalFactory> fac, 
                        IMediaHttpHandler* mux)
-    : reader_{std::move(fac->CreateReader(this))},
-      writer_{std::move(fac->CreateWriter(false))},
-      parser_{std::move(fac->CreateParser())},
+    : reader_{std::move(fac->CreateRequestReader(this))},
+      writer_{std::move(fac->CreateResponseWriter(false))},
+      parser_{std::move(fac->CreateMessageParser())},
       http_mux_{mux},
       cors_{std::make_unique<MediaHttpCorsMux>()} {
   MLOG_TRACE("");
+  parser_->initialize(HTTP_REQUEST);
 }
 
 MediaHttpConn::~MediaHttpConn() {
@@ -94,21 +94,21 @@ srs_error_t MediaHttpConn::set_crossdomain_enabled(bool v) {
   return err;
 }
 
-srs_error_t MediaHttpConn::process_request(const std::string& body) {
-  std::optional<ISrsHttpMessage*> result = parser_->parse_message(body);
+srs_error_t MediaHttpConn::process_request(std::string_view req) {
+  std::optional<std::shared_ptr<ISrsHttpMessage>> result = parser_->parse_message(req);
 
   if(!result){
     return srs_error_new(kma_url_parse_failed, "parse_message failed");
   }
 
-  std::unique_ptr<ISrsHttpMessage> object(*result);
+  std::shared_ptr<ISrsHttpMessage> object(*result);
 
   object->connection(shared_from_this());
 
   MLOG_TRACE("url:" << object->uri());
 
   srs_error_t err = srs_success;
-  if ((err = cors_->serve_http(writer_.get(), result.value())) != srs_success) {
+  if ((err = cors_->serve_http(writer_.get(), result.value().get())) != srs_success) {
     return srs_error_wrap(err, "mux serve");
   }
 
@@ -119,35 +119,6 @@ void MediaHttpConn::on_disconnect() {
   MLOG_TRACE("");
   g_conn_mgr_.RemoveConnection(shared_from_this());
 }
-
-#if 0
-GsRtcCode MediaHttpConn::response(int code, const std::string& msg,
-    const std::string& sdp, const std::string& msid) {
-  header_.set("Connection", "Close");
-
-  json::Object jroot;
-  jroot["code"] = code;
-  jroot["server"] = "ly rtc";
-  //jroot["msg"] = msg;
-  jroot["sdp"] = sdp;
-  jroot["sessionid"] = msid;
-  
-  std::string jsonStr = json::Serialize(jroot);
-
-  srs_error_t err = this->write(jsonStr.c_str(), jsonStr.length());
-
-  int ret = kRtc_ok;
-  if(err != srs_success){
-    OS_ERROR_TRACE_THIS("http: multiple write_header calls, code=" << srs_error_desc(err));
-    ret = srs_error_code(err);
-    delete err;
-  }
-
-  assert(srs_success == final_request());
-
-  return ret;
-}
-#endif
 
 void MediaHttpConn::Disconnect() {
   if(reader_){
@@ -164,9 +135,9 @@ MediaResponseOnlyHttpConn::MediaResponseOnlyHttpConn(
     std::unique_ptr<IHttpProtocalFactory> fac, IMediaHttpHandler* m)
     : MediaHttpConn() {
   MLOG_TRACE("");
-  reader_ = std::move(fac->CreateReader(this));
-  writer_ = std::move(fac->CreateWriter(true));
-  parser_ = std::move(fac->CreateParser());
+  reader_ = std::move(fac->CreateRequestReader(this));
+  writer_ = std::move(fac->CreateResponseWriter(true));
+  parser_ = std::move(fac->CreateMessageParser());
   http_mux_ = m;
   cors_ = std::make_unique<MediaHttpCorsMux>();
 }

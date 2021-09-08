@@ -24,7 +24,8 @@ class GsHttpMessageParser final : public IHttpMessageParser {
   
   ~GsHttpMessageParser() = default;
 
-  std::optional<ISrsHttpMessage*> parse_message(const std::string& body) override;
+  std::optional<std::shared_ptr<ISrsHttpMessage>> 
+      parse_message(std::string_view) override;
 
  private:
   CSmartPointer<IHttpServer> conn_;
@@ -56,8 +57,7 @@ class GsHttpRequestReader final : public IHttpRequestReader,
 
 class SrsFileWriter;
 
-class GsHttpResponseWriter final : public IHttpResponseWriter
-{
+class GsHttpResponseWriter final : public IHttpResponseWriter {
  public:
   GsHttpResponseWriter(IHttpServer* p, bool flag_stream);
   
@@ -100,6 +100,14 @@ private:
 #ifdef __DUMP_PEER_STREAM__
   std::unique_ptr<SrsFileWriter> file_dump_;
 #endif
+};
+
+//do nothing
+class GsHttpResponseDummyReader final : public IHttpResponseWriter {
+ public:
+  GsHttpResponseDummyReader() = default;
+
+  void open(IHttpResponseReaderSink*) override { }
 };
 
 }

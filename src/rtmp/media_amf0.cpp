@@ -11,8 +11,8 @@
 #include <vector>
 #include <sstream>
 
-#include "common/srs_kernel_error.h"
-#include "utils/srs_kernel_buffer.h"
+#include "common/media_kernel_error.h"
+#include "utils/media_kernel_buffer.h"
 #include "rtmp/media_json.h"
 
 using namespace std;

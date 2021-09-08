@@ -8,7 +8,7 @@
 #include "common/media_log.h"
 #include "rtc_base/sequence_checker.h"
 #include "utils/Worker.h"
-#include "common/srs_kernel_error.h"
+#include "common/media_kernel_error.h"
 #include "media_consumer.h"
 
 namespace ma {

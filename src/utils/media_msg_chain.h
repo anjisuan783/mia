@@ -1,3 +1,9 @@
+//
+// Copyright (c) 2021- anjisuan783
+//
+// SPDX-License-Identifier: MIT
+//
+
 #ifndef __MEDIA_MESSAGE_CHAIN_H__
 #define __MEDIA_MESSAGE_CHAIN_H__
 
@@ -88,7 +94,10 @@ class MessageChain final {
   ~MessageChain();
 
   MessageChain(const MessageChain &) = delete;
+  MessageChain(MessageChain &&) = delete;
+  
   void operator = (const MessageChain&) = delete;
+  void operator = (MessageChain &&) = delete;
 
   /// Read <aCount> bytes, advance it if <aAdvance> is true,
   /// if <aDst> != NULL, copy data into it.
@@ -110,7 +119,13 @@ class MessageChain final {
   void Append(MessageChain *aMb);
 
   // Get the next <MessageChain>
-  MessageChain* GetNext();
+  inline MessageChain* GetNext() {
+    return next_;
+  }
+  
+  inline void NulNext() {
+    next_ = nullptr;
+  }
 
   /// Advance <aCount> bytes for reading in chained <MessageChain>s.
   int AdvanceChainedReadPtr(uint32_t aCount, uint32_t *aBytesRead = NULL);
@@ -182,16 +197,16 @@ class MessageChain final {
   int AdvanceFirstMsgReadPtr(uint32_t aStep);
 
   /// Get <m_pWritePtr> of the top-level <MessageChain>
-  char* GetFirstMsgWritePtr() const ;
+  char* GetFirstMsgWritePtr() const;
   /// Advance <aStep> bytes from <m_pWritePtr> of the first <MessageChain>
   int AdvanceFirstMsgWritePtr(uint32_t aStep);
 
   /// Message length is (<m_pWritePtr> - <m_pReadPtr>).
   /// Get the length in the first <MessageChain>.
-  uint32_t GetFirstMsgLength() const ;
+  uint32_t GetFirstMsgLength() const;
 
   /// Get the number of bytes available after the <m_pWritePtr> in the first <MessageChain>.
-  uint32_t GetFirstMsgSpace() const ;
+  uint32_t GetFirstMsgSpace() const;
 
   /// Rewind <m_pReadPtr> of chained <MessageChain>s to their beginnings,
   /// It's not safe because it don't record first read ptr if it not equals <m_pBeginPtr>.
@@ -221,9 +236,6 @@ class MessageChain final {
 
   const char* save_read_{nullptr};
   MFlag flag_{0};
-
-  static int   s_block_createcount;
-  static int   s_block_destoycount;
 };
 
 /*
