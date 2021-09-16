@@ -24,8 +24,8 @@ class GsHttpMessageParser final : public IHttpMessageParser {
   
   ~GsHttpMessageParser() = default;
 
-  std::optional<std::shared_ptr<ISrsHttpMessage>> 
-      parse_message(std::string_view) override;
+  srs_error_t parse_message(std::string_view, 
+      std::shared_ptr<ISrsHttpMessage>&) override;
 
  private:
   CSmartPointer<IHttpServer> conn_;

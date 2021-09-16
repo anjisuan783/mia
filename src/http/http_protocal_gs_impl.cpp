@@ -14,8 +14,8 @@ GsHttpMessageParser::GsHttpMessageParser(IHttpServer* p)
     : conn_(p) {
 }
 
-std::optional<std::shared_ptr<ISrsHttpMessage>> 
-GsHttpMessageParser::parse_message(std::string_view body)
+srs_error_t GsHttpMessageParser::parse_message(
+    std::string_view body, std::shared_ptr<ISrsHttpMessage>& out)
 {
   std::string method;
   conn_->GetRequestMethod(method);
@@ -41,14 +41,14 @@ GsHttpMessageParser::parse_message(std::string_view body)
 
   std::string url;
   conn_->GetRequestPath(url);
-  srs_error_t err = msg->set_url(url, false);
-  std::unique_ptr<SrsCplxError> obj(err);
-  if (err != srs_success) {
-    return std::nullopt;
+  srs_error_t err = srs_success;
+  if ((err = msg->set_url(url, false)) != srs_success) {
+    return srs_error_wrap(err, "set url %s", url.c_str());
   }
   
   // parse ok, return the msg.
-  return msg;
+  out = std::move(msg);
+  return err;
 }
 
 GsHttpRequestReader::GsHttpRequestReader(
@@ -154,10 +154,10 @@ srs_error_t GsHttpResponseWriter::final_request() {
   // flush when send with content length
   int ret = conn_->Response();
 
-  header_.clear();
-  header_wrote_ = false;
-  header_sent_ = false;
-  written_ = 0;
+  //header_.clear();
+  //header_wrote_ = false;
+  //header_sent_ = false;
+  //written_ = 0;
   
   return RV_SUCCEEDED(ret) ? err : srs_error_new(ret, "failed");
 }

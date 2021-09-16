@@ -33,6 +33,11 @@ class MediaServerApi {
     int consumer_queue_size_{30000};
     JitterAlgorithm jotter_algo_{JitterAlgorithmZERO};
     std::vector<std::string> listen_addr_;   // [schema://ip:port]
+
+    //for rtc
+    uint32_t rtc_workers_{1};
+    std::vector<std::string> rtc_addr_;
+    std::string rtc_stun_addr_;
   };
  
   virtual ~MediaServerApi() { }

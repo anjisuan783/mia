@@ -1321,7 +1321,7 @@ void HttpMessage::set_header(const SrsHttpHeader& header, bool keep_alive)
   keep_alive_ = keep_alive;
 
   // whether chunked.
-  chunked = (header.get("Transfer-Encoding") == "chunked");
+  chunked_ = (header.get("Transfer-Encoding") == "chunked");
 
   // Update the content-length in header.
   std::string clv = header.get("Content-Length");
@@ -1781,7 +1781,7 @@ bool HttpMessage::is_http_options() {
 }
 
 bool HttpMessage::is_chunked() {
-  return chunked;
+  return chunked_;
 }
 
 bool HttpMessage::is_keep_alive() {
@@ -1873,6 +1873,20 @@ const std::string& HttpMessage::get_body() {
 
 int64_t HttpMessage::content_length() {
   return content_length_;
+}
+
+void HttpMessage::on_body(std::string_view data) {
+  body_.append(data.data(), data.length());
+
+  if (content_length_ != -1) {
+    if (body_.length() == (size_t)content_length_) {
+      set_body_eof();
+    }
+  } else {
+    //chuncked
+    SignalOnBody_(body_);
+    body_.clear();
+  }
 }
 
 static constexpr uint32_t max_header_size = HTTP_MAX_HEADER_SIZE;

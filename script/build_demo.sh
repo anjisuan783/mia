@@ -20,5 +20,5 @@ g++ -o media_server -g3 -ggdb -std=gnu++17 ./demo/media_server_main.cpp  -I./src
 	../rtc_stack/build/debug/3rd/libevent/libevent.a \
 	../rtc_stack/build/libdeps/build/lib/libssl.a \
 	../rtc_stack/build/libdeps/build/lib/libcrypto.a \
-	-llog4cxx -lpthread -ldl
+	-llog4cxx -lpthread -ldl -lboost_system -lboost_thread -lgthread-2.0 -lgio-2.0 -lgobject-2.0 -lglib-2.0  
 	

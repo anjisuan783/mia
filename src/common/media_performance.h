@@ -47,7 +47,7 @@ namespace ma {
  *       2000            150         300
  */
 
-#define SRS_PERF_MW_SLEEP 300 //ms
+#define SRS_PERF_MW_SLEEP 100 //ms
 
 /**
  * how many msgs can be send entirely.
@@ -55,7 +55,7 @@ namespace ma {
  * for the mw sleep set to 1800, the msgs is about 133.
  * @remark, recomment to 128.
  */
-constexpr int SRS_PERF_MW_MSGS = 3;
+constexpr int SRS_PERF_MW_MSGS = 10;
 
 } //namespace ma
 

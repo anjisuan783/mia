@@ -26,6 +26,8 @@ int MediaServerImp::Init(const config& _config) {
   
   mux_ = std::move(factory.Create());
 
+  mux_->init();
+
   g_source_mgr_.Init(config_.workers_);
 
   return g_conn_mgr_.Init(config_.ioworkers_, config_.listen_addr_);

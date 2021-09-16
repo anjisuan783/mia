@@ -70,13 +70,13 @@ void MediaBridge::OnPublish(const std::string& tcUrl, const std::string& stream)
   
   flv_adaptor_->open(this, this);
 
-  req_ = req;
-
-  g_server_.on_publish(result.value(), req_);
+  g_server_.on_publish(result.value(), req);
   
   source_->on_publish();
 
   to_file();
+
+  req_ = req;
 }
 
 void MediaBridge::OnUnpublish() {
@@ -90,7 +90,7 @@ void MediaBridge::OnUnpublish() {
 
   source_->on_unpublish();
   g_server_.on_unpublish(source_, req_);
-  g_source_mgr_.removeSource(req_->get_stream_url());
+  g_source_mgr_.RemoveSource(req_->get_stream_url());
 }
 
 void MediaBridge::OnVideo(CDataPackage& msg, 

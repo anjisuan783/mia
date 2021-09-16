@@ -44,10 +44,14 @@ class StreamEntry final
     customer(const customer&) = delete;
     void operator=(const customer&) = delete;
     void operator=(customer&&) = delete;
+
+    bool is_cached() { return !cache_.empty(); }
     
     std::shared_ptr<MediaConsumer> consumer_;
     std::unique_ptr<SrsFileWriter>  buffer_writer_;
     std::unique_ptr<ISrsBufferEncoder> encoder_;
+
+    std::vector<std::shared_ptr<MediaMessage>> cache_;
   };
  public:
   StreamEntry(std::shared_ptr<MediaSource> s,   
@@ -58,7 +62,8 @@ class StreamEntry final
 
   void update() { }
   
-  srs_error_t serve_http(IHttpResponseWriter*, ISrsHttpMessage*);
+  srs_error_t serve_http(std::shared_ptr<IHttpResponseWriter> writer, 
+                         std::shared_ptr<ISrsHttpMessage> msg);
   void conn_destroy(std::shared_ptr<IMediaConnection>);
  private:
   void add_customer(IMediaConnection* conn, 
@@ -159,10 +164,6 @@ void StreamEntry::add_customer(IMediaConnection* conn,
   customer c{consumer, std::move(buffer), std::move(encoder)};
   conns_customers_.emplace(conn, std::move(c));
 
-  //std::vector<std::shared_ptr<MediaMessage>> cache;
-  //cache.reserve(SRS_PERF_MW_MSGS);
-  //consumer_push(c, cache);
-
   if (!need_timer) {
     return;
   }
@@ -172,12 +173,12 @@ void StreamEntry::add_customer(IMediaConnection* conn,
   //TODO timer push need optimizing
   std::weak_ptr<StreamEntry> weak_this = shared_from_this();
   worker_->scheduleEvery([weak_this]() {
-      if (auto stream = weak_this.lock()) {
-        return stream->on_timer();
-      }
-      
-      return false;
-    }, TIME_OUT);
+    if (auto stream = weak_this.lock()) {
+      return stream->on_timer();
+    }
+    
+    return false;
+  }, TIME_OUT);
 }
 
 void StreamEntry::delete_customer(IMediaConnection* conn) {
@@ -196,8 +197,14 @@ void StreamEntry::consumer_push(customer& c, std::vector<std::shared_ptr<MediaMe
   do {
     cache.clear();
     count = 0;
-    c.consumer_->fetch_packets(SRS_PERF_MW_MSGS, cache, count);
 
+    if (c.is_cached()) {
+      c.cache_.swap(cache);
+      count = cache.size();
+    } else {
+      c.consumer_->fetch_packets(SRS_PERF_MW_MSGS, cache, count);
+    }
+    
     if (count == 0) {
       break;
     }
@@ -209,6 +216,9 @@ void StreamEntry::consumer_push(customer& c, std::vector<std::shared_ptr<MediaMe
                    " desc:" << srs_error_desc(err));
       }
       delete err;
+#ifdef __GS__      
+      cache.swap(c.cache_);
+#endif
       break;
     }
   } while(true);
@@ -233,7 +243,8 @@ bool StreamEntry::on_timer() {
   return result;
 }
 
-srs_error_t StreamEntry::serve_http(IHttpResponseWriter* writer, ISrsHttpMessage* msg) {
+srs_error_t StreamEntry::serve_http(std::shared_ptr<IHttpResponseWriter> writer, 
+                                    std::shared_ptr<ISrsHttpMessage> msg) {
   MLOG_TRACE(req_->tcUrl);
   writer->header()->set_content_type("video/x-flv");
   writer->write_header(SRS_CONSTS_HTTP_OK);
@@ -247,7 +258,7 @@ srs_error_t StreamEntry::serve_http(IHttpResponseWriter* writer, ISrsHttpMessage
     std::unique_ptr<ISrsBufferEncoder> encoder = std::make_unique<SrsFlvStreamEncoder>();
   
     // the memory writer.
-    std::unique_ptr<SrsFileWriter> bw = std::make_unique<SrsBufferWriter>(writer);
+    std::unique_ptr<SrsFileWriter> bw = std::make_unique<SrsBufferWriter>(writer.get());
     if ((err = encoder->initialize(bw.get(), nullptr)) != srs_success) {
       MLOG_CERROR("init encoder, code:%d, desc:%s", 
                   srs_error_code(err), srs_error_desc(err).c_str());
@@ -355,17 +366,18 @@ void MediaFlvPlayHandler::conn_destroy(std::shared_ptr<IMediaConnection> conn) {
   }
 }
 
-srs_error_t MediaFlvPlayHandler::serve_http(IHttpResponseWriter* writer, 
-                                         ISrsHttpMessage* msg) {
+srs_error_t MediaFlvPlayHandler::serve_http(
+    std::shared_ptr<IHttpResponseWriter> writer, std::shared_ptr<ISrsHttpMessage> msg) {
+
+  MLOG_TRACE("");
 
   assert(msg->is_http_get());
 
   std::shared_ptr<StreamEntry> handler;
   std::string path = msg->path();
 
-  srs_error_t result = srs_success;
   if (msg->ext() != ".flv") {
-    return srs_error_wrap(result, "invalid request, path:%s", path.c_str());
+    return srs_go_http_error(writer.get(), SRS_CONSTS_HTTP_NotFound);
   }
 
   size_t found = path.rfind(".");
@@ -377,7 +389,7 @@ srs_error_t MediaFlvPlayHandler::serve_http(IHttpResponseWriter* writer,
     std::lock_guard<std::mutex> guard(stream_lock_);
     auto found = steams_.find(path);
     if (found == steams_.end()) {
-      return srs_go_http_error(writer, SRS_CONSTS_HTTP_NotFound);
+      return srs_go_http_error(writer.get(), SRS_CONSTS_HTTP_NotFound);
     }
 
     handler = found->second;

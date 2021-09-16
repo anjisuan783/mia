@@ -17,18 +17,29 @@ namespace ma {
 class IHttpResponseWriter;
 class ISrsHttpMessage;
 
+// Forbiddon replies to the request with an HTTP 403  error.
+class HttpForbiddonHandler : public IMediaHttpHandler {
+ public:
+  HttpForbiddonHandler() = default;
+  ~HttpForbiddonHandler() override = default;
+  
+  srs_error_t serve_http(std::shared_ptr<IHttpResponseWriter> writer, 
+                         std::shared_ptr<ISrsHttpMessage> msg) override;
+ private:
+  void conn_destroy(std::shared_ptr<IMediaConnection>) override { }
+};
 
 
 // NotFound replies to the request with an HTTP 404 not found error.
 class HttpNotFoundHandler : public IMediaHttpHandler {
  public:
   HttpNotFoundHandler() = default;
-  virtual ~HttpNotFoundHandler() = default;
+  ~HttpNotFoundHandler() override = default;
   
-  srs_error_t serve_http(IHttpResponseWriter*, ISrsHttpMessage*) override;
+  srs_error_t serve_http(std::shared_ptr<IHttpResponseWriter> writer, 
+                         std::shared_ptr<ISrsHttpMessage> msg) override;
  private:
-  void conn_destroy(std::shared_ptr<IMediaConnection>) override { }
-  
+  void conn_destroy(std::shared_ptr<IMediaConnection>) override { }  
 };
 
 srs_error_t srs_go_http_error(IHttpResponseWriter* w, int code);

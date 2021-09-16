@@ -29,7 +29,12 @@ class IMediaHttpHandler {
   IMediaHttpHandler() = default;
   virtual ~IMediaHttpHandler() = default;
 
-  virtual srs_error_t serve_http(IHttpResponseWriter*, ISrsHttpMessage*) = 0;
+  virtual srs_error_t init() {
+    return srs_success;
+  }
+
+  virtual srs_error_t serve_http(std::shared_ptr<IHttpResponseWriter>, 
+                                 std::shared_ptr<ISrsHttpMessage>) = 0;
 
   virtual srs_error_t mount_service(std::shared_ptr<MediaSource> s, 
                                     std::shared_ptr<MediaRequest> r)  {
@@ -52,3 +57,4 @@ class ServerHandlerFactor {
 
 }
 #endif //!__MEDIA_SERVER_HANDLER_H__
+

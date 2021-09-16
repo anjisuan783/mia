@@ -4,6 +4,8 @@
 #include <sys/uio.h>
 #include <optional>
 #include <memory>
+
+#include "utils/sigslot.h"
 #include "common/media_kernel_error.h"
 
 namespace ma {
@@ -44,6 +46,9 @@ public:
   virtual srs_error_t writev(const iovec* iov, int iovcnt, ssize_t* pnwrite) = 0;
 
   virtual void write_header(int code) = 0;
+
+  // Used only for OnWriteEvent.
+  sigslot::signal1<IHttpResponseWriter*> SignalOnWrite_;
 };
 
 enum http_parser_type { 
@@ -64,8 +69,8 @@ class IHttpMessageParser {
   // parse a http message one by one
   // give you a message by out_msg, when the http header is parsed.
   // It'll continue parse the body util the body end.
-  virtual std::optional<std::shared_ptr<ISrsHttpMessage>> 
-      parse_message(std::string_view) = 0;
+  virtual srs_error_t parse_message(
+      std::string_view, std::shared_ptr<ISrsHttpMessage>&) = 0;
 };
 
 class IHttpResponseReaderSink {

@@ -1,6 +1,5 @@
 #include "media_source_mgr.h"
 
-#include "utils/Worker.h"
 #include "media_source.h"
 #include "media_server.h"
 
@@ -25,7 +24,7 @@ std::optional<std::shared_ptr<MediaSource>>
   
   auto ms = std::make_shared<MediaSource>(url);
 
-  if (!ms->initialize(std::move(workers_->getLessUsedWorker()),
+  if (!ms->initialize(std::move(this->GetWorker()),
                       g_server_.config_.enable_gop_,
                       g_server_.config_.enable_atc_)) {
     return std::nullopt;
@@ -39,9 +38,13 @@ std::optional<std::shared_ptr<MediaSource>>
   return std::move(ms);
 }
 
-void MediaSourceMgr::removeSource(const std::string& id) {
+void MediaSourceMgr::RemoveSource(const std::string& id) {
   std::lock_guard<std::mutex> guard(source_lock_);
   sources_.erase(id);
+}
+
+std::shared_ptr<wa::Worker> MediaSourceMgr::GetWorker() {
+  return std::move(workers_->getLessUsedWorker());
 }
 
 MediaSourceMgr g_source_mgr_;

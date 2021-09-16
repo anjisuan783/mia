@@ -1,3 +1,9 @@
+//
+// Copyright (c) 2021- anjisuan783
+//
+// SPDX-License-Identifier: MIT
+//
+
 #ifndef __MEDIA_SERVER_H__
 #define __MEDIA_SERVER_H__
 

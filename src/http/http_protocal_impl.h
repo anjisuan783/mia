@@ -11,6 +11,7 @@
 
 #include <memory>
 #include <atomic>
+#include <functional>
 
 #include "rtc_base/sequence_checker.h"
 #include "rtc_base/thread.h"
@@ -24,7 +25,7 @@
 namespace ma {
 
 class HttpRequestReader;
-class HttpResponseWriter;
+class HttpResponseWriterProxy;
 class HttpResponseReader;
 class MessageChain;
 
@@ -41,7 +42,7 @@ class AsyncSokcetWrapper : public sigslot::has_slots<>,
     req_reader_ = std::move(r);
   }
   
-  void SetWriter(std::weak_ptr<HttpResponseWriter> w) {
+  void SetWriter(std::weak_ptr<HttpResponseWriterProxy> w) {
     writer_ = std::move(w);
   }
 
@@ -49,6 +50,7 @@ class AsyncSokcetWrapper : public sigslot::has_slots<>,
     res_reader_ = std::move(r);
   }
 
+  //adaptor function
   srs_error_t Write(const char* data, int size, int* sent);
   srs_error_t Write(MessageChain& data, int* sent);
 
@@ -62,26 +64,21 @@ class AsyncSokcetWrapper : public sigslot::has_slots<>,
   void OnSentEvent(rtc::AsyncPacketSocket*, const rtc::SentPacket&);
   
   void OnWriteEvent(rtc::AsyncPacketSocket* socket);
+
  private:
   srs_error_t Write_i(const char* c_data, int c_size, int* sent);
-  srs_error_t Write_i(MessageChain* msg);
  private:
   
   std::unique_ptr<rtc::AsyncPacketSocket> conn_;
 
   std::weak_ptr<HttpRequestReader> req_reader_;
-  std::weak_ptr<HttpResponseWriter> writer_;
+  std::weak_ptr<HttpResponseWriterProxy> writer_;
   std::weak_ptr<HttpResponseReader> res_reader_;
   bool server_{true};
+  bool blocked_{false};
 
-  static constexpr size_t kMaxPacketSize = 64 * 1024 + 4;
-  MessageChain* cur_{nullptr};
-
-  rtc::Thread* worker_{nullptr};
-
-  std::atomic<bool> buffer_full_{false};
+  static constexpr int kMaxPacketSize = 64 * 1024 + 4;
 };
-
 
 /* Callbacks should return non-zero to indicate an error. The parser will
  * then halt execution.
@@ -124,8 +121,8 @@ class HttpMessageParser final  : public IHttpMessageParser {
   // Whether allow jsonp parser, which indicates the method in query string.
   void set_jsonp(bool allow_jsonp) override;
  
-  std::optional<std::shared_ptr<ISrsHttpMessage>> 
-      parse_message(std::string_view str_msg) override;
+  srs_error_t parse_message(std::string_view str_msg, 
+                            std::shared_ptr<ISrsHttpMessage>&) override;
  private:
   // parse the HTTP message to member field: msg.
   srs_error_t parse_message_imp(std::string_view msg);
@@ -185,24 +182,24 @@ class HttpRequestReader final : public IHttpRequestReader,
   webrtc::SequenceChecker thread_check_;
 };
 
-class HttpResponseWriter final : public IHttpResponseWriter,
-    public std::enable_shared_from_this<HttpResponseWriter> {
+class HttpResponseWriter final {
  public:
-  HttpResponseWriter(std::shared_ptr<AsyncSokcetWrapper> s, bool flag_stream);
-  ~HttpResponseWriter() override = default;
+  HttpResponseWriter(AsyncSokcetWrapper* s);
+  ~HttpResponseWriter() = default;
 
-  void open() override;
+  void open();
+  
   //IHttpResponseWriter implement
-  srs_error_t final_request() override;
-  SrsHttpHeader* header() override;
-  srs_error_t write(const char* data, int size) override;
-  srs_error_t writev(const iovec* iov, int iovcnt, ssize_t* pnwrite) override;
-  void write_header(int code) override;
+  // following function can be called by only one thread
+  srs_error_t final_request(MessageChain*&);
+  SrsHttpHeader* header();
+  srs_error_t write(MessageChain*, MessageChain*&);
+  void write_header(int code);
 
  private:
-  srs_error_t send_header(const char* data, int size);
+  srs_error_t send_header(const char* data, int size, MessageChain*&);
  private:
-  std::shared_ptr<AsyncSokcetWrapper> socket_;
+  AsyncSokcetWrapper* socket_;
 
   std::unique_ptr<SrsHttpHeader> header_;
   static constexpr int SRS_HTTP_HEADER_CACHE_SIZE{64};
@@ -226,6 +223,41 @@ class HttpResponseWriter final : public IHttpResponseWriter,
   int status_{SRS_CONSTS_HTTP_OK};
 
   webrtc::SequenceChecker thread_check_;
+};
+
+class HttpResponseWriterProxy : public IHttpResponseWriter,
+  public std::enable_shared_from_this<HttpResponseWriterProxy>,
+  public sigslot::has_slots<> {
+ public:
+  HttpResponseWriterProxy(std::shared_ptr<AsyncSokcetWrapper> s, bool);
+  ~HttpResponseWriterProxy() override;
+
+  void open() override;
+
+  srs_error_t final_request() override;
+  
+  SrsHttpHeader* header() override;
+
+  srs_error_t write(const char* data, int size) override;
+
+  srs_error_t writev(const iovec* iov, int iovcnt, ssize_t* pnwrite) override;
+
+  void write_header(int code) override;
+
+  void OnWriteEvent();
+ private:
+  void write_i(MessageChain*);
+  void asyncTask(std::function<void(std::shared_ptr<HttpResponseWriterProxy>)> f);
+ private:
+  std::unique_ptr<HttpResponseWriter> writer_;
+  rtc::Thread* thread_;
+
+  MessageChain* buffer_{nullptr};
+  
+  std::atomic<bool> buffer_full_{false};
+  std::atomic<bool> need_final_request_{false};
+
+  std::shared_ptr<AsyncSokcetWrapper> socket_;  
 };
 
 //TODO not implement

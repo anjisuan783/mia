@@ -6,8 +6,16 @@
 
 namespace ma {
 
-srs_error_t HttpNotFoundHandler::serve_http(IHttpResponseWriter* w, ISrsHttpMessage*) {
-  return srs_go_http_error(w, SRS_CONSTS_HTTP_NotFound); 
+
+srs_error_t HttpForbiddonHandler::serve_http(
+    std::shared_ptr<IHttpResponseWriter> w, std::shared_ptr<ISrsHttpMessage>) {
+  return srs_go_http_error(w.get(), SRS_CONSTS_HTTP_Forbidden); 
+}
+
+
+srs_error_t HttpNotFoundHandler::serve_http(
+    std::shared_ptr<IHttpResponseWriter> w, std::shared_ptr<ISrsHttpMessage>) {
+  return srs_go_http_error(w.get(), SRS_CONSTS_HTTP_NotFound); 
 }
 
 srs_error_t srs_go_http_error(IHttpResponseWriter* w, int code) {
@@ -23,8 +31,7 @@ srs_error_t srs_go_http_error(IHttpResponseWriter* w, int code) {
     return srs_error_wrap(err, "http write");
   }
 
-  //return w->final_request();
-  
+  w->final_request();
   return err;
 }
 

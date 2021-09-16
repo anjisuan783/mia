@@ -1,3 +1,9 @@
+//
+// Copyright (c) 2021- anjisuan783
+//
+// SPDX-License-Identifier: MIT
+//
+
 #ifndef __MEDIA_FLV_SERVER_HANDLER_H__
 #define __MEDIA_FLV_SERVER_HANDLER_H__
 
@@ -23,8 +29,8 @@ class MediaFlvPlayHandler : public IMediaHttpHandler {
 
  public:
   MediaFlvPlayHandler();
-  ~MediaFlvPlayHandler();
-
+  ~MediaFlvPlayHandler() override;
+  
   srs_error_t mount_service(std::shared_ptr<MediaSource> s, 
                             std::shared_ptr<MediaRequest> r) override;
 
@@ -33,7 +39,8 @@ class MediaFlvPlayHandler : public IMediaHttpHandler {
   
  private:
   void conn_destroy(std::shared_ptr<IMediaConnection> conn) override;
-  srs_error_t serve_http(IHttpResponseWriter*, ISrsHttpMessage*) override;
+  srs_error_t serve_http(std::shared_ptr<IHttpResponseWriter> writer, 
+                         std::shared_ptr<ISrsHttpMessage> msg) override;
 
  private:
   std::mutex stream_lock_;

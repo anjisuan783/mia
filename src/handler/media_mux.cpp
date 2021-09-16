@@ -21,20 +21,17 @@ MediaHttpServeMux::MediaHttpServeMux() {
 
 MediaHttpServeMux::~MediaHttpServeMux() = default;
 
-srs_error_t MediaHttpServeMux::serve_http(
-    IHttpResponseWriter* writer, ISrsHttpMessage* msg) {
-  std::string path = msg->path();
+srs_error_t MediaHttpServeMux::init() {
+  return rtc_sevice_->init();
+}
+
+srs_error_t MediaHttpServeMux::serve_http( 
+    std::shared_ptr<IHttpResponseWriter> writer, std::shared_ptr<ISrsHttpMessage> msg) {
   
-/*  
-  auto found = entry_.find(msg->path());
-  if(found == entry_.end()){
-    static HttpNotFoundHandler s_hangler_404;
-    return s_hangler_404.serve_http(writer, msg);
-  }
-  return found->second->serve_http(writer, msg);
-*/
-  if (path == RTC_PUBLISH_PREFIX) {
-    rtc_sevice_->serve_http(writer, msg);
+  std::string path = msg->path();
+
+   if (path == RTC_PUBLISH_PREFIX || path == RTC_PALY_PREFIX) {
+    return rtc_sevice_->serve_http(writer, msg);
   }
 
   return flv_sevice_->serve_http(writer, msg);

@@ -1,5 +1,7 @@
 #include "http/http_protocal_impl.h"
 
+#include "rtc_base/thread.h"
+
 #include "common/media_define.h"
 #include "common/media_log.h"
 #include "http/http_stack.h"
@@ -25,8 +27,6 @@ void AsyncSokcetWrapper::Open(bool is_server) {
   conn_->SignalClose.connect(this, &AsyncSokcetWrapper::OnCloseEvent);
   
   server_ = is_server;
-  
-  worker_ = rtc::ThreadManager::Instance()->WrapCurrentThread();
 }
 
 void AsyncSokcetWrapper::Close() {
@@ -37,41 +37,89 @@ void AsyncSokcetWrapper::Close() {
 }
 
 srs_error_t AsyncSokcetWrapper::Write(const char* c_data, int c_size, int* sent) {
-  
-  MessageChain msg(c_size, c_data, MessageChain::DONT_DELETE, c_size);
-  return Write(msg, sent);
-}
-
-srs_error_t AsyncSokcetWrapper::Write(MessageChain& data, int* sent) {
   srs_error_t err = srs_success;
-
-  if (UNLIKELY(buffer_full_)) {
+  if (UNLIKELY(blocked_)) {
     err = srs_error_new(ERROR_SOCKET_WOULD_BLOCK, "need on send");
+  } else {
+    if ((err = Write_i(c_data, c_size, sent)) != srs_success) {
+      blocked_ = true;
+    }
   }
 
-  auto msg = data.DuplicateChained();
-  auto f = [msg, this] () {
-    srs_error_t err = srs_success;
-    //Write_i will destroy msg
-    if ((err=Write_i(msg)) != srs_success) {
-      if (srs_error_code(err) == ERROR_SOCKET_WOULD_BLOCK) {
-        buffer_full_ = true;
-      } else {
-        MLOG_CERROR("code:%d, desc:%s", srs_error_code(err), srs_error_desc(err));
-      }
-      delete err;
-    }
-  };
-  
-  worker_->PostTask(RTC_FROM_HERE, [weak_this=weak_from_this(), f] {
-    if (auto this_ptr = weak_this.lock()) {
-      f();
-    }
-  });
+  return err;
+}
 
-  // We claim to have sent the whole thing, even if we only sent partial
+srs_error_t AsyncSokcetWrapper::Write(MessageChain& msg, int* sent) {
+  srs_error_t err = srs_success;
+  int isent = 0;
+  
+  if (UNLIKELY(blocked_)) {
+    err = srs_error_new(ERROR_SOCKET_WOULD_BLOCK, "need on send");
+  } else {
+    MessageChain* pnext = &msg;
+    while (pnext) {
+      int msg_sent = 0;
+      uint32_t len = pnext->GetFirstMsgLength();
+      if (len != 0) {
+        const char* c_data = pnext->GetFirstMsgReadPtr();
+        if ((err = Write_i(c_data, len, &msg_sent)) != srs_success) {
+          //error occur, mybe would block
+          isent += msg_sent;
+          blocked_ = true;
+          break;
+        }
+        isent += msg_sent;
+      }
+      pnext = pnext->GetNext();
+    }
+  }
+
   if (sent) {
-    *sent = data.GetChainedLength();
+    *sent = isent;
+  }
+  
+  return err;
+}
+
+srs_error_t AsyncSokcetWrapper::Write_i(const char* c_data, int c_size, int* sent) {
+  srs_error_t err = srs_success;
+  
+  int left_size = c_size;
+  int size;
+  const char* data;
+  
+  do {
+    size = left_size;
+    data = c_data + c_size - left_size;
+    
+    rtc::PacketOptions option;
+    if (size > kMaxPacketSize) {
+      size = kMaxPacketSize;
+    }
+
+    if (size <= 0) {
+      break;
+    }
+    
+    int ret = conn_->Send(data, size, option);
+    if (LIKELY(ret > 0)) {
+      // must be total sent
+      MA_ASSERT(ret == size);
+      left_size -= size;
+    } else /*if ret <= 0*/ {      
+      if (conn_->GetError() == EWOULDBLOCK) {
+        err = srs_error_new(ERROR_SOCKET_WOULD_BLOCK, 
+            "need on send, sent:%d", c_size - left_size);
+      } else {
+        err = srs_error_new(ERROR_SOCKET_ERROR, 
+            "unexpect low level error code:%d", conn_->GetError());
+      }
+      break;
+    }
+  } while(true);
+
+  if (sent) {
+    *sent = c_size - left_size;
   }
 
   return err;
@@ -83,7 +131,6 @@ void AsyncSokcetWrapper::OnReadEvent(rtc::AsyncPacketSocket*,
                                      const rtc::SocketAddress&,
                                      const int64_t&) {
   MA_ASSERT_RETURN(c_size, );
-  MLOG_DEBUG(std::string(c_msg, c_size));
   std::string_view str_req{c_msg, c_size};
 
   if (server_) {
@@ -113,118 +160,11 @@ void AsyncSokcetWrapper::OnSentEvent(rtc::AsyncPacketSocket*, const rtc::SentPac
 }
 
 void AsyncSokcetWrapper::OnWriteEvent(rtc::AsyncPacketSocket*) {
-  MLOG_INFO("");
-
-  if (cur_) {
-    srs_error_t err = srs_success;
-
-    MessageChain* tmp = cur_;
-    cur_ = nullptr;
-    
-    //Write_i will destroy tmp
-    if ((err = Write_i(tmp)) != srs_success) {
-      if (srs_error_code(err) == ERROR_SOCKET_WOULD_BLOCK) {
-        buffer_full_ = true;
-      } else {
-        MLOG_CERROR("code:%d, desc:%s", srs_error_code(err), srs_error_desc(err));
-      }
-      delete err;
-
-      return;
-    }
+  blocked_ = false;
+  auto ptr = writer_.lock();
+  if (ptr) {
+    ptr->OnWriteEvent();
   }
-
-  buffer_full_ = false;
-}
-
-srs_error_t AsyncSokcetWrapper::Write_i(const char* c_data, int c_size, int* sent) {
-  srs_error_t err = srs_success;
-  
-  int size = c_size;
-  const char* data = c_data;
-  size_t sent_size = 0;
-  do {
-    rtc::PacketOptions option;
-    int ret = conn_->Send(data, size, option);
-    if (LIKELY(ret > 0)) {
-      sent_size += ret;
-      data += ret;
-      
-      if (ret < size) {
-        // partal sent          
-        int left = c_size - sent_size;
-        MessageChain msg(left, c_data+sent_size, MessageChain::DONT_DELETE, left);
-
-        MA_ASSERT(cur_ == nullptr);
-        cur_ = msg.DuplicateChained();
-
-        err =  srs_error_new(ERROR_SOCKET_WOULD_BLOCK, 
-            "need on send, sent:%d", sent_size);
-        if (sent) {
-          *sent = sent_size;
-        }
-        break;
-      }
-
-      // total sent continue
-      size = c_size - sent_size;
-      MA_ASSERT(size >= 0);
-    } else /*if ret <= 0*/ {
-      //split packet no more than kMaxPacketSize
-      if (conn_->GetError() == EMSGSIZE) {
-        size = kMaxPacketSize;
-        data += sent_size;
-        continue;
-      } else {
-        int left = c_size - sent_size;
-        MessageChain msg(left, c_data+sent_size, MessageChain::DONT_DELETE, left);
-        
-        MA_ASSERT(cur_ == nullptr);
-        cur_ = msg.DuplicateChained();
-        
-        if (conn_->GetError() == EWOULDBLOCK) {
-          err = srs_error_new(ERROR_SOCKET_WOULD_BLOCK, 
-              "need on send, sent:%d", sent_size);
-        } else {
-          err = srs_error_new(ERROR_SOCKET_ERROR, 
-              "unexpect low level error code:%d", conn_->GetError());
-        }
-        break;
-      }
-    }
-  } while(size > 0);
-
-  return err;
-}
-
-//msg must be duplicated
-srs_error_t AsyncSokcetWrapper::Write_i(MessageChain* msg) {
-  srs_error_t err = srs_success;
-  if (UNLIKELY(cur_)) {
-    cur_->Append(msg);
-    err = srs_error_new(ERROR_SOCKET_WOULD_BLOCK, "need on send, sent");
-  } else {
-    MessageChain* pnext = msg;
-    while (pnext) {
-      if (pnext->GetFirstMsgLength()) {
-        const char* c_data = pnext->GetFirstMsgReadPtr();
-        if ((err=Write_i(c_data, pnext->GetFirstMsgLength(), nullptr)) != srs_success) {
-          MessageChain* pPre = pnext;
-          pnext = pnext->GetNext();
-          if (pnext) {
-            MA_ASSERT(cur_);
-            pPre->NulNext();
-            cur_->Append(pnext);
-          }
-          break;
-        }
-      }
-      pnext = pnext->GetNext();
-    }
-
-    msg->DestroyChained();
-  }
-  return err;
 }
 
 //HttpMessageParser
@@ -250,8 +190,8 @@ void HttpMessageParser::set_jsonp(bool allow_jsonp) {
   jsonp_ = allow_jsonp;
 }
 
-std::optional<std::shared_ptr<ISrsHttpMessage>>
-HttpMessageParser::parse_message(std::string_view str_msg) {
+srs_error_t HttpMessageParser::parse_message(
+    std::string_view str_msg, std::shared_ptr<ISrsHttpMessage>& out) {
   srs_error_t err = srs_success;
 
   if (state_ == SrsHttpParseStateStart ||
@@ -259,25 +199,22 @@ HttpMessageParser::parse_message(std::string_view str_msg) {
       state_ == SrsHttpParseStateBody) {
     // continue parse message
     if ((err = parse_message_imp(str_msg)) != srs_success) {
-      MLOG_CERROR("parse message body, code:%d, desc:%s", 
-          srs_error_code(err), srs_error_desc(err).c_str());
-      delete err;
       // Reset request data.
       state_ = SrsHttpParseStateInit;
-      return std::nullopt;
+      return srs_error_wrap(err, "parse message body");
     }
 
     switch(state_) {
     case SrsHttpParseStateInit:
-      MA_ASSERT_RETURN(false, std::nullopt);
+      MA_ASSERT_RETURN(false, err);
     case SrsHttpParseStateStart:
-      return std::nullopt;
+      return err;
     case SrsHttpParseStateHeaderComplete:
     case SrsHttpParseStateBody:
     case SrsHttpParseStateMessageComplete:
       break;
     default:
-      MA_ASSERT_RETURN(false, std::nullopt);
+      MA_ASSERT_RETURN(false, err);
     }
     
     if (!msg_out_) {
@@ -290,12 +227,9 @@ HttpMessageParser::parse_message(std::string_view str_msg) {
                      hp_header_.content_length);
       msg->set_header(*(header_.get()), http_should_keep_alive(&hp_header_));
       if ((err = msg->set_url(url_, jsonp_)) != srs_success) {
-        MLOG_CERROR("set url=%s, jsonp=%d, code:%d, desc:%s", 
-            url_.c_str(), jsonp_, srs_error_code(err), srs_error_desc(err).c_str());
-        delete err;
         // Reset request data.
-        state_ = SrsHttpParseStateInit;
-        return std::nullopt;
+        state_ = SrsHttpParseStateInit;         
+        return srs_error_wrap(err, "set url=%s, jsonp=%d", url_.c_str(), jsonp_);
       }
 
       msg_out_ = std::move(msg);
@@ -307,11 +241,18 @@ HttpMessageParser::parse_message(std::string_view str_msg) {
 
       // parse message ok
       msg_out_->set_body_eof();
-      return std::move(msg_out_);
+      out = std::move(msg_out_);
+      return err;
     }
-   
-    // for body parsing, only parsing header ok.
-    return msg_out_;
+
+    // chunked
+    if (hp_header_.content_length == (uint64_t)-1) {
+      //chunked message header has returned already.
+      return err;
+    } 
+
+    //not chunked, don't return util body parsed ok
+    return err;
   }
   
   // Reset request data.
@@ -343,28 +284,25 @@ HttpMessageParser::parse_message(std::string_view str_msg) {
   
   // do parse
   if ((err = parse_message_imp(str_msg)) != srs_success) {
-    MLOG_CERROR("parse message, code:%d, desc:%s", 
-        srs_error_code(err), srs_error_desc(err).c_str());
-    delete err;
-
     // Reset request data.
     state_ = SrsHttpParseStateInit;
-    return std::nullopt;
+    return srs_error_wrap(err, "parse message");
   }
 
   switch(state_) {
   case SrsHttpParseStateInit:
-    MA_ASSERT_RETURN(false, std::nullopt);
+    MA_ASSERT_RETURN(false, err);
   case SrsHttpParseStateStart:
-    return std::nullopt;
+    return err;
   case SrsHttpParseStateHeaderComplete:
   case SrsHttpParseStateBody:
   case SrsHttpParseStateMessageComplete:
     break;
   default:
-    MA_ASSERT_RETURN(false, std::nullopt);
+    MA_ASSERT_RETURN(false, err);
   }
 
+  //header completed
   auto msg = std::make_shared<HttpMessage>(buffer_view_);
 
   // Initialize the basic information.
@@ -374,25 +312,30 @@ HttpMessageParser::parse_message(std::string_view str_msg) {
                  hp_header_.content_length);
   msg->set_header(*(header_.get()), http_should_keep_alive(&hp_header_));
   if ((err = msg->set_url(url_, jsonp_)) != srs_success) {
-    MLOG_CERROR("set url=%s, jsonp=%d, code:%d, desc:%s", 
-        url_.c_str(), jsonp_, srs_error_code(err), srs_error_desc(err).c_str());
-    delete err;
     // Reset request data.
     state_ = SrsHttpParseStateInit;
-    return std::nullopt;
+    return srs_error_wrap(err, "set url=%s, jsonp=%d", url_.c_str(), jsonp_);
   }
 
-  if (state_ != SrsHttpParseStateMessageComplete) {
-    //save message pointer for body parsing
-    msg_out_ = msg;
-  } else {
+  if (state_ == SrsHttpParseStateMessageComplete) {
     // Reset request data. for the next message parsing
     state_ = SrsHttpParseStateInit;
     msg->set_body_eof();
+    out = std::move(msg);
+    return err;
   }
+
+  msg_out_ = msg;
   
-  // parse message ok or parse header ok.
-  return std::move(msg);
+  // chunked
+  if (hp_header_.content_length == (uint64_t)-1) {
+    //save message pointer for body parsing, and return message
+    out = std::move(msg);
+    return err;
+  } 
+
+  //not chunked, don't return util body parsed ok
+  return err;
 }
 
 srs_error_t HttpMessageParser::parse_message_imp(std::string_view str_msg) {
@@ -547,7 +490,7 @@ int HttpMessageParser::on_header_value(http_parser* parser, const char* at, size
   // @see https://github.com/ossrs/srs/issues/1508
   obj->p_header_tail_ = at;
   
-  MLOG_CINFO("Header value(%d bytes): %.*s", (int)length, (int)length, at);
+  MLOG_CDEBUG("Header value(%d bytes): %.*s", (int)length, (int)length, at);
   return 0;
 }
 
@@ -562,7 +505,7 @@ int HttpMessageParser::on_body(http_parser* parser, const char* at, size_t lengt
   // @see https://github.com/ossrs/srs/issues/1508
   obj->p_body_start_ = at;
 
-  MLOG_CINFO("Body: %.*s", (int)length, at);
+  MLOG_CDEBUG("Body: %.*s", (int)length, at);
 
   std::string_view body(at, length);
 
@@ -628,21 +571,16 @@ void HttpRequestReader::disconnect() {
 }
 
 //HttpResponseWriter
-HttpResponseWriter::HttpResponseWriter(
-    std::shared_ptr<AsyncSokcetWrapper> s, bool flag_stream)
+HttpResponseWriter::HttpResponseWriter(AsyncSokcetWrapper* s)
   : socket_{s},
     header_{std::make_unique<SrsHttpHeader>()} {
-
-  //only one thread can write
-  thread_check_.Detach();
 }
 
 void HttpResponseWriter::open() {
   RTC_DCHECK_RUN_ON(&thread_check_);
-  socket_->SetWriter(weak_from_this());
 }
 
-srs_error_t HttpResponseWriter::final_request() {
+srs_error_t HttpResponseWriter::final_request(MessageChain*& left_msg) {
   RTC_DCHECK_RUN_ON(&thread_check_);
   
   srs_error_t err = srs_success;
@@ -653,7 +591,7 @@ srs_error_t HttpResponseWriter::final_request() {
   }
 
   // whatever header is wrote, we should try to send header.
-  if ((err = send_header(NULL, 0)) != srs_success) {
+  if ((err = send_header(NULL, 0, left_msg)) != srs_success) {
     return srs_error_wrap(err, "send header");
   }
 
@@ -662,21 +600,29 @@ srs_error_t HttpResponseWriter::final_request() {
     std::stringstream ss;
     ss << 0 << SRS_HTTP_CRLF << SRS_HTTP_CRLF;
     std::string ch = ss.str();
-    return socket_->Write(ch.data(), (int)ch.length(), NULL);
+    int sent = 0;
+    if ((err = socket_->Write(ch.data(), (int)ch.length(), &sent)) != srs_success) {
+      int left_size = (int)ch.length() - sent;
+      MessageChain mb(left_size, ch.data()+left_size, MessageChain::DONT_DELETE, left_size);
+      left_msg = mb.DuplicateChained();
+    }
+    return err;
   }
 
   // flush when send with content length
-  return write(NULL, 0);
+  return write(nullptr, left_msg);
 }
 
 SrsHttpHeader* HttpResponseWriter::header() {
   return header_.get();
 }
 
-srs_error_t HttpResponseWriter::write(const char* data, int size) {
+srs_error_t HttpResponseWriter::write(
+    MessageChain* data, MessageChain*& left_msg) {
   RTC_DCHECK_RUN_ON(&thread_check_);
   
   srs_error_t err = srs_success;
+  int size = data ? data->GetChainedLength() : 0;
     
   // write the header data in memory.
   if (!header_wrote_) {
@@ -690,7 +636,7 @@ srs_error_t HttpResponseWriter::write(const char* data, int size) {
   }
   
   // whatever header is wrote, we should try to send header.
-  if ((err = send_header(data, size)) != srs_success) {
+  if ((err = send_header((const char*)data, size, left_msg)) != srs_success) {
     return srs_error_wrap(err, "send header");
   }
   
@@ -708,7 +654,13 @@ srs_error_t HttpResponseWriter::write(const char* data, int size) {
   
   // directly send with content length
   if (content_length_ != -1) {
-    return socket_->Write(data, size, NULL);
+    int isent = 0;
+    
+    if ((err = socket_->Write(*data, &isent)) != srs_success) {
+      left_msg = data->DuplicateChained();
+      left_msg->AdvanceChainedReadPtr(isent);
+    }
+    return err;
   }
   
   // send in chunked encoding.
@@ -716,50 +668,20 @@ srs_error_t HttpResponseWriter::write(const char* data, int size) {
 
   MessageChain p0{(uint32_t)nb_size, header_cache_, MessageChain::DONT_DELETE, (uint32_t)nb_size};
   MessageChain p1{2, (char*)SRS_HTTP_CRLF, MessageChain::DONT_DELETE, 2};
-  MessageChain p2{(uint32_t)size, (char*)data, MessageChain::DONT_DELETE, (uint32_t)size};
+  MessageChain& p2 = *data;
   MessageChain p3{2, (char*)SRS_HTTP_CRLF, MessageChain::DONT_DELETE, 2};
 
   p0.Append(&p1);
   p1.Append(&p2);
   p2.Append(&p3);
-  
-  if ((err = socket_->Write(p0, nullptr)) != srs_success) {
-    return srs_error_wrap(err, "write chunk");
+
+  int isent = 0;
+  if ((err = socket_->Write(p0, &isent)) != srs_success) {
+    left_msg = p0.DuplicateChained();
+    left_msg->AdvanceChainedReadPtr(isent);
+    err = srs_error_wrap(err, "write chunk");
   }
   
-  return err;
-}
-
-srs_error_t HttpResponseWriter::writev(const iovec* iov, int iovcnt, ssize_t* pnwrite) {
-  RTC_DCHECK_RUN_ON(&thread_check_);
-  
-  srs_error_t err = srs_success;
-  //TODO need optimizing
-  MessageChain* data = nullptr;  
-  for (int i = 0; i < iovcnt; ++i) {
-    MessageChain part(iov[i].iov_len, 
-                      (const char*)iov[i].iov_base, 
-                      MessageChain::DONT_DELETE, 
-                      iov[i].iov_len);
-
-    if (data) {
-      data->Append(part.DuplicateChained());
-    } else {
-      data = part.DuplicateChained();
-    }
-
-    if (pnwrite) {
-      *pnwrite += iov[i].iov_len;
-    }
-  }
-
-  if (data) {
-    std::string msg{std::move(data->FlattenChained())};
-    err = write(msg.c_str(), msg.length());
-
-    data->DestroyChained();
-  }
-
   return err;
 }
 
@@ -778,13 +700,15 @@ void HttpResponseWriter::write_header(int code) {
   content_length_ = header_->content_length();
 }
 
-srs_error_t HttpResponseWriter::send_header(const char* data, int size) {
+srs_error_t HttpResponseWriter::send_header(
+    const char* data, int, MessageChain*& left_msg) {
   
   srs_error_t err = srs_success;
   
   if (header_sent_) {
     return err;
   }
+
   header_sent_ = true;
   
   std::stringstream ss;
@@ -821,8 +745,261 @@ srs_error_t HttpResponseWriter::send_header(const char* data, int size) {
   // header_eof
   ss << SRS_HTTP_CRLF;
   
-  std::string buf = ss.str();
-  return socket_->Write(buf.c_str(), buf.length(), nullptr);
+  std::string buf = std::move(ss.str());
+
+  int sent = 0;
+  MessageChain mb(buf.length(), buf.c_str(), MessageChain::DONT_DELETE, buf.length());
+  if ((err = socket_->Write(mb, &sent)) != srs_success) {
+    mb.AdvanceChainedReadPtr(sent);
+    left_msg = mb.DuplicateChained();
+  }
+
+  return err;
+}
+
+//helper define
+#define IS_CURRENT_THREAD(x) thread_==rtc::ThreadManager::Instance()->CurrentThread()
+
+//HttpResponseWriterProxy
+HttpResponseWriterProxy::HttpResponseWriterProxy(
+    std::shared_ptr<AsyncSokcetWrapper> s, bool)
+  : writer_{std::move(std::make_unique<HttpResponseWriter>(s.get()))},
+    socket_{std::move(s)} {
+  thread_ = rtc::ThreadManager::Instance()->CurrentThread();
+}
+
+HttpResponseWriterProxy::~HttpResponseWriterProxy() {
+  if (buffer_) {
+    buffer_->DestroyChained();
+  }
+}
+
+void HttpResponseWriterProxy::open() {
+  writer_->open();
+  socket_->SetWriter(weak_from_this());
+}
+
+srs_error_t HttpResponseWriterProxy::final_request() {
+  if (need_final_request_) {
+    return srs_error_new(ERROR_HTTP_PATTERN_DUPLICATED, "final request duplicated");
+  }
+
+  srs_error_t err = srs_success;
+  if (IS_CURRENT_THREAD()) {
+    if (buffer_) {
+      need_final_request_ = true; 
+    } else {
+      MessageChain* left = nullptr;
+      if ((err = writer_->final_request(left)) != srs_success) {
+        buffer_ = left;
+      }
+    }
+    return err;
+  }
+
+  std::weak_ptr<HttpResponseWriterProxy> weak_ptr = weak_from_this();
+  asyncTask([weak_ptr, this](std::shared_ptr<HttpResponseWriterProxy>) {
+    auto this_ptr = weak_ptr.lock();
+    if (!this_ptr){
+      return;
+    }
+
+    if (buffer_) {
+      need_final_request_ = true; 
+    } else {
+      MessageChain* left = nullptr;
+      srs_error_t err = writer_->final_request(left);
+      if (err != srs_success) {
+        buffer_ = left;
+        MLOG_CWARN("proxy final request failed on send later, code:%d, desc:%s", 
+            srs_error_code(err), srs_error_desc(err).c_str());
+        delete err;
+      }
+    }
+  });
+
+  return err;
+}
+
+SrsHttpHeader* HttpResponseWriterProxy::header() {
+  return writer_->header();
+}
+
+srs_error_t HttpResponseWriterProxy::write(const char* data, int size) {
+  if (buffer_full_) {
+    return srs_error_new(ERROR_SOCKET_WOULD_BLOCK, "need on send");
+  }
+
+  MessageChain mb(size, data, MessageChain::DONT_DELETE, size);
+  
+  srs_error_t err = srs_success;
+  if (IS_CURRENT_THREAD()) {
+    if (buffer_) {
+      err = srs_error_new(ERROR_SOCKET_WOULD_BLOCK, "need on send");
+      MA_ASSERT_RETURN(false, err);
+    } else {
+      MessageChain* left = nullptr;
+      if ((err = writer_->write(&mb, left)) != srs_success) {
+        buffer_ = left;
+        buffer_full_ = true;
+      }
+    }
+    return err;
+  }
+
+  std::weak_ptr<HttpResponseWriterProxy> weak_ptr = weak_from_this();
+  asyncTask([weak_ptr, pmb=mb.DuplicateChained(), this]
+      (std::shared_ptr<HttpResponseWriterProxy>) {
+    auto this_ptr = weak_ptr.lock();
+    if (!this_ptr){
+      pmb->DestroyChained();
+      return;
+    }
+
+    write_i(pmb);
+  });
+
+  return err;
+}
+
+srs_error_t HttpResponseWriterProxy::writev(
+    const iovec* iov, int iovcnt, ssize_t* pnwrite) {
+  if (buffer_full_) {
+    return srs_error_new(ERROR_SOCKET_WOULD_BLOCK, "need on send");
+  }
+
+  //TODO need optimizing
+  MessageChain* data = nullptr;  
+  for (int i = 0; i < iovcnt; ++i) {
+    MessageChain part(iov[i].iov_len, 
+                      (const char*)iov[i].iov_base, 
+                      MessageChain::DONT_DELETE, 
+                      iov[i].iov_len);
+
+    if (data) {
+      data->Append(part.DuplicateChained());
+    } else {
+      data = part.DuplicateChained();
+    }
+
+    if (pnwrite) {
+      *pnwrite += iov[i].iov_len;
+    }
+  }
+   
+  srs_error_t err = srs_success;
+
+  if (IS_CURRENT_THREAD()) {
+    if (buffer_) {
+      err =  srs_error_new(ERROR_SOCKET_WOULD_BLOCK, "need on send");
+      data->DestroyChained();
+      MA_ASSERT_RETURN(false, err);
+    } else {
+      MessageChain* left = nullptr;
+      if ((err = writer_->write(data, left)) != srs_success) {
+        buffer_ = left;
+        buffer_full_ = true;
+      }
+    }
+    data->DestroyChained();
+    return err;
+  }
+
+  std::weak_ptr<HttpResponseWriterProxy> weak_ptr = weak_from_this();
+  asyncTask([weak_ptr, data, this] (std::shared_ptr<HttpResponseWriterProxy>) {
+    auto this_ptr = weak_ptr.lock();
+    if (!this_ptr){
+      data->DestroyChained();
+      return;
+    }
+
+    write_i(data);
+  });
+
+  return err;
+}
+
+void HttpResponseWriterProxy::write_i(MessageChain* data) {
+  if (buffer_) {
+    MA_ASSERT(buffer_full_);
+    buffer_->Append(data);
+  } else {
+    MessageChain* left = nullptr;
+    srs_error_t err = writer_->write(data, left);
+    if (err != srs_success) {
+      if (srs_error_code(err) != ERROR_SOCKET_WOULD_BLOCK) {
+        MLOG_CERROR("http async write error, code:%d, desc:%s", 
+          srs_error_code(err), srs_error_desc(err).c_str());
+      }
+      buffer_full_ = true;
+      buffer_ = left;
+      delete err;
+    }
+    data->DestroyChained();
+  }
+}
+
+void HttpResponseWriterProxy::write_header(int code) {
+  if (IS_CURRENT_THREAD()) {
+    writer_->write_header(code);
+    return;
+  }
+
+  std::weak_ptr<HttpResponseWriterProxy> weak_ptr = weak_from_this();
+  asyncTask([weak_ptr, code, this](std::shared_ptr<HttpResponseWriterProxy>){
+    auto this_ptr = weak_ptr.lock();
+    if (!this_ptr){
+      return;
+    }
+    
+    writer_->write_header(code);
+  });
+}
+
+void HttpResponseWriterProxy::OnWriteEvent() {
+  srs_error_t err = srs_success;
+  if (buffer_) {
+    MessageChain* left = nullptr;
+    err = writer_->write(buffer_, left);
+    if (err != srs_success) {
+      if (srs_error_code(err) != ERROR_SOCKET_WOULD_BLOCK) {
+        MLOG_CERROR("OnWriteEvent write error, code:%d, desc:%s", 
+            srs_error_code(err), srs_error_desc(err).c_str());
+      }
+      buffer_full_ = true;
+      buffer_->DestroyChained();
+      buffer_ = left;
+      delete err;
+      return;
+    }
+
+    buffer_->DestroyChained();
+    buffer_ = nullptr;
+  }
+
+  if (need_final_request_) {
+    MessageChain* left = nullptr;
+    if ((err = writer_->final_request(left)) != srs_success) {
+      buffer_ = left;
+      buffer_full_ = true;
+      return;
+    }
+    need_final_request_ = false;
+  }
+
+  buffer_full_ = false;
+
+  SignalOnWrite_(this);
+}
+
+void HttpResponseWriterProxy::asyncTask(
+    std::function<void(std::shared_ptr<HttpResponseWriterProxy>)> f) {
+  std::weak_ptr<HttpResponseWriterProxy> weak_this = weak_from_this();
+  thread_->PostTask(RTC_FROM_HERE, [weak_this, f] {
+    if (auto this_ptr = weak_this.lock()) {
+      f(this_ptr);
+    }
+  });
 }
 
 //HttpResponseReader
@@ -848,7 +1025,7 @@ class HttpProtocalImplFactory : public IHttpProtocalFactory {
   
   std::shared_ptr<IHttpResponseWriter> 
   CreateResponseWriter(bool flag_stream) override {
-    return std::make_shared<HttpResponseWriter>(socket_, flag_stream);
+    return std::make_shared<HttpResponseWriterProxy>(socket_, flag_stream);
   }
   
   std::unique_ptr<IHttpMessageParser> 

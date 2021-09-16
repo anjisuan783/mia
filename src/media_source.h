@@ -1,3 +1,9 @@
+//
+// Copyright (c) 2021- anjisuan783
+//
+// SPDX-License-Identifier: MIT
+//
+
 #ifndef __NEW_MEDIA_SOURCE_H__
 #define __NEW_MEDIA_SOURCE_H__
 
@@ -5,9 +11,10 @@
 #include <mutex>
 #include <list>
 
-#include "common/media_log.h"
 #include "rtc_base/sequence_checker.h"
 #include "utils/Worker.h"
+
+#include "common/media_log.h"
 #include "common/media_kernel_error.h"
 #include "media_consumer.h"
 
@@ -25,6 +32,7 @@ class MediaSource final : public std::enable_shared_from_this<MediaSource> {
   MediaSource(const std::string& id);
   ~MediaSource();
 
+  //called by MediaSourceMgr
   bool initialize(std::shared_ptr<wa::Worker>, bool gop, bool atc);
 
   void on_publish();

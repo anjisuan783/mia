@@ -1,3 +1,9 @@
+//
+// Copyright (c) 2021- anjisuan783
+//
+// SPDX-License-Identifier: MIT
+//
+
 #ifndef __RTC_SERVER_API_H__
 #define __RTC_SERVER_API_H__
 
@@ -19,11 +25,16 @@ class MediaHttpServeMux final: public IMediaHttpHandler,
 public:
   MediaHttpServeMux();
   ~MediaHttpServeMux();
-  
-  srs_error_t serve_http(IHttpResponseWriter*, ISrsHttpMessage*) override;
 
-  srs_error_t mount_service(std::shared_ptr<MediaSource> s, std::shared_ptr<MediaRequest> r) override;
-  void unmount_service(std::shared_ptr<MediaSource> s, std::shared_ptr<MediaRequest> r) override;
+  srs_error_t init() override;
+  
+  srs_error_t serve_http(std::shared_ptr<IHttpResponseWriter> s, 
+                         std::shared_ptr<ISrsHttpMessage> r) override;
+
+  srs_error_t mount_service(std::shared_ptr<MediaSource> s,   
+                            std::shared_ptr<MediaRequest> r) override;
+  void unmount_service(std::shared_ptr<MediaSource> s, 
+                       std::shared_ptr<MediaRequest> r) override;
 
   void conn_destroy(std::shared_ptr<IMediaConnection>) override;
 private:

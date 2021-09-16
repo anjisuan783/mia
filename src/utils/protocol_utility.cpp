@@ -103,7 +103,7 @@ string srs_string_replace(const string& str,
   std::string ret = str;
   
   if (old_str == new_str) {
-    return ret;
+    return std::move(ret);
   }
   
   size_t pos = 0;
@@ -111,7 +111,7 @@ string srs_string_replace(const string& str,
     ret = ret.replace(pos, old_str.length(), new_str);
   }
   
-  return ret;
+  return std::move(ret);
 }
 
 vector<string> srs_string_split(const string& s, const string& seperator) {

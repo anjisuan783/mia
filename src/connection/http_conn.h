@@ -39,10 +39,10 @@ class MediaHttpConn : public IMediaConnection,
  
  protected:
   std::shared_ptr<IHttpRequestReader>  reader_;
-  std::shared_ptr<IHttpResponseWriter> writer_;
   std::unique_ptr<IHttpMessageParser>  parser_;
   IMediaHttpHandler* http_mux_;
   std::unique_ptr<MediaHttpCorsMux> cors_;
+  std::unique_ptr<IHttpProtocalFactory> factory_;
 };
 
 class MediaResponseOnlyHttpConn : public MediaHttpConn {
@@ -50,6 +50,8 @@ class MediaResponseOnlyHttpConn : public MediaHttpConn {
  public:
   MediaResponseOnlyHttpConn(std::unique_ptr<IHttpProtocalFactory> fac, IMediaHttpHandler* m);
   ~MediaResponseOnlyHttpConn();
+ private:
+  srs_error_t process_request(std::string_view) override;
 };
 
 }

@@ -122,13 +122,7 @@ public:
     return body_eof_;
   }
 
-  void on_body(std::string_view data) {
-    body_.append(data.data(), data.length());
-
-    SignalOnBody_(body_);
-
-    body_.clear();
-  }
+  void on_body(std::string_view data);
   
  private:
   uint8_t method_i();
@@ -141,6 +135,7 @@ public:
   
   uint16_t status_;
   int64_t content_length_{-1};
+  int64_t body_recv_length_{0};
 
   std::string body_;
 
@@ -151,7 +146,7 @@ public:
   // Whether the request indicates should keep alive for the http connection.
   bool keep_alive_{true};
   // Whether the body is chunked.
-  bool chunked{false};
+  bool chunked_{false};
 
   std::string schema_{"http"};
   // The parsed url.
