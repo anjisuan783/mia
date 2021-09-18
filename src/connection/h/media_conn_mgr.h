@@ -27,7 +27,6 @@ class MediaConnMgr {
   enum ConnType {
     e_unknow,
     e_http,
-    e_https,
     e_flv,
     e_rtmp
   };

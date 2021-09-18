@@ -15,6 +15,7 @@
 #include "utils/sigslot.h"
 #include "common/media_kernel_error.h"
 #include "common/media_log.h"
+#include "encoder/media_codec.h"
 
 namespace ma {
 
@@ -22,6 +23,8 @@ class IHttpResponseWriter;
 class MediaRequest;
 class MediaSource;
 class ISrsHttpMessage;
+class SrsFileWriter;
+class StapPackage;
 
 //MediaRtcSource
 class MediaRtcSource  final 
@@ -59,6 +62,15 @@ class MediaRtcSource  final
 
   //ITaskQueue implment
   void post(Task) override;
+
+  srs_error_t PacketVideoKeyFrame(StapPackage& nalus);
+  srs_error_t PacketVideoRtmp(StapPackage& nalus) ;
+  srs_error_t PacketVideo(const owt_base::Frame& frm);
+  srs_error_t PacketAudio(const owt_base::Frame& frm);
+
+  //for debug
+  void open_dump();
+  void dump_video(uint8_t * buf, uint32_t count);
  private:
   std::string stream_id_;
   std::shared_ptr<IHttpResponseWriter> writer_;
@@ -69,6 +81,9 @@ class MediaRtcSource  final
   std::shared_ptr<wa::Worker> worker_;
 
   wa::rtc_api* rtc_{nullptr};
+
+  std::unique_ptr<SrsFileWriter> video_writer_;
+  bool debug_{true};
 };
 
 } //namespace ma

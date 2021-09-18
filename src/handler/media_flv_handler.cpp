@@ -227,8 +227,6 @@ void StreamEntry::consumer_push(customer& c, std::vector<std::shared_ptr<MediaMe
 bool StreamEntry::on_timer() {
   RTC_DCHECK_RUN_ON(&thread_check_);
 
-  MLOG_TRACE("on_timer");
-  
   bool result = true;
   if (conns_customers_.empty()) {
     return result = false;

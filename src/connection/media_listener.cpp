@@ -14,11 +14,30 @@
 namespace ma {
 static log4cxx::LoggerPtr logger = log4cxx::Logger::getLogger("listener");
 
+void MediaListenerMgr::IMediaListener::OnNewConnectionEvent(
+  rtc::AsyncPacketSocket* s, rtc::AsyncPacketSocket* c) {
+  MLOG_INFO("new peer:" << c->GetRemoteAddress().ToString() << 
+      ", from:" << s->GetLocalAddress().ToString());
+
+  auto factory = CreateDefaultHttpProtocalFactory(s, c);
+  
+  auto conn = g_conn_mgr_.CreateConnection(MediaConnMgr::e_http, std::move(factory));
+
+  conn->Start();
+}
+
+int MediaListenerMgr::IMediaListener::GetSocketType() {
+  return rtc::PacketSocketFactory::OPT_RAW |
+    rtc::PacketSocketFactory::OPT_ADDRESS_REUSE;
+}
+
 //MediaRtmpListener
 class MediaRtmpListener : public MediaListenerMgr::IMediaListener {
  public:
-  int Listen(const rtc::SocketAddress&, rtc::PacketSocketFactory*) override;
-  void OnNewConnectionEvent(rtc::AsyncPacketSocket*, rtc::AsyncPacketSocket*) override;
+  int Listen(const rtc::SocketAddress&, 
+             rtc::PacketSocketFactory*) override;
+  void OnNewConnectionEvent(rtc::AsyncPacketSocket*, 
+                            rtc::AsyncPacketSocket*) override;
 };
 
 void MediaRtmpListener::OnNewConnectionEvent(rtc::AsyncPacketSocket* s, 
@@ -31,7 +50,7 @@ int MediaRtmpListener::Listen(const rtc::SocketAddress& address,
                               rtc::PacketSocketFactory* factory) {
   
   rtc::AsyncPacketSocket* s = factory->CreateServerTcpSocket(
-      address, 0, 0, rtc::PacketSocketFactory::OPT_RAW);
+      address, 0, 0, GetSocketType());
 
   if (!s) {
     return kma_listen_failed;
@@ -51,21 +70,19 @@ class MediaHttpListener : public MediaListenerMgr::IMediaListener {
              rtc::PacketSocketFactory*) override;
   void OnNewConnectionEvent(rtc::AsyncPacketSocket*, 
                             rtc::AsyncPacketSocket*) override;
-
 };
 
 int MediaHttpListener::Listen(const rtc::SocketAddress& address, 
                               rtc::PacketSocketFactory* factory) {
   
   rtc::AsyncPacketSocket* s = factory->CreateServerTcpSocket(
-      address, 0, 0, rtc::PacketSocketFactory::OPT_RAW|
-                       rtc::PacketSocketFactory::OPT_ADDRESS_REUSE);
+      address, 0, 0, this->GetSocketType());
 
   if (!s) {
     return kma_listen_failed;
   }
   listen_socket_.reset(s);
-  
+
   listen_socket_->SignalNewConnection.connect(
       this, &MediaHttpListener::OnNewConnectionEvent);
 
@@ -74,37 +91,45 @@ int MediaHttpListener::Listen(const rtc::SocketAddress& address,
 
 void MediaHttpListener::OnNewConnectionEvent(rtc::AsyncPacketSocket* s, 
                                              rtc::AsyncPacketSocket* c) {
-  MLOG_INFO("new peer:" << c->GetRemoteAddress().ToString() << 
-            ", from:" << s->GetLocalAddress().ToString());
-  
-  auto factory = CreateDefaultHttpProtocalFactory(s, c);
-  
-  auto conn = g_conn_mgr_.CreateConnection(MediaConnMgr::e_http, std::move(factory));
-
-  conn->Start();
+  IMediaListener::OnNewConnectionEvent(s, c);
 }
 
 //MediaHttpsListener
 class MediaHttpsListener : public MediaListenerMgr::IMediaListener {
  public:
-  int Listen(const rtc::SocketAddress&, rtc::PacketSocketFactory*) override;
-  void OnNewConnectionEvent(rtc::AsyncPacketSocket*, rtc::AsyncPacketSocket*) override;
+  int Listen(const rtc::SocketAddress&, 
+             rtc::PacketSocketFactory*) override;
+  void OnNewConnectionEvent(rtc::AsyncPacketSocket*, 
+                            rtc::AsyncPacketSocket*) override;
+ private:
+  int GetSocketType() override;
 };
 
-int MediaHttpsListener::Listen(const rtc::SocketAddress&, rtc::PacketSocketFactory*) {
+int MediaHttpsListener::Listen(const rtc::SocketAddress& address, 
+                               rtc::PacketSocketFactory* factory) {
+  rtc::AsyncPacketSocket* s = factory->CreateServerTcpSocket(
+        address, 0, 0, this->GetSocketType());
+  
+  if (!s) {
+    return kma_listen_failed;
+  }
+  listen_socket_.reset(s);
+
+  listen_socket_->SignalNewConnection.connect(
+      this, &MediaHttpsListener::OnNewConnectionEvent);
+
   return kma_ok;
 }
 
 void MediaHttpsListener::OnNewConnectionEvent(rtc::AsyncPacketSocket* s, 
                                               rtc::AsyncPacketSocket* c) {
-  MLOG_INFO("new peer:" << c->GetRemoteAddress().ToString() << 
-            ", from:" << s->GetLocalAddress().ToString());
-  
-  auto factory = CreateDefaultHttpProtocalFactory(s, c);
-  
-  auto conn = g_conn_mgr_.CreateConnection(MediaConnMgr::e_https, std::move(factory));
+  IMediaListener::OnNewConnectionEvent(s, c);
+}
 
-  conn->Start();
+int MediaHttpsListener::GetSocketType() {
+  return rtc::PacketSocketFactory::OPT_RAW |
+         rtc::PacketSocketFactory::OPT_SSLTCP|
+         rtc::PacketSocketFactory::OPT_ADDRESS_REUSE;
 }
 
 //MediaListenerMgr

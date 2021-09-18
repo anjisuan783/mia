@@ -373,6 +373,9 @@ enum SrsAvcNaluType
 };
 std::string srs_avc_nalu2str(SrsAvcNaluType nalu_type);
 
+// H.264 nalu header type mask.
+const uint8_t kNalTypeMask      = 0x1F;
+
 /**
  * Table 7-6 – Name association to slice_type
  * ISO_IEC_14496-10-AVC-2012.pdf, page 105.

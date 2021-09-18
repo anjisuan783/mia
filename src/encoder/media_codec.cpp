@@ -8,9 +8,6 @@ namespace ma
 
 static log4cxx::LoggerPtr logger = log4cxx::Logger::getLogger("media_codec");
 
-// H.264 nalu header type mask.
-const uint8_t kNalTypeMask      = 0x1F;
-
 srs_error_t srs_avc_nalu_read_bit(SrsBitBuffer* stream, int8_t& v)
 {
     srs_error_t err = srs_success;

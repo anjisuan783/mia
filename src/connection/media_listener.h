@@ -27,8 +27,9 @@ class MediaListenerMgr {
     virtual int Listen(const rtc::SocketAddress&, 
                        rtc::PacketSocketFactory*) = 0;
     virtual void OnNewConnectionEvent(
-        rtc::AsyncPacketSocket*, rtc::AsyncPacketSocket*) = 0;
-
+      rtc::AsyncPacketSocket*, rtc::AsyncPacketSocket*);
+   protected:
+    virtual int GetSocketType();  
    protected:
     std::unique_ptr<rtc::AsyncPacketSocket> listen_socket_;
   };

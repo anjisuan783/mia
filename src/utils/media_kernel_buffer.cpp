@@ -8,6 +8,7 @@
 
 #include<cstring>
 #include "common/media_kernel_error.h"
+#include "utils/media_msg_chain.h"
 
 using namespace std;
 
@@ -21,58 +22,55 @@ ISrsCodec::ISrsCodec() = default;
 
 ISrsCodec::~ISrsCodec() = default;
 
-SrsBuffer::SrsBuffer(char* b, int nn)
-{
+SrsBuffer::SrsBuffer(char* b, int nn) {
   p = bytes = b;
   nb_bytes = nn;
 }
 
+SrsBuffer::SrsBuffer(MessageChain& mc) {
+  assert(mc.GetNext() == nullptr);
+  p = bytes = mc.GetFirstMsgWritePtr();
+  nb_bytes = mc.GetFirstMsgSpace();
+  mc.AdvanceChainedWritePtr(nb_bytes);
+}
+
 SrsBuffer::~SrsBuffer() = default;
 
-SrsBuffer* SrsBuffer::copy()
-{
+SrsBuffer* SrsBuffer::copy() {
   SrsBuffer* cp = new SrsBuffer(bytes, nb_bytes);
   cp->p = p;
   return cp;
 }
 
-char* SrsBuffer::data()
-{
+char* SrsBuffer::data() {
   return bytes;
 }
 
-char* SrsBuffer::head()
-{
+char* SrsBuffer::head() {
   return p;
 }
 
-int SrsBuffer::size()
-{
+int SrsBuffer::size() {
   return nb_bytes;
 }
 
-void SrsBuffer::set_size(int v)
-{
+void SrsBuffer::set_size(int v) {
   nb_bytes = v;
 }
 
-int SrsBuffer::pos()
-{
+int SrsBuffer::pos() {
   return (int)(p - bytes);
 }
 
-int SrsBuffer::left()
-{
+int SrsBuffer::left() {
   return nb_bytes - (int)(p - bytes);
 }
 
-bool SrsBuffer::empty()
-{
+bool SrsBuffer::empty() {
   return !bytes || (p >= bytes + nb_bytes);
 }
 
-bool SrsBuffer::require(int required_size)
-{
+bool SrsBuffer::require(int required_size) {
   if (required_size < 0) {
       return false;
   }
@@ -80,8 +78,7 @@ bool SrsBuffer::require(int required_size)
   return required_size <= nb_bytes - (p - bytes);
 }
 
-void SrsBuffer::skip(int size)
-{
+void SrsBuffer::skip(int size) {
   srs_assert(p);
   srs_assert(p + size >= bytes);
   srs_assert(p + size <= bytes + nb_bytes);
@@ -89,15 +86,13 @@ void SrsBuffer::skip(int size)
   p += size;
 }
 
-int8_t SrsBuffer::read_1bytes()
-{
+int8_t SrsBuffer::read_1bytes() {
   srs_assert(require(1));
   
   return (int8_t)*p++;
 }
 
-int16_t SrsBuffer::read_2bytes()
-{
+int16_t SrsBuffer::read_2bytes() {
   srs_assert(require(2));
   
   int16_t value;
@@ -108,8 +103,7 @@ int16_t SrsBuffer::read_2bytes()
   return value;
 }
 
-int16_t SrsBuffer::read_le2bytes()
-{
+int16_t SrsBuffer::read_le2bytes() {
   srs_assert(require(2));
 
   int16_t value;
@@ -120,8 +114,7 @@ int16_t SrsBuffer::read_le2bytes()
   return value;
 }
 
-int32_t SrsBuffer::read_3bytes()
-{
+int32_t SrsBuffer::read_3bytes() {
   srs_assert(require(3));
   
   int32_t value = 0x00;
@@ -133,8 +126,7 @@ int32_t SrsBuffer::read_3bytes()
   return value;
 }
 
-int32_t SrsBuffer::read_le3bytes()
-{
+int32_t SrsBuffer::read_le3bytes() {
   srs_assert(require(3));
 
   int32_t value = 0x00;
@@ -146,8 +138,7 @@ int32_t SrsBuffer::read_le3bytes()
   return value;
 }
 
-int32_t SrsBuffer::read_4bytes()
-{
+int32_t SrsBuffer::read_4bytes() {
   srs_assert(require(4));
   
   int32_t value;
@@ -160,8 +151,7 @@ int32_t SrsBuffer::read_4bytes()
   return value;
 }
 
-int32_t SrsBuffer::read_le4bytes()
-{
+int32_t SrsBuffer::read_le4bytes() {
   srs_assert(require(4));
 
   int32_t value;
@@ -174,8 +164,7 @@ int32_t SrsBuffer::read_le4bytes()
   return value;
 }
 
-int64_t SrsBuffer::read_8bytes()
-{
+int64_t SrsBuffer::read_8bytes() {
   srs_assert(require(8));
   
   int64_t value;
@@ -192,8 +181,7 @@ int64_t SrsBuffer::read_8bytes()
   return value;
 }
 
-int64_t SrsBuffer::read_le8bytes()
-{
+int64_t SrsBuffer::read_le8bytes() {
   srs_assert(require(8));
 
   int64_t value;
@@ -210,8 +198,7 @@ int64_t SrsBuffer::read_le8bytes()
   return value;
 }
 
-string SrsBuffer::read_string(int len)
-{
+string SrsBuffer::read_string(int len) {
   srs_assert(require(len));
   
   std::string value;
@@ -222,8 +209,7 @@ string SrsBuffer::read_string(int len)
   return value;
 }
 
-void SrsBuffer::read_bytes(char* data, int size)
-{
+void SrsBuffer::read_bytes(char* data, int size) {
   srs_assert(require(size));
   
   memcpy(data, p, size);
@@ -231,15 +217,13 @@ void SrsBuffer::read_bytes(char* data, int size)
   p += size;
 }
 
-void SrsBuffer::write_1bytes(int8_t value)
-{
+void SrsBuffer::write_1bytes(int8_t value) {
   srs_assert(require(1));
   
   *p++ = value;
 }
 
-void SrsBuffer::write_2bytes(int16_t value)
-{
+void SrsBuffer::write_2bytes(int16_t value) {
   srs_assert(require(2));
   
   char* pp = (char*)&value;
@@ -247,8 +231,7 @@ void SrsBuffer::write_2bytes(int16_t value)
   *p++ = pp[0];
 }
 
-void SrsBuffer::write_le2bytes(int16_t value)
-{
+void SrsBuffer::write_le2bytes(int16_t value) {
   srs_assert(require(2));
 
   char* pp = (char*)&value;
@@ -256,8 +239,7 @@ void SrsBuffer::write_le2bytes(int16_t value)
   *p++ = pp[1];
 }
 
-void SrsBuffer::write_4bytes(int32_t value)
-{
+void SrsBuffer::write_4bytes(int32_t value) {
   srs_assert(require(4));
   
   char* pp = (char*)&value;
@@ -267,8 +249,7 @@ void SrsBuffer::write_4bytes(int32_t value)
   *p++ = pp[0];
 }
 
-void SrsBuffer::write_le4bytes(int32_t value)
-{
+void SrsBuffer::write_le4bytes(int32_t value) {
   srs_assert(require(4));
 
   char* pp = (char*)&value;
@@ -278,8 +259,7 @@ void SrsBuffer::write_le4bytes(int32_t value)
   *p++ = pp[3];
 }
 
-void SrsBuffer::write_3bytes(int32_t value)
-{
+void SrsBuffer::write_3bytes(int32_t value) {
   srs_assert(require(3));
   
   char* pp = (char*)&value;
@@ -288,8 +268,7 @@ void SrsBuffer::write_3bytes(int32_t value)
   *p++ = pp[0];
 }
 
-void SrsBuffer::write_le3bytes(int32_t value)
-{
+void SrsBuffer::write_le3bytes(int32_t value) {
   srs_assert(require(3));
 
   char* pp = (char*)&value;
@@ -298,8 +277,7 @@ void SrsBuffer::write_le3bytes(int32_t value)
   *p++ = pp[2];
 }
 
-void SrsBuffer::write_8bytes(int64_t value)
-{
+void SrsBuffer::write_8bytes(int64_t value) {
   srs_assert(require(8));
   
   char* pp = (char*)&value;
@@ -313,8 +291,7 @@ void SrsBuffer::write_8bytes(int64_t value)
   *p++ = pp[0];
 }
 
-void SrsBuffer::write_le8bytes(int64_t value)
-{
+void SrsBuffer::write_le8bytes(int64_t value) {
   srs_assert(require(8));
 
   char* pp = (char*)&value;
@@ -328,24 +305,21 @@ void SrsBuffer::write_le8bytes(int64_t value)
   *p++ = pp[7];
 }
 
-void SrsBuffer::write_string(string value)
-{
+void SrsBuffer::write_string(string value) {
   srs_assert(require((int)value.length()));
   
   memcpy(p, value.data(), value.length());
   p += value.length();
 }
 
-void SrsBuffer::write_bytes(char* data, int size)
-{
+void SrsBuffer::write_bytes(char* data, int size) {
   srs_assert(require(size));
   
   memcpy(p, data, size);
   p += size;
 }
 
-SrsBitBuffer::SrsBitBuffer(SrsBuffer* b)
-{
+SrsBitBuffer::SrsBitBuffer(SrsBuffer* b) {
   cb = 0;
   cb_left = 0;
   stream = b;

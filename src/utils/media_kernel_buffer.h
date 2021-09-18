@@ -75,6 +75,7 @@ public:
     virtual srs_error_t decode(SrsBuffer* buf) = 0;
 };
 
+class MessageChain;
 /**
  * bytes utility, used to:
  * convert basic types to bytes,
@@ -94,6 +95,7 @@ public:
     // Create buffer with data b and size nn.
     // @remark User must free the data b.
     SrsBuffer(char* b, int nn);
+    SrsBuffer(MessageChain&);
     ~SrsBuffer();
 public:
     // Copy the object, keep position of buffer.
