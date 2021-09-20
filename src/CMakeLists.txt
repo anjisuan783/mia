@@ -44,10 +44,11 @@ include_directories(
 	${CMAKE_CURRENT_SOURCE_DIR}/../../../include/platform
 	${CMAKE_CURRENT_SOURCE_DIR}/../../../platform/include
 	${CMAKE_CURRENT_SOURCE_DIR}/../../..
-	${CMAKE_CURRENT_SOURCE_DIR}/../../rtc_stack/src
-	${CMAKE_CURRENT_SOURCE_DIR}/../../rtc_stack/src/myrtc
-	${CMAKE_CURRENT_SOURCE_DIR}/../../rtc_stack/src/owt
-	${CMAKE_CURRENT_SOURCE_DIR}/../../rtc_stack/src/3rd/abseil-cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/../build/libdeps/build/include
+	${CMAKE_CURRENT_SOURCE_DIR}/../3rd/rtc_stack/src
+	${CMAKE_CURRENT_SOURCE_DIR}/../3rd/rtc_stack/src/myrtc
+	${CMAKE_CURRENT_SOURCE_DIR}/../3rd/rtc_stack/src/owt
+	${CMAKE_CURRENT_SOURCE_DIR}/../3rd/rtc_stack/src/3rd/abseil-cpp
 )
 
 set(

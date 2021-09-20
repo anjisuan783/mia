@@ -36,8 +36,8 @@ class MediaServerApi {
 
     //for rtc
     uint32_t rtc_workers_{1};
-    std::vector<std::string> rtc_addr_;
-    std::string rtc_stun_addr_;
+    std::vector<std::string> candidates_;  //local candidates [ip]
+    std::string stun_addr_;            //[ip:port]
   };
  
   virtual ~MediaServerApi() { }

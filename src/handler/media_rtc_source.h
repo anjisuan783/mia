@@ -25,6 +25,8 @@ class MediaSource;
 class ISrsHttpMessage;
 class SrsFileWriter;
 class StapPackage;
+class MediaMessage;
+class SrsAudioTranscoder;
 
 //MediaRtcSource
 class MediaRtcSource  final 
@@ -66,7 +68,8 @@ class MediaRtcSource  final
   srs_error_t PacketVideoKeyFrame(StapPackage& nalus);
   srs_error_t PacketVideoRtmp(StapPackage& nalus) ;
   srs_error_t PacketVideo(const owt_base::Frame& frm);
-  srs_error_t PacketAudio(const owt_base::Frame& frm);
+  srs_error_t Trancode_audio(const owt_base::Frame& frm);
+  std::shared_ptr<MediaMessage> PacketAudio(char* data, int len, uint32_t pts, bool is_header);
 
   //for debug
   void open_dump();
@@ -84,6 +87,9 @@ class MediaRtcSource  final
 
   std::unique_ptr<SrsFileWriter> video_writer_;
   bool debug_{true};
+
+  std::unique_ptr<SrsAudioTranscoder> codec_;
+  bool is_first_audio_{true};
 };
 
 } //namespace ma

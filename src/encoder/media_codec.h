@@ -203,6 +203,8 @@ enum SrsAudioCodecId
     SrsAudioCodecIdReservedDeviceSpecificSound = 15,
 };
 
+std::string srs_audio_codec_id2str(SrsAudioCodecId codec);
+
 /**
  * The frame type, for example, audio, video or data.
  * @doc video_file_format_spec_v10_1.pdf, page 75, E.4.1 FLV Tag

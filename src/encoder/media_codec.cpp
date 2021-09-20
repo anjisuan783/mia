@@ -8,6 +8,34 @@ namespace ma
 
 static log4cxx::LoggerPtr logger = log4cxx::Logger::getLogger("media_codec");
 
+std::string srs_audio_codec_id2str(SrsAudioCodecId codec)
+{
+  switch (codec) {
+    case SrsAudioCodecIdAAC:
+        return "AAC";
+    case SrsAudioCodecIdMP3:
+        return "MP3";
+    case SrsAudioCodecIdOpus:
+        return "Opus";
+    case SrsAudioCodecIdReserved1:
+    case SrsAudioCodecIdLinearPCMPlatformEndian:
+    case SrsAudioCodecIdADPCM:
+    case SrsAudioCodecIdLinearPCMLittleEndian:
+    case SrsAudioCodecIdNellymoser16kHzMono:
+    case SrsAudioCodecIdNellymoser8kHzMono:
+    case SrsAudioCodecIdNellymoser:
+    case SrsAudioCodecIdReservedG711AlawLogarithmicPCM:
+    case SrsAudioCodecIdReservedG711MuLawLogarithmicPCM:
+    case SrsAudioCodecIdReserved:
+    case SrsAudioCodecIdSpeex:
+    case SrsAudioCodecIdReservedMP3_8kHz:
+    case SrsAudioCodecIdReservedDeviceSpecificSound:
+    default:
+        return "Other";
+  }
+}
+
+
 srs_error_t srs_avc_nalu_read_bit(SrsBitBuffer* stream, int8_t& v)
 {
     srs_error_t err = srs_success;

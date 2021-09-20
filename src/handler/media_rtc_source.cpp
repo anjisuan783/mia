@@ -1,5 +1,6 @@
 #include "handler/media_rtc_source.h"
 
+#include "myrtc/rtp_rtcp/rtp_packet.h"
 #include "h/rtc_return_value.h"
 #include "utils/json.h"
 #include "utils/protocol_utility.h"
@@ -13,6 +14,7 @@
 #include "common/media_io.h"
 #include "utils/media_kernel_buffer.h"
 #include "utils/media_msg_chain.h"
+#include "encoder/media_rtc_codec.h"
 
 namespace ma {
 
@@ -20,7 +22,9 @@ namespace ma {
 
 MDEFINE_LOGGER(MediaRtcSource, "MediaRtcSource");
 
+// 00 00 00 01
 const uint32_t kNaluLongStartSequence = 0x1000000;
+// 00 00 01
 const uint32_t kNaluShortStartSequence = 0x10000;
 
 // StapPackage STAP-A, for multiple NALUs.
@@ -249,6 +253,18 @@ srs_error_t MediaRtcSource::Init_i(const std::string& isdp) {
     err = srs_error_wrap(err, "rtc publish failed, code:%d", ret);
   }
 
+  codec_ = std::move(std::make_unique<SrsAudioTranscoder>());
+
+  SrsAudioCodecId from = SrsAudioCodecIdOpus; // TODO: From SDP?
+  SrsAudioCodecId to = SrsAudioCodecIdAAC; // The output audio codec.
+  int channels = 2; // The output audio channels.
+  int sample_rate = 44100; // The output audio sample rate in HZ.
+  int bitrate = 128000; // The output audio bitrate in bps.
+  if ((err = codec_->initialize(from, to, channels, sample_rate, bitrate)) != srs_success) {
+    assert(false);
+    return srs_error_wrap(err, "transcoder initialize");
+  }
+  
   return err;
 }
 
@@ -405,23 +421,97 @@ srs_error_t MediaRtcSource::PacketVideo(const owt_base::Frame& frm) {
   return PacketVideoRtmp(pkg);
 }
 
-srs_error_t MediaRtcSource::PacketAudio(const owt_base::Frame& f) {
+std::shared_ptr<MediaMessage> MediaRtcSource::PacketAudio( 
+    char* data, int len, uint32_t pts, bool is_header) {
+  int rtmp_len = len + 2;
+  MessageChain mc(rtmp_len);
+  SrsBuffer stream(mc);
+  uint8_t aac_flag = (SrsAudioCodecIdAAC << 4) | 
+                     (SrsAudioSampleRate44100 << 2) | 
+                     (SrsAudioSampleBits16bit << 1) | 
+                     SrsAudioChannelsStereo;
+  stream.write_1bytes(aac_flag);
+  if (is_header) {
+    stream.write_1bytes(0);
+  } else {
+    stream.write_1bytes(1);
+  }
+  stream.write_bytes(data, len);
+
+  MessageHeader header;
+  header.initialize_audio(rtmp_len, pts, 1);
+  auto audio = std::make_shared<MediaMessage>();
+  audio->create(&header, &mc);
+
+  return std::move(audio);
+}
+
+srs_error_t MediaRtcSource::Trancode_audio(const owt_base::Frame& frm) {
+  MA_ASSERT(frm.additionalInfo.audio.isRtpPacket);
   srs_error_t err = srs_success;
+
+  uint32_t ts = frm.timeStamp/(48000/1000);
+  if (is_first_audio_) {
+    //audio sequence header
+    int header_len = 0;
+    uint8_t* header = nullptr;
+    codec_->aac_codec_header(&header, &header_len);
+
+    auto out_rtmp = PacketAudio((char*)header, header_len, ts, is_first_audio_);
+
+    if ((err = source_->on_audio(out_rtmp)) != srs_success) {
+      return srs_error_wrap(err, "source on audio");
+    }
+
+    is_first_audio_ = false;
+  }
+
+  std::vector<SrsAudioFrame*> out_pkts;
+
+  webrtc::RtpPacket rtp;
+  bool ret = rtp.Parse(frm.payload, frm.length);
+  MA_ASSERT(ret);
+  MLOG_DEBUG(rtp.ToString());
+  auto payload = rtp.payload();
+  MLOG_CDEBUG("opus len:%d payload:%llx", payload.size(), payload.data());
+  SrsAudioFrame frame;
+  frame.add_sample((char*)payload.data(), payload.size());
+  frame.dts = ts;
+  frame.cts = 0;
+
+  err = codec_->transcode(&frame, out_pkts);
+  if (err != srs_success) {
+    return err;
+  }
+
+  for (auto it = out_pkts.begin(); it != out_pkts.end(); ++it) {
+    auto out_rtmp = PacketAudio((*it)->samples[0].bytes, (*it)->samples[0].size, ts, is_first_audio_);
+
+    if ((err = source_->on_audio(out_rtmp)) != srs_success) {
+      err = srs_error_wrap(err, "source on audio");
+      break;
+    }
+  }
+  codec_->free_frames(out_pkts);
+
   return err;
 }
 
 void MediaRtcSource::onFrame(const owt_base::Frame& frm) {
   srs_error_t err = srs_success;
   if (frm.format == owt_base::FRAME_FORMAT_OPUS) {
-    if ((err = PacketAudio(frm)) != srs_success) {
+    if ((err = Trancode_audio(frm)) != srs_success) {
+      MLOG_CERROR("transcode audio failed, code:%d, desc:%s",
+          srs_error_code(err), srs_error_desc(err));
       delete err;
     }
   } else if (frm.format == owt_base::FRAME_FORMAT_H264 ) {
     if ((err = PacketVideo(frm)) != srs_success) {
+      MLOG_CERROR("packet video failed, code:%d, desc:%s",
+          srs_error_code(err), srs_error_desc(err));
       delete err;
     }
     dump_video(frm.payload, frm.length);
-    //MLOG_CINFO("ts:%d, len:%d", frm.timeStamp, frm.length);
   } else {
     MLOG_CFATAL("unknown media format:%d", frm.format);
   }

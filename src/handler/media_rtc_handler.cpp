@@ -86,7 +86,13 @@ response
     sessionid:string // 该路推流的唯一id
   }
 }
-rtc_server.h
+
+HTTP响应code码
+200:  正常影响
+400:  请求不正确，URL 或者 参数不正确
+403:  鉴权失败
+404:  该流不存在
+500:  服务内部异常 
 
 @see https://github.com/rtcdn/rtcdn-draft
 */
@@ -147,8 +153,8 @@ MediaHttpRtcServeMux::~MediaHttpRtcServeMux() = default;
 
 srs_error_t MediaHttpRtcServeMux::init() {
   int ret = api_->initiate(g_server_.config_.rtc_workers_,
-                           g_server_.config_.rtc_addr_,
-                           g_server_.config_.rtc_stun_addr_);
+                           g_server_.config_.candidates_,
+                           g_server_.config_.stun_addr_);
 
   srs_error_t err = srs_success;
   if (ret != wa::wa_ok) {

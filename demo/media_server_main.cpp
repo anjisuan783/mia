@@ -24,8 +24,8 @@ int main(int argc, char* argv[]) {
   ma::MediaServerApi::config _config;
   _config.listen_addr_.push_back("rtmp://0.0.0.0:1936");
   _config.listen_addr_.push_back("http://0.0.0.0:8080");
-  _config.rtc_addr_.push_back("192.168.1.156");
-  _config.rtc_stun_addr_ = "udp://192.168.1.156:9000";
+  _config.candidates_.push_back("192.168.0.156");
+  _config.stun_addr_ = "udp://192.168.1.156:9000";
   
   ma::MediaServerApi* server = ma::MediaServerFactory().Create();
   int ret = server->Init(_config);
