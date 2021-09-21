@@ -9,6 +9,7 @@
 #define __MEDIA_IO_H__
 
 #include <sys/uio.h>
+#include <memory>
 
 #include "common/media_log.h"
 #include "common/media_kernel_error.h"
@@ -93,9 +94,7 @@ public:
   virtual ~ISrsWriteSeeker() = default;
 };
 
-
-class SrsFileWriter : public ISrsWriteSeeker
-{
+class SrsFileWriter : public ISrsWriteSeeker {
   MDECLARE_LOGGER();
 private:
   std::string path;
@@ -136,9 +135,9 @@ class IHttpResponseWriter;
 class SrsBufferWriter : public SrsFileWriter
 {
 private:
-  IHttpResponseWriter* writer;
+  std::shared_ptr<IHttpResponseWriter> writer;
 public:
-  SrsBufferWriter(IHttpResponseWriter* w);
+  SrsBufferWriter(std::shared_ptr<IHttpResponseWriter> w);
   virtual ~SrsBufferWriter() = default;
 public:
   srs_error_t open(const std::string& file) override;

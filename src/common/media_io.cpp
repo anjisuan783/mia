@@ -155,9 +155,9 @@ srs_error_t SrsFileWriter::lseek(off_t offset, int whence, off_t* seeked)
   return srs_success;
 }
 
-SrsBufferWriter::SrsBufferWriter(IHttpResponseWriter* w)
+SrsBufferWriter::SrsBufferWriter(std::shared_ptr<IHttpResponseWriter> w)
 {
-  writer = w;
+  writer = std::move(w);
 }
 
 srs_error_t SrsBufferWriter::open(const std::string& /*file*/)

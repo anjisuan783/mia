@@ -86,10 +86,13 @@ class MediaRtcSource  final
   wa::rtc_api* rtc_{nullptr};
 
   std::unique_ptr<SrsFileWriter> video_writer_;
-  bool debug_{true};
+  bool debug_{false};
 
   std::unique_ptr<SrsAudioTranscoder> codec_;
   bool is_first_audio_{true};
+
+  uint32_t video_begin_ts_{(uint32_t)-1};
+  uint32_t audio_begin_ts_{(uint32_t)-1};
 };
 
 } //namespace ma

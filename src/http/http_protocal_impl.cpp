@@ -798,7 +798,7 @@ srs_error_t HttpResponseWriterProxy::final_request() {
   }
 
   std::weak_ptr<HttpResponseWriterProxy> weak_ptr = weak_from_this();
-  asyncTask([weak_ptr, this](std::shared_ptr<HttpResponseWriterProxy>) {
+  asyncTask([weak_ptr, this](auto) {
     auto this_ptr = weak_ptr.lock();
     if (!this_ptr){
       return;
@@ -848,8 +848,7 @@ srs_error_t HttpResponseWriterProxy::write(const char* data, int size) {
   }
 
   std::weak_ptr<HttpResponseWriterProxy> weak_ptr = weak_from_this();
-  asyncTask([weak_ptr, pmb=mb.DuplicateChained(), this]
-      (std::shared_ptr<HttpResponseWriterProxy>) {
+  asyncTask([weak_ptr, pmb=mb.DuplicateChained(), this] (auto) {
     auto this_ptr = weak_ptr.lock();
     if (!this_ptr){
       pmb->DestroyChained();
@@ -906,7 +905,7 @@ srs_error_t HttpResponseWriterProxy::writev(
   }
 
   std::weak_ptr<HttpResponseWriterProxy> weak_ptr = weak_from_this();
-  asyncTask([weak_ptr, data, this] (std::shared_ptr<HttpResponseWriterProxy>) {
+  asyncTask([weak_ptr, data, this] (auto) {
     auto this_ptr = weak_ptr.lock();
     if (!this_ptr){
       data->DestroyChained();
@@ -946,7 +945,7 @@ void HttpResponseWriterProxy::write_header(int code) {
   }
 
   std::weak_ptr<HttpResponseWriterProxy> weak_ptr = weak_from_this();
-  asyncTask([weak_ptr, code, this](std::shared_ptr<HttpResponseWriterProxy>){
+  asyncTask([weak_ptr, code, this] (auto){
     auto this_ptr = weak_ptr.lock();
     if (!this_ptr){
       return;

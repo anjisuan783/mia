@@ -22,6 +22,7 @@ int main(int argc, char* argv[]) {
   LOG4CXX_INFO(rootLogger, "init log4cxx with log4cxx.properties");
 
   ma::MediaServerApi::config _config;
+  _config.flv_record_ = true;
   _config.listen_addr_.push_back("rtmp://0.0.0.0:1936");
   _config.listen_addr_.push_back("http://0.0.0.0:8080");
   _config.candidates_.push_back("192.168.0.156");

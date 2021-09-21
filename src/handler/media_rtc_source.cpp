@@ -253,18 +253,6 @@ srs_error_t MediaRtcSource::Init_i(const std::string& isdp) {
     err = srs_error_wrap(err, "rtc publish failed, code:%d", ret);
   }
 
-  codec_ = std::move(std::make_unique<SrsAudioTranscoder>());
-
-  SrsAudioCodecId from = SrsAudioCodecIdOpus; // TODO: From SDP?
-  SrsAudioCodecId to = SrsAudioCodecIdAAC; // The output audio codec.
-  int channels = 2; // The output audio channels.
-  int sample_rate = 44100; // The output audio sample rate in HZ.
-  int bitrate = 128000; // The output audio bitrate in bps.
-  if ((err = codec_->initialize(from, to, channels, sample_rate, bitrate)) != srs_success) {
-    assert(false);
-    return srs_error_wrap(err, "transcoder initialize");
-  }
-  
   return err;
 }
 
@@ -408,8 +396,13 @@ srs_error_t MediaRtcSource::PacketVideoRtmp(StapPackage& pkg) {
 srs_error_t MediaRtcSource::PacketVideo(const owt_base::Frame& frm) {
   static constexpr int kVideoSamplerate  = 90000/SRS_UTIME_MILLISECONDS;
   srs_error_t err = srs_success;
+
+  uint32_t ts = frm.timeStamp/kVideoSamplerate;
+  if (video_begin_ts_ == (uint32_t)-1) {
+    video_begin_ts_ = ts;
+  }
   SrsBuffer buffer((char*)frm.payload, frm.length);
-  StapPackage pkg{frm.additionalInfo.video.isKeyFrame, frm.timeStamp/kVideoSamplerate};
+  StapPackage pkg{frm.additionalInfo.video.isKeyFrame, ts - video_begin_ts_};
   if ((err = pkg.decode(&buffer)) != srs_success) {
     return err;
   }
@@ -423,6 +416,10 @@ srs_error_t MediaRtcSource::PacketVideo(const owt_base::Frame& frm) {
 
 std::shared_ptr<MediaMessage> MediaRtcSource::PacketAudio( 
     char* data, int len, uint32_t pts, bool is_header) {
+  if (audio_begin_ts_ == (uint32_t)-1) {
+    audio_begin_ts_ = pts;
+  }
+  
   int rtmp_len = len + 2;
   MessageChain mc(rtmp_len);
   SrsBuffer stream(mc);
@@ -439,7 +436,7 @@ std::shared_ptr<MediaMessage> MediaRtcSource::PacketAudio(
   stream.write_bytes(data, len);
 
   MessageHeader header;
-  header.initialize_audio(rtmp_len, pts, 1);
+  header.initialize_audio(rtmp_len, pts - audio_begin_ts_, 1);
   auto audio = std::make_shared<MediaMessage>();
   audio->create(&header, &mc);
 
@@ -451,6 +448,7 @@ srs_error_t MediaRtcSource::Trancode_audio(const owt_base::Frame& frm) {
   srs_error_t err = srs_success;
 
   uint32_t ts = frm.timeStamp/(48000/1000);
+  
   if (is_first_audio_) {
     //audio sequence header
     int header_len = 0;
@@ -470,10 +468,8 @@ srs_error_t MediaRtcSource::Trancode_audio(const owt_base::Frame& frm) {
 
   webrtc::RtpPacket rtp;
   bool ret = rtp.Parse(frm.payload, frm.length);
-  MA_ASSERT(ret);
-  MLOG_DEBUG(rtp.ToString());
+  MA_ASSERT_RETURN(ret, srs_error_new(ERROR_RTC_FRAME_MUXER, "rtp parse failed"));
   auto payload = rtp.payload();
-  MLOG_CDEBUG("opus len:%d payload:%llx", payload.size(), payload.data());
   SrsAudioFrame frame;
   frame.add_sample((char*)payload.data(), payload.size());
   frame.dts = ts;
@@ -485,7 +481,10 @@ srs_error_t MediaRtcSource::Trancode_audio(const owt_base::Frame& frm) {
   }
 
   for (auto it = out_pkts.begin(); it != out_pkts.end(); ++it) {
-    auto out_rtmp = PacketAudio((*it)->samples[0].bytes, (*it)->samples[0].size, ts, is_first_audio_);
+    auto out_rtmp = PacketAudio((*it)->samples[0].bytes, 
+                                (*it)->samples[0].size, 
+                                ts, 
+                                is_first_audio_);
 
     if ((err = source_->on_audio(out_rtmp)) != srs_success) {
       err = srs_error_wrap(err, "source on audio");
@@ -500,6 +499,31 @@ srs_error_t MediaRtcSource::Trancode_audio(const owt_base::Frame& frm) {
 void MediaRtcSource::onFrame(const owt_base::Frame& frm) {
   srs_error_t err = srs_success;
   if (frm.format == owt_base::FRAME_FORMAT_OPUS) {
+    if (nullptr == codec_) {
+      codec_ = std::move(std::make_unique<SrsAudioTranscoder>());
+      
+      SrsAudioTranscoder::AudioFormat from, to;
+      from.codec = SrsAudioCodecIdOpus;
+      to.codec = SrsAudioCodecIdAAC;
+
+      from.samplerate = frm.additionalInfo.audio.sampleRate;  
+      from.bitpersample = 16;
+      from.channels = frm.additionalInfo.audio.channels;
+      from.bitrate = from.samplerate * from.bitpersample * from.channels;
+      
+      to.samplerate = 44100; // The output audio sample rate in HZ.
+      to.bitpersample = 16;
+      to.channels = 2;       //stero
+      to.bitrate = 48000; // The output audio bitrate in bps.
+
+      if ((err = codec_->initialize(from, to)) != srs_success) {
+        assert(false);
+        MLOG_CERROR("transcoder initialize failed, code:%d, desc:%s",
+            srs_error_code(err), srs_error_desc(err));
+        delete err;
+      }
+    }
+
     if ((err = Trancode_audio(frm)) != srs_success) {
       MLOG_CERROR("transcode audio failed, code:%d, desc:%s",
           srs_error_code(err), srs_error_desc(err));

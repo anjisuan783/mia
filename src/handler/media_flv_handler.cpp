@@ -256,7 +256,7 @@ srs_error_t StreamEntry::serve_http(std::shared_ptr<IHttpResponseWriter> writer,
     std::unique_ptr<ISrsBufferEncoder> encoder = std::make_unique<SrsFlvStreamEncoder>();
   
     // the memory writer.
-    std::unique_ptr<SrsFileWriter> bw = std::make_unique<SrsBufferWriter>(writer.get());
+    std::unique_ptr<SrsFileWriter> bw = std::make_unique<SrsBufferWriter>(writer);
     if ((err = encoder->initialize(bw.get(), nullptr)) != srs_success) {
       MLOG_CERROR("init encoder, code:%d, desc:%s", 
                   srs_error_code(err), srs_error_desc(err).c_str());

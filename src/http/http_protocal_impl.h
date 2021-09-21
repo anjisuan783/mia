@@ -227,7 +227,7 @@ class HttpResponseWriter final {
 
 class HttpResponseWriterProxy : public IHttpResponseWriter,
   public std::enable_shared_from_this<HttpResponseWriterProxy>,
-  public sigslot::has_slots<> {
+                                public sigslot::has_slots<> {
  public:
   HttpResponseWriterProxy(std::shared_ptr<AsyncSokcetWrapper> s, bool);
   ~HttpResponseWriterProxy() override;

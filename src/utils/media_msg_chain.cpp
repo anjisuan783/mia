@@ -331,8 +331,7 @@ int MessageChain::AdvanceChainedWritePtr(
   return error_part_data;
 }
 
-MessageChain* MessageChain::DuplicateChained()
-{
+MessageChain* MessageChain::DuplicateChained() {
 	MessageChain *pRet = nullptr;
 	MessageChain *pNewMove = nullptr;
 	MessageChain *pOldMove = this;
