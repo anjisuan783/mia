@@ -12,6 +12,7 @@ namespace ma {
 
 class SrsHttpHeader;
 class ISrsHttpMessage;
+class MessageChain;
 
 class IHttpRequestReader
 {
@@ -42,6 +43,8 @@ public:
   virtual SrsHttpHeader* header() = 0;
 
   virtual srs_error_t write(const char* data, int size) = 0;
+
+  virtual srs_error_t write(MessageChain* data, ssize_t* pnwrite) = 0;
 
   virtual srs_error_t writev(const iovec* iov, int iovcnt, ssize_t* pnwrite) = 0;
 

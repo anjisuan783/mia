@@ -38,13 +38,6 @@ std::shared_ptr<DataBlock> DataBlock::Create(
       new (pBuf) DataBlock(aSize, pData), DataBlockDeleter());
 }
 
-
-#define MA_BIT_ENABLED(dword, bit) (((dword) & (bit)) != 0)
-#define MA_BIT_DISABLED(dword, bit) (((dword) & (bit)) == 0)
-#define MA_BIT_CMP_MASK(dword, bit, mask) (((dword) & (bit)) == mask)
-#define MA_SET_BITS(dword, bits) (dword |= (bits))
-#define MA_CLR_BITS(dword, bits) (dword &= ~(bits))
-
 #ifndef MEDIA_NDEBUG
 	#define SELFCHECK_MessageChain(pmb) \
 	do { \
@@ -113,18 +106,16 @@ MessageChain::MessageChain(std::shared_ptr<DataBlock> aDb, MFlag aFlag) {
   MA_CLR_BITS(flag_, MessageChain::INTERNAL_MASK);
 }
 
-/*
-MessageChain::MessageChain(MessageChain && r)
-  : next_{r.next_},
-    data_block_{std::move(r.data_block_)},
-    read_{r.read_},
+MessageChain::MessageChain(const MessageChain& r)
+  : next_{r.next_}, 
+    data_block_{r.data_block_}, 
+    read_{r.read_}, 
     write_{r.write_},
     begin_{r.begin_},
     end_{r.end_},
     save_read_{r.save_read_},
-    flag_{r.end_}, {
+    flag_{r.flag_} {
 }
-*/
 
 MessageChain::~MessageChain() {
   ++ s_block_destoycount;
@@ -273,12 +264,16 @@ void MessageChain::Append(MessageChain *aMb) {
   MessageChain *pMbMove = this;
   while (pMbMove) {
     MA_ASSERT(aMb != pMbMove);
+    
+    //find last
     if (pMbMove->next_) {
       pMbMove = pMbMove->next_;
-    } else {
-      pMbMove->next_ = aMb;
-      return;
+      continue;
     }
+    
+    //last
+    pMbMove->next_ = aMb;
+    break;
   }
 }
 
@@ -332,8 +327,7 @@ int MessageChain::AdvanceChainedWritePtr(
 }
 
 MessageChain* MessageChain::DuplicateChained() {
-	MessageChain *pRet = nullptr;
-	MessageChain *pNewMove = nullptr;
+	MessageChain *pRet = nullptr, *pNewMove = nullptr;
 	MessageChain *pOldMove = this;
 
 	while (pOldMove) {
@@ -393,8 +387,8 @@ MessageChain* MessageChain::DuplicateFirstMsg() const {
 
   /// <DataBlock> maybe realloc if DONT_DELETE,
   /// so can't do "pRet->read_ = read_;"
-  pRet->read_ += read_ - begin_;
-  pRet->write_ += write_ - begin_;
+  pRet->read_ += (read_ - begin_);
+  pRet->write_ += (write_ - begin_);
   MA_SET_BITS(pRet->flag_, DUPLICATED);
   SELFCHECK_MessageChain(pRet);
 

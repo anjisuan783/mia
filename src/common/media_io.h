@@ -37,6 +37,7 @@ public:
     virtual srs_error_t lseek(off_t offset, int whence, off_t* seeked) = 0;
 };
 
+class MessageChain;
 
 /**
 * The writer to write stream data to channel.
@@ -52,17 +53,7 @@ public:
    * @nwrite the actual written bytes. NULL to ignore.
    */
   virtual srs_error_t write(void* buf, size_t size, ssize_t* nwrite) = 0;
-};
-
-/**
-* The vector writer to write vector(iovc) to channel.
-*/
-class ISrsVectorWriter
-{
-public:
-  ISrsVectorWriter() = default;
-  virtual ~ISrsVectorWriter() = default;
-public:
+  
   /**
    * write iov over writer.
    * @nwrite the actual written bytes. NULL to ignore.
@@ -70,13 +61,13 @@ public:
    *      @see https://github.com/ossrs/srs/issues/405
    */
   virtual srs_error_t writev(const iovec *iov, int iov_size, ssize_t* nwrite) = 0;
+  virtual srs_error_t write(MessageChain*, ssize_t* nwrite) = 0; 
 };
-
 
 /**
 * The generally writer, stream and vector writer.
 */
-class ISrsWriter : public ISrsStreamWriter, public ISrsVectorWriter
+class ISrsWriter : public ISrsStreamWriter
 {
 public:
   ISrsWriter() = default;
@@ -125,6 +116,7 @@ public:
 // Interface ISrsWriteSeeker
 public:
   srs_error_t write(void* buf, size_t count, ssize_t* pnwrite) override;
+  srs_error_t write(MessageChain*, ssize_t* nwrite) override;
   srs_error_t writev(const iovec* iov, int iovcnt, ssize_t* pnwrite) override;
   srs_error_t lseek(off_t offset, int whence, off_t* seeked) override;
 };
@@ -135,7 +127,7 @@ class IHttpResponseWriter;
 class SrsBufferWriter : public SrsFileWriter
 {
 private:
-  std::shared_ptr<IHttpResponseWriter> writer;
+  std::shared_ptr<IHttpResponseWriter> writer_;
 public:
   SrsBufferWriter(std::shared_ptr<IHttpResponseWriter> w);
   virtual ~SrsBufferWriter() = default;
@@ -147,6 +139,7 @@ public:
   int64_t tellg() override;
 public:
   srs_error_t write(void* buf, size_t count, ssize_t* pnwrite) override;
+  srs_error_t write(MessageChain*, ssize_t* pnwrite) override;
   srs_error_t writev(const iovec* iov, int iovcnt, ssize_t* pnwrite) override;
 };
 

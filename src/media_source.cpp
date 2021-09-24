@@ -175,10 +175,7 @@ void MediaSource::on_video_async(std::shared_ptr<MediaMessage> shared_video) {
   bool drop_for_reduce = false;
   if (is_sequence_header && meta_->previous_vsh()) {
     if (meta_->previous_vsh()->size_ == shared_video->size_) {
-    
-      //TODO need optimize
       drop_for_reduce = (*(meta_->previous_vsh()->payload_) == *(shared_video->payload_));
-
       MLOG_CWARN("drop for reduce sh video, size=%d", shared_video->size_);
     }
   }

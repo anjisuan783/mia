@@ -106,6 +106,7 @@ srs_error_t MediaHttpConn::process_request(std::string_view req) {
   }
 
   auto writer = factory_->CreateResponseWriter(false);
+  writer->open();
   if (msg) {
     msg->connection(shared_from_this());
     if ((err = cors_->serve_http(writer, msg)) != srs_success) {

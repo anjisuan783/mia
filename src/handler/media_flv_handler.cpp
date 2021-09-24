@@ -52,6 +52,8 @@ class StreamEntry final
     std::unique_ptr<ISrsBufferEncoder> encoder_;
 
     std::vector<std::shared_ptr<MediaMessage>> cache_;
+
+    int sent_{0};
   };
  public:
   StreamEntry(std::shared_ptr<MediaSource> s,   
@@ -115,8 +117,7 @@ void StreamEntry::initialize() {
     std::string file_writer_path = "/tmp/" + req_->stream + ".flv";
     srs_error_t result = srs_success;
     if (srs_success != (result = file_writer->open(file_writer_path))) {
-      MLOG_CFATAL("open file writer failed, code:%d, desc:%s", 
-                  srs_error_code(result), srs_error_desc(result).c_str());
+      MLOG_FATAL("open file writer failed, desc:" << srs_error_desc(result));
       delete result;
       return;
     }
@@ -124,16 +125,14 @@ void StreamEntry::initialize() {
     auto encoder = std::make_unique<SrsFlvStreamEncoder>();
 
     if (srs_success != (result = encoder->initialize(file_writer.get(), nullptr))) {
-      MLOG_CFATAL("init encoder, code:%d, desc:%s", 
-                  srs_error_code(result), srs_error_desc(result).c_str());
+      MLOG_FATAL("init encoder, desc:" << srs_error_desc(result));
       delete result;
       return;
     }
 
     if (srs_success != (result = source_->consumer_dumps(
             consumer.get(), true, true, !encoder->has_cache()))) {
-      MLOG_CERROR("dumps consumer, code:%d, desc:%s", 
-                  srs_error_code(result), srs_error_desc(result).c_str());
+      MLOG_ERROR("dumps consumer, desc:" << srs_error_desc(result));
       delete result;
       return;
     }
@@ -141,8 +140,7 @@ void StreamEntry::initialize() {
     // if gop cache enabled for encoder, dump to consumer.
     if (encoder->has_cache()) {
       if ((result = encoder->dump_cache(consumer.get(), source_->jitter())) != srs_success) {
-        MLOG_CERROR("encoder dump cache, code:%d, desc:%s", 
-                    srs_error_code(result), srs_error_desc(result).c_str());
+        MLOG_ERROR("encoder dump cache, desc:" << srs_error_desc(result));
         delete result;
         return;
       }
@@ -216,10 +214,12 @@ void StreamEntry::consumer_push(customer& c, std::vector<std::shared_ptr<MediaMe
                    " desc:" << srs_error_desc(err));
       }
       delete err;
-#ifdef __GS__      
+#ifndef __GS__      
       cache.swap(c.cache_);
 #endif
       break;
+    } else {
+      c.sent_ += count;
     }
   } while(true);
 }
@@ -237,7 +237,7 @@ bool StreamEntry::on_timer() {
   for (auto& i : conns_customers_) {
     consumer_push(i.second, msgs);
   }
-  
+ 
   return result;
 }
 
@@ -366,8 +366,6 @@ void MediaFlvPlayHandler::conn_destroy(std::shared_ptr<IMediaConnection> conn) {
 
 srs_error_t MediaFlvPlayHandler::serve_http(
     std::shared_ptr<IHttpResponseWriter> writer, std::shared_ptr<ISrsHttpMessage> msg) {
-
-  MLOG_TRACE("");
 
   assert(msg->is_http_get());
 

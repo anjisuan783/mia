@@ -16,6 +16,12 @@
 
 namespace ma {
 
+#define MA_BIT_ENABLED(dword, bit) (((dword) & (bit)) != 0)
+#define MA_BIT_DISABLED(dword, bit) (((dword) & (bit)) == 0)
+#define MA_BIT_CMP_MASK(dword, bit, mask) (((dword) & (bit)) == mask)
+#define MA_SET_BITS(dword, bits) (dword |= (bits))
+#define MA_CLR_BITS(dword, bits) (dword &= ~(bits))
+
 class DataBlock;
 
 /*
@@ -77,6 +83,8 @@ class MessageChain final {
   };
   using MFlag = uint32_t;
 
+  MessageChain() = default;
+  MessageChain(const MessageChain &);
   /**
   * Create an initialized message containing <aSize> bytes. 
   * AdvanceTopLevelWritePtr for <aAdvanceWritePtrSize> bytes.
@@ -93,7 +101,7 @@ class MessageChain final {
   explicit MessageChain(std::shared_ptr<DataBlock> aDb, MFlag aFlag);
   ~MessageChain();
 
-  MessageChain(const MessageChain &) = delete;
+  
   MessageChain(MessageChain &&) = delete;
   
   void operator = (const MessageChain&) = delete;
@@ -212,6 +220,15 @@ class MessageChain final {
   /// It's not safe because it don't record first read ptr if it not equals <m_pBeginPtr>.
   void RewindChained(bool bReadWind);
   void SaveChainedReadPtr();
+
+  // for test only
+  inline MFlag GetFlag() {
+    return flag_;
+  }
+
+  inline std::shared_ptr<DataBlock> GetData() {
+    return data_block_;
+  }
   
   /// Return a "shallow" copy of the first <MessageChain>,
   /// if flag set DONT_DELETE, malloc and memcpy actual data,

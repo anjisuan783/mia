@@ -8,6 +8,8 @@
 
 namespace ma {
 
+#define __OPTIMIZE__
+
 #define SRS_FLV_TAG_HEADER_SIZE 11
 
 #define SRS_FLV_PREVIOUS_TAG_SIZE 4
@@ -126,7 +128,7 @@ srs_error_t SrsFlvTransmuxer::write_header(char flv_header[9]) {
   srs_error_t err = srs_success;
   
   // write data.
-  if ((err = writer->write(flv_header, 9, NULL)) != srs_success) {
+  if ((err = writer->write((void*)flv_header, 9, NULL)) != srs_success) {
       return srs_error_wrap(err, "write flv header failed");
   }
   
@@ -190,16 +192,6 @@ srs_error_t SrsFlvTransmuxer::write_tags(std::vector<std::shared_ptr<MediaMessag
   int count = (int)msgs.size();
   srs_error_t err = srs_success;
   
-  // realloc the iovss.
-  int nb_iovss = 3 * count;
-  iovec* iovss = iovss_cache;
-  if (nb_iovss_cache < nb_iovss) {
-    srs_freepa(iovss_cache);
-    
-    nb_iovss_cache = nb_iovss;
-    iovss = iovss_cache = new iovec[nb_iovss];
-  }
-  
   // realloc the tag headers.
   char* cache = tag_headers;
   if (nb_tag_headers < count) {
@@ -218,6 +210,17 @@ srs_error_t SrsFlvTransmuxer::write_tags(std::vector<std::shared_ptr<MediaMessag
     pts = ppts = new char[SRS_FLV_PREVIOUS_TAG_SIZE * count];
   }
 
+#ifndef __OPTIMIZE__
+  // realloc the iovss.
+  int nb_iovss = 3 * count;
+  iovec* iovss = iovss_cache;
+  if (nb_iovss_cache < nb_iovss) {
+    srs_freepa(iovss_cache);
+
+    nb_iovss_cache = nb_iovss;
+    iovss = iovss_cache = new iovec[nb_iovss];
+  }
+  
   //TOD need optimizing
   std::vector<std::string> data_buffer;
   
@@ -257,7 +260,54 @@ srs_error_t SrsFlvTransmuxer::write_tags(std::vector<std::shared_ptr<MediaMessag
   if ((err = writer->writev(iovss, nb_iovss, NULL)) != srs_success) {
     return srs_error_wrap(err, "write flv tags failed");
   }
+#else
+  int n_msg = 3 * count;
+  std::vector<MessageChain> tmp_msgs;
+  tmp_msgs.reserve(n_msg);
+
+  int tmp_msgs_idx = 0;
   
+  for (auto& msg : msgs) {
+    // cache all flv header.
+    if (msg->is_audio()) {
+      cache_audio(msg->timestamp_, nullptr, msg->size_, cache);
+    } else if (msg->is_video()) {
+      cache_video(msg->timestamp_, nullptr, msg->size_, cache);
+    } else {
+      cache_metadata(SrsFrameTypeScript, nullptr, msg->size_, cache);
+    }
+    
+    // cache all pts.
+    cache_pts(SRS_FLV_TAG_HEADER_SIZE + msg->size_, pts);
+    
+    // all ioves.
+    tmp_msgs.emplace_back(SRS_FLV_TAG_HEADER_SIZE,
+                          cache,
+                          MessageChain::DONT_DELETE,
+                          SRS_FLV_TAG_HEADER_SIZE);
+    
+    assert(msg->payload_->GetNext() == nullptr);
+    tmp_msgs.emplace_back(*(msg->payload_));
+    tmp_msgs.emplace_back(SRS_FLV_PREVIOUS_TAG_SIZE,
+                          pts,
+                          MessageChain::DONT_DELETE,
+                          SRS_FLV_PREVIOUS_TAG_SIZE);
+    tmp_msgs[tmp_msgs_idx].Append(&tmp_msgs[tmp_msgs_idx+1]);
+    tmp_msgs[tmp_msgs_idx+1].Append(&tmp_msgs[tmp_msgs_idx+2]);
+    
+    if (tmp_msgs_idx != 0) {
+      tmp_msgs[tmp_msgs_idx - 1].Append(&tmp_msgs[tmp_msgs_idx]);
+    }
+    // move next.
+    cache += SRS_FLV_TAG_HEADER_SIZE;
+    pts += SRS_FLV_PREVIOUS_TAG_SIZE;
+    tmp_msgs_idx += 3;
+  }
+  
+  if ((err = writer->write(&tmp_msgs[0], nullptr)) != srs_success) {
+    return srs_error_wrap(err, "write flv tags failed");
+  }
+#endif
   return err;
 }
 
@@ -338,7 +388,7 @@ srs_error_t SrsFlvTransmuxer::write_tag(char* header, int header_size, char* tag
   // PreviousTagSizeN UI32 Size of last tag, including its header, in bytes.
   char pre_size[SRS_FLV_PREVIOUS_TAG_SIZE];
   cache_pts(tag_size + header_size, pre_size);
-  
+#ifndef __OPTIMIZE__
   iovec iovs[3];
   iovs[0].iov_base = header;
   iovs[0].iov_len = header_size;
@@ -348,9 +398,21 @@ srs_error_t SrsFlvTransmuxer::write_tag(char* header, int header_size, char* tag
   iovs[2].iov_len = SRS_FLV_PREVIOUS_TAG_SIZE;
   
   if ((err = writer->writev(iovs, 3, NULL)) != srs_success) {
-      return srs_error_wrap(err, "write flv tag failed");
+    return srs_error_wrap(err, "write flv tag failed");
   }
-  
+#else
+  MessageChain p1{(uint32_t)header_size, header, MessageChain::DONT_DELETE, (uint32_t)header_size};
+  MessageChain p2{(uint32_t)tag_size, tag, MessageChain::DONT_DELETE, (uint32_t)tag_size};
+  MessageChain p3{SRS_FLV_PREVIOUS_TAG_SIZE, 
+                  pre_size, 
+                  MessageChain::DONT_DELETE, 
+                  SRS_FLV_PREVIOUS_TAG_SIZE};
+  p1.Append(&p2);
+  p2.Append(&p3);
+  if ((err = writer->write(&p1, NULL)) != srs_success) {
+    return srs_error_wrap(err, "write flv tag failed");
+  }
+#endif
   return err;
 }
 
