@@ -26,6 +26,12 @@ class MediaHttpRtcServeMux final : public IMediaHttpHandler{
 
   void conn_destroy(std::shared_ptr<IMediaConnection>) override;
 
+  srs_error_t mount_service(std::shared_ptr<MediaSource> s, 
+                            std::shared_ptr<MediaRequest> r) override;
+  
+  void unmount_service(std::shared_ptr<MediaSource> s, 
+                       std::shared_ptr<MediaRequest> r) override;
+
  private:
   std::unique_ptr<wa::rtc_api> api_;
   std::vector<std::unique_ptr<IMediaHttpHandler>> handlers_;

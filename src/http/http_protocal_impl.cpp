@@ -434,7 +434,7 @@ int HttpMessageParser::on_headers_complete(http_parser* parser) {
   // When we got the body start event, we will update it to much precious position.
   obj->p_body_start_ = obj->buffer_view_.data() + obj->buffer_view_.length();
 
-  MLOG_INFO("***HEADERS COMPLETE***");
+  MLOG_CDEBUG("***HEADERS COMPLETE***");
   
   // see http_parser.c:1570, return 1 to skip body.
   return 0;
@@ -447,7 +447,7 @@ int HttpMessageParser::on_message_complete(http_parser* parser) {
   // save the parser when body parse completed.
   obj->state_ = SrsHttpParseStateMessageComplete;
   
-  MLOG_INFO("***MESSAGE COMPLETE***\n");
+  MLOG_CDEBUG("***MESSAGE COMPLETE***\n");
   
   return 0;
 }
@@ -465,7 +465,7 @@ int HttpMessageParser::on_url(http_parser* parser, const char* at, size_t length
   // @see https://github.com/ossrs/srs/issues/1508
   obj->p_header_tail_ = at;
   
-  MLOG_CINFO("Method: %d, Url: %.*s", parser->method, (int)length, at);
+  MLOG_CDEBUG("Method: %d, Url: %.*s", parser->method, (int)length, at);
   
   return 0;
 }
@@ -488,7 +488,7 @@ int HttpMessageParser::on_header_field(http_parser* parser, const char* at, size
   // @see https://github.com/ossrs/srs/issues/1508
   obj->p_header_tail_ = at;
   
-  MLOG_CINFO("Header field(%d bytes): %.*s", (int)length, (int)length, at);
+  MLOG_CDEBUG("Header field(%d bytes): %.*s", (int)length, (int)length, at);
   return 0;
 }
 
@@ -564,6 +564,8 @@ void HttpRequestReader::OnRequest(std::string_view str_mgs) {
 }
 
 void HttpRequestReader::OnDisconnect() {
+  MLOG_TRACE("");
+
   RTC_DCHECK_RUN_ON(&thread_check_);
   
   if (socket_) {
@@ -1203,12 +1205,14 @@ class HttpProtocalImplFactory : public IHttpProtocalFactory {
 
   std::shared_ptr<IHttpRequestReader> 
   CreateRequestReader(IHttpRequestReader::CallBack* callback) override {
-    return std::make_shared<HttpRequestReader>(socket_, callback);
+    return std::dynamic_pointer_cast<IHttpRequestReader>(
+        std::make_shared<HttpRequestReader>(socket_, callback));
   }
   
   std::shared_ptr<IHttpResponseWriter> 
   CreateResponseWriter(bool flag_stream) override {
-    return std::make_shared<HttpResponseWriterProxy>(socket_, flag_stream);
+    return std::dynamic_pointer_cast<IHttpResponseWriter>(
+        std::make_shared<HttpResponseWriterProxy>(socket_, flag_stream));
   }
   
   std::unique_ptr<IHttpMessageParser> 
@@ -1218,7 +1222,8 @@ class HttpProtocalImplFactory : public IHttpProtocalFactory {
 
   std::shared_ptr<IHttpResponseReader> 
   CreateResponseReader() override {
-    return std::make_shared<HttpResponseReader>(socket_);
+    return std::dynamic_pointer_cast<IHttpResponseReader>(
+        std::make_shared<HttpResponseReader>(socket_));
   }
  private:
    std::shared_ptr<AsyncSokcetWrapper> socket_;

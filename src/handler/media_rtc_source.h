@@ -19,6 +19,14 @@
 
 namespace ma {
 
+
+class IRtcEraser {
+ public:
+  virtual ~IRtcEraser() = default;
+
+  virtual void RemoveSource(const std::string& id) = 0;
+};
+
 class IHttpResponseWriter;
 class MediaRequest;
 class MediaSource;
@@ -36,7 +44,7 @@ class MediaRtcSource  final
 
   MDECLARE_LOGGER();
  public:
-  MediaRtcSource(const std::string& id);
+  MediaRtcSource(const std::string& id, IRtcEraser*);
   ~MediaRtcSource() override;
 
   srs_error_t Init(wa::rtc_api*, 
@@ -47,6 +55,10 @@ class MediaRtcSource  final
                    std::shared_ptr<IHttpResponseWriter> w, 
                    std::shared_ptr<ISrsHttpMessage> msg, 
                    const std::string& url);
+
+  void Close();
+  
+  srs_error_t Responese(int code, const std::string& sdp);
 
   //WebrtcAgentSink implement
   void onFailed(const std::string&) override;
@@ -61,7 +73,8 @@ class MediaRtcSource  final
  private:
   srs_error_t Init_i(const std::string&);
   void OnPublish();
-
+  void OnUnPublish();
+  
   //ITaskQueue implment
   void post(Task) override;
 
@@ -75,6 +88,7 @@ class MediaRtcSource  final
   void open_dump();
   void dump_video(uint8_t * buf, uint32_t count);
  private:
+  std::string pc_id_{"1"};
   std::string stream_id_;
   std::shared_ptr<IHttpResponseWriter> writer_;
   std::string stream_url_;
@@ -93,6 +107,10 @@ class MediaRtcSource  final
 
   uint32_t video_begin_ts_{(uint32_t)-1};
   uint32_t audio_begin_ts_{(uint32_t)-1};
+  bool pushed_{false};
+  bool pc_existed_{false};
+
+  IRtcEraser* owner_{nullptr};
 };
 
 } //namespace ma

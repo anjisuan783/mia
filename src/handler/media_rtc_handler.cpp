@@ -38,11 +38,13 @@ srs_error_t MediaHttpPlayHandler::serve_http(
 }
 
 //MediaHttpPublishHandler
-class MediaHttpPublishHandler : public IMediaHttpHandler {
+class MediaHttpPublishHandler : public IMediaHttpHandler,
+                                public IRtcEraser {
  public:
   MediaHttpPublishHandler(wa::rtc_api* p) : rtc_api_{p} {
   }
  private:
+  void RemoveSource(const std::string& id) override;
   void conn_destroy(std::shared_ptr<IMediaConnection> conn) override { }
   srs_error_t serve_http(std::shared_ptr<IHttpResponseWriter>, 
                          std::shared_ptr<ISrsHttpMessage>) override;
@@ -56,6 +58,11 @@ class MediaHttpPublishHandler : public IMediaHttpHandler {
 
   wa::rtc_api* rtc_api_;
 };
+
+void MediaHttpPublishHandler::RemoveSource(const std::string& id) {
+  std::lock_guard<std::mutex> guard(source_lock_);
+  sources_.erase(id);
+}
 
 bool MediaHttpPublishHandler::IsExisted(const std::string& id) {
   bool found = true;
@@ -99,7 +106,7 @@ HTTP响应code码
 
 srs_error_t MediaHttpPublishHandler::serve_http(
     std::shared_ptr<IHttpResponseWriter> writer, std::shared_ptr<ISrsHttpMessage> msg) {
-  assert(msg->get_body().length() == msg->content_length());
+  assert(msg->get_body().length() == (size_t)msg->content_length());
   assert(msg->is_http_post());
   assert(msg->path() == RTC_PUBLISH_PREFIX);
   assert(msg->is_body_eof());
@@ -126,16 +133,23 @@ srs_error_t MediaHttpPublishHandler::serve_http(
     return s_handler_403.serve_http(writer, msg);
   }
 
-  auto ms = std::make_shared<MediaRtcSource>(stream_id);
+  auto ms = std::make_shared<MediaRtcSource>(stream_id, this);
 
   std::string sdp = std::move((std::string)jobj["sdp"]);
   if ((err = ms->Init(rtc_api_, writer, sdp, streamurl)) != srs_success) {
-    return srs_error_wrap(err, "rtc resource init failed.");
+    srs_error_t err1 = ms->Responese(400, "");
+    if (err1 != srs_success) {
+      srs_error_t first = srs_error_wrap(err1, 
+          "responese failed, rtc source init failed[desc:%s]", srs_error_desc(err));
+      delete err;
+      return first;
+    }
+    return srs_error_wrap(err, "rtc source init failed");
   }
  
   {
     std::lock_guard<std::mutex> guard(source_lock_);
-    sources_.emplace(stream_id, std::move(ms));
+    sources_.emplace(stream_id, ms);
   }
   
   return srs_success;
@@ -181,6 +195,16 @@ srs_error_t MediaHttpRtcServeMux::serve_http(
 
 void MediaHttpRtcServeMux::conn_destroy(std::shared_ptr<IMediaConnection>) {
 }
+
+srs_error_t MediaHttpRtcServeMux::mount_service(
+    std::shared_ptr<MediaSource> s, std::shared_ptr<MediaRequest> r) {
+  return srs_success;
+}
+
+void MediaHttpRtcServeMux::unmount_service(
+    std::shared_ptr<MediaSource> s, std::shared_ptr<MediaRequest> r) {
+}
+
 
 }
 

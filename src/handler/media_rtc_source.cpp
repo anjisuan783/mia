@@ -169,8 +169,8 @@ srs_error_t StapPackage::decode(SrsBuffer* buf) {
 }
 
 //MediaRtcSource
-MediaRtcSource::MediaRtcSource(const std::string& id) 
-  : stream_id_{id} {
+MediaRtcSource::MediaRtcSource(const std::string& id, IRtcEraser* owner) 
+  : stream_id_{id}, owner_{owner} {
   MLOG_TRACE(stream_id_);
 }
 
@@ -210,7 +210,7 @@ srs_error_t MediaRtcSource::Init_i(const std::string& isdp) {
   worker_ = g_source_mgr_.GetWorker();
   
   wa::TOption  t;
-  t.connectId_ = "1";
+  t.connectId_ = pc_id_;
 
   size_t found = 0;
   do {
@@ -246,14 +246,30 @@ srs_error_t MediaRtcSource::Init_i(const std::string& isdp) {
 
   t.call_back_ = shared_from_this();
 
-  int ret = rtc_->publish(t, sdp);
+  int rv = rtc_->publish(t, sdp);
 
   srs_error_t err = srs_success;
-  if (ret != wa::wa_ok) {
-    err = srs_error_wrap(err, "rtc publish failed, code:%d", ret);
+  if (rv == wa::wa_e_found) {
+    err = srs_error_wrap(err, "rtc publish failed, code:%d", rv);
   }
 
+  pc_existed_ = true;
+
   return err;
+}
+
+
+void MediaRtcSource::Close() {
+  if (pc_existed_) {
+    int rv = rtc_->unpublish(pc_id_);
+
+    pc_existed_ = false;
+    
+    if (rv != wa::wa_ok) {
+      MLOG_ERROR("pc[" << pc_id_ << "] not found");
+    }
+  }
+  OnUnPublish();
 }
 
 void MediaRtcSource::OnBody(const std::string& body) {
@@ -268,8 +284,46 @@ void MediaRtcSource::OnBody(const std::string& body) {
   }
 }
 
-void MediaRtcSource::onFailed(const std::string&) {
-  MLOG_DEBUG("");
+srs_error_t MediaRtcSource::Responese(int code, const std::string& sdp) {
+  writer_->header()->set("Connection", "Close");
+
+  json::Object jroot;
+  jroot["code"] = 200;
+  jroot["server"] = "ly rtc";
+  jroot["sdp"] = sdp; 
+  //jroot["sessionid"] = msid;
+  
+  std::string jsonStr = std::move(json::Serialize(jroot));
+
+  srs_error_t err = writer_->write(jsonStr.c_str(), jsonStr.length());
+
+  if(err != srs_success){
+    return srs_error_wrap(err, "Responese");
+  }
+
+  err = writer_->final_request();
+
+  if(err != srs_success){
+    return srs_error_wrap(err, "final_request failed");
+  }
+
+  return err;
+}
+
+void MediaRtcSource::onFailed(const std::string& remote_sdp) {
+  MLOG_INFO("source pc disconnected id:" << pc_id_);
+  int rv = rtc_->unpublish(pc_id_);
+
+  pc_existed_ = false;
+  
+  if (rv != wa::wa_ok) {
+    MLOG_ERROR("pc[" << pc_id_ << "] not found");
+    return ;
+  }
+
+  OnUnPublish();
+
+  owner_->RemoveSource(stream_id_);
 }
 
 void MediaRtcSource::onCandidate(const std::string&) {
@@ -282,33 +336,22 @@ void MediaRtcSource::onReady() {
 
 void MediaRtcSource::onAnswer(const std::string& sdp) {
   MLOG_DEBUG(sdp);
-  writer_->header()->set("Connection", "Close");
 
-  json::Object jroot;
-  jroot["code"] = 200;
-  jroot["server"] = "ly rtc";
-  jroot["sdp"] = std::move(srs_string_replace(sdp, "\r\n", "\\r\\n"));
-  //jroot["sessionid"] = msid;
+  srs_error_t err = srs_success;
+  std::string answer_sdp = std::move(srs_string_replace(sdp, "\r\n", "\\r\\n"));
   
-  std::string jsonStr = std::move(json::Serialize(jroot));
-
-  srs_error_t err = writer_->write(jsonStr.c_str(), jsonStr.length());
-
-  if(err != srs_success){
-    MLOG_CERROR("send rtc answer failed, code=%d, %s", 
-        srs_error_code(err), srs_error_desc(err).c_str());
+   if((err = this->Responese(200, answer_sdp)) != srs_success){
+    MLOG_ERROR("send rtc answer failed, desc" << srs_error_desc(err));
     delete err;
 
-    return;
-  }
+    // try again ?
 
-  err = writer_->final_request();
+    int rv = rtc_->unpublish(pc_id_);
+    if (rv != wa::wa_ok) {
+      MLOG_ERROR("pc[" << pc_id_ << "] not found");
+    }
 
-  if(err != srs_success){
-    MLOG_CERROR("final_request failed, code=%d, %s", 
-        srs_error_code(err), srs_error_desc(err).c_str());
-    delete err;
-
+    pc_existed_ = false;
     return;
   }
 
@@ -546,6 +589,7 @@ void MediaRtcSource::onStat() {
 }
 
 void MediaRtcSource::OnPublish() {
+  pushed_ = true;
   auto req = std::make_shared<MediaRequest>();
   req->tcUrl = stream_url_;
   req->stream = stream_id_;
@@ -580,6 +624,20 @@ void MediaRtcSource::OnPublish() {
   source_->on_publish();
 
   req_ = req;
+}
+
+void MediaRtcSource::OnUnPublish() {
+  if (!pushed_) {
+    MLOG_FATAL("not pushed, " << req_->tcUrl << ", " << req_->stream);
+    return;
+  }
+  
+  pushed_ = false;
+
+  source_->on_unpublish();
+  g_server_.on_unpublish(source_, req_);
+  
+  g_source_mgr_.RemoveSource(req_->stream);
 }
 
 void MediaRtcSource::post(Task t) {
