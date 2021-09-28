@@ -16,7 +16,7 @@ static log4cxx::LoggerPtr logger = log4cxx::Logger::getLogger("listener");
 
 void MediaListenerMgr::IMediaListener::OnNewConnectionEvent(
   rtc::AsyncPacketSocket* s, rtc::AsyncPacketSocket* c) {
-  MLOG_INFO("new peer:" << c->GetRemoteAddress().ToString() << 
+  MLOG_TRACE("new peer:" << c->GetRemoteAddress().ToString() << 
       ", from:" << s->GetLocalAddress().ToString());
 
   auto factory = CreateDefaultHttpProtocalFactory(s, c);
@@ -42,7 +42,7 @@ class MediaRtmpListener : public MediaListenerMgr::IMediaListener {
 
 void MediaRtmpListener::OnNewConnectionEvent(rtc::AsyncPacketSocket* s, 
                                              rtc::AsyncPacketSocket* c) {
-  MLOG_INFO("new peer:" << c->GetRemoteAddress().ToString() << 
+  MLOG_TRACE("new peer:" << c->GetRemoteAddress().ToString() << 
             ", from:" << s->GetLocalAddress().ToString());
 }
 
@@ -91,6 +91,8 @@ int MediaHttpListener::Listen(const rtc::SocketAddress& address,
 
 void MediaHttpListener::OnNewConnectionEvent(rtc::AsyncPacketSocket* s, 
                                              rtc::AsyncPacketSocket* c) {
+  MLOG_TRACE("new peer:" << c->GetRemoteAddress().ToString() << 
+      ", from:" << s->GetLocalAddress().ToString());
   IMediaListener::OnNewConnectionEvent(s, c);
 }
 
@@ -123,6 +125,8 @@ int MediaHttpsListener::Listen(const rtc::SocketAddress& address,
 
 void MediaHttpsListener::OnNewConnectionEvent(rtc::AsyncPacketSocket* s, 
                                               rtc::AsyncPacketSocket* c) {
+  MLOG_TRACE("new peer:" << c->GetRemoteAddress().ToString() << 
+            ", from:" << s->GetLocalAddress().ToString());
   IMediaListener::OnNewConnectionEvent(s, c);
 }
 

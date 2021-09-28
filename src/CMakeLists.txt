@@ -4,12 +4,6 @@ project(media_server)
 
 set(MA_BUILD_TYPE "debug")
 
-if(${MA_BUILD_TYPE} STREQUAL "debuggs") 
-	set(CMAKE_C_COMPILER "/usr/local/gcc-7.3.0/bin/gcc")
-	set(CMAKE_CXX_COMPILER "/usr/local/gcc-7.3.0/bin/g++")
-	set(CMAKE_CXX_GS_FLAGS "-D__GS__ -DOS_LINUX -DLINUX -DUNIX -D_REENTRANT -D_GNU_SOURCE")
-endif()
-
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
   execute_process(COMMAND ${CMAKE_C_COMPILER} -dumpversion
     OUTPUT_VARIABLE GCC_VERSION)
@@ -40,10 +34,6 @@ set(MA_SOURCE_PATH "${CMAKE_CURRENT_SOURCE_DIR}")
 
 include_directories(
 	${CMAKE_CURRENT_SOURCE_DIR}
-	${CMAKE_CURRENT_SOURCE_DIR}/../../../include 
-	${CMAKE_CURRENT_SOURCE_DIR}/../../../include/platform
-	${CMAKE_CURRENT_SOURCE_DIR}/../../../platform/include
-	${CMAKE_CURRENT_SOURCE_DIR}/../../..
 	${CMAKE_CURRENT_SOURCE_DIR}/../build/libdeps/build/include
 	${CMAKE_CURRENT_SOURCE_DIR}/../3rd/rtc_stack/src
 	${CMAKE_CURRENT_SOURCE_DIR}/../3rd/rtc_stack/src/myrtc

@@ -21,12 +21,25 @@ int main(int argc, char* argv[]) {
   log4cxx::LoggerPtr rootLogger = log4cxx::Logger::getRootLogger();  
   LOG4CXX_INFO(rootLogger, "init log4cxx with log4cxx.properties");
 
-  ma::MediaServerApi::config _config;
-  _config.flv_record_ = false;
-  _config.listen_addr_.push_back("rtmp://0.0.0.0:1936");
-  _config.listen_addr_.push_back("http://0.0.0.0:8080");
-  _config.candidates_.push_back("192.168.1.156");
-  _config.stun_addr_ = "udp://192.168.1.156:9000";
+  ma::MediaServerApi::config _config{
+    (uint32_t)1,
+    (uint32_t)1,
+    true,
+    false,
+    false,
+    30000,
+    ma::JitterAlgorithmZERO,
+    {                               //listen_addr_
+      {"rtmp://0.0.0.0:1936"},      
+      {"http://0.0.0.0:80"},
+      {"https://0.0.0.0:443"}
+    },
+    (uint32_t)1,
+    {                               //candidates_
+      {"192.168.1.156"}             
+    },                             
+    {"udp://192.168.1.156:9000"}    //stun_addr_
+  };
   
   ma::MediaServerApi* server = ma::MediaServerFactory().Create();
   int ret = server->Init(_config);

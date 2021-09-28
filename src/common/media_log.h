@@ -1,62 +1,9 @@
 #ifndef __MEDIA_KLENWOIQN_LOG_H__
 #define __MEDIA_KLENWOIQN_LOG_H__
 
-#ifdef __GS__
-#include "logwrapper.h"
-#else
 #include "wa/wa_log.h"
-#endif
 
 namespace ma {
-
-#ifdef __GS__
-
-#define MDECLARE_LOGGER() 
-#define MDEFINE_LOGGER(a, b) 
-
-#define MLOG_TRACE(msg)   OS_INFO_TRACE(msg)
-#define MLOG_DEBUG(msg)   OS_INFO_TRACE(msg)
-#define MLOG_INFO(msg)    OS_INFO_TRACE(msg)
-#define MLOG_WARN(msg)    OS_WARNING_TRACE(msg)
-#define MLOG_ERROR(msg)   OS_ERROR_TRACE(msg)
-#define MLOG_FATAL(msg)   do{OS_ERROR_TRACE(msg); assert(false);}while(0);
-
-#define LOG_FMT(fmt) \
-  constexpr int LOG_MAX_SIZE = 4096; \
-  char log_data[LOG_MAX_SIZE]; \
-  int size = 0; \
-  va_list ap; \
-  va_start(ap, fmt); \
-  size += vsnprintf(log_data + size, LOG_MAX_SIZE - size, fmt, ap); \
-  va_end(ap);
-
-#define MaTrace(level, fun_name, line_no, fmt) \
-  do {\
-    LOG_FMT(fmt) \
-    OS_LOG(level, OS_LOG_MODULE_TRACE, fun_name << ":" << line_no << ">" << log_data); \
-  } while(0);
-
-#define MLOG_CTRACE(msg, ...) \
-    MaTrace(OS_LOG_LEVEL_INFO, __FUNCTION__, __LINE__, msg, ##__VA_ARGS__)
-#define MLOG_CDEBUG(msg, ...) \
-    MaTrace(OS_LOG_LEVEL_INFO, __FUNCTION__, __LINE__, msg, ##__VA_ARGS__)
-#define MLOG_CINFO(msg, ...) \
-    MaTrace(OS_LOG_LEVEL_INFO, __FUNCTION__, __LINE__, msg, ##__VA_ARGS__)
-#define MLOG_CWARN(msg, ...) \
-    MaTrace(OS_LOG_LEVEL_WARNING, __FUNCTION__, __LINE__, msg, ##__VA_ARGS__)
-#define MLOG_CERROR(msg, ...) \
-    MaTrace(OS_LOG_LEVEL_ERROR, __FUNCTION__, __LINE__, msg, ##__VA_ARGS__)
-#define MLOG_CFATAL(msg, ...) \
-    do{ \
-      MaTrace(OS_LOG_LEVEL_ERROR, __FUNCTION__, __LINE__, msg, ##__VA_ARGS__); \
-      assert(false); \
-    } \
-    while(0);
-
-#define MA_ASSERT OS_ASSERTE
-#define MA_ASSERT_RETURN OS_ASSERTE_RETURN
-
-#else
 
 #define MDECLARE_LOGGER DECLARE_LOGGER
 #define MDEFINE_LOGGER(namespace, logName)  DEFINE_LOGGER(namespace, logName)
@@ -99,10 +46,8 @@ namespace ma {
       return rv; \
     } \
  } while (0)
-
-#endif //__GS__
-
-}
+ 
+} //namespace ma
 
 #endif //!__MEDIA_KLENWOIQN_LOG_H__
 

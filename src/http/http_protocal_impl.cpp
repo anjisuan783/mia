@@ -686,6 +686,8 @@ srs_error_t HttpResponseWriter::write(
   int nb_size = snprintf(header_cache_, SRS_HTTP_HEADER_CACHE_SIZE, 
       "%x" SRS_HTTP_CRLF, size);
 
+  assert(nb_size <= SRS_HTTP_HEADER_CACHE_SIZE);
+
   MessageChain pStart{(uint32_t)nb_size, header_cache_, MessageChain::DONT_DELETE, (uint32_t)nb_size};
   MessageChain pEnd{2, (char*)SRS_HTTP_CRLF, MessageChain::DONT_DELETE, 2};
 
