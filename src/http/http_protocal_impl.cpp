@@ -23,10 +23,11 @@ static log4cxx::LoggerPtr logger = log4cxx::Logger::getLogger("http_protocal_imp
 //AsyncSokcetWrapper
 AsyncSokcetWrapper::AsyncSokcetWrapper(rtc::AsyncPacketSocket* c)
   : conn_{c} {
+  MLOG_TRACE_THIS("");
 }
 
 AsyncSokcetWrapper::~AsyncSokcetWrapper() {
-  Close();
+  MLOG_TRACE_THIS("");
 }
 
 void AsyncSokcetWrapper::Open(bool is_server) {
@@ -41,14 +42,20 @@ void AsyncSokcetWrapper::Open(bool is_server) {
 }
 
 void AsyncSokcetWrapper::Close() {
-  if (conn_) {
-    conn_->Close();
-    conn_.reset(nullptr);
+  if (close_) {
+    return ;
   }
+
+  close_ = true;
+  conn_->Close();
 }
 
 srs_error_t AsyncSokcetWrapper::Write(MessageChain* msg, int* sent) {
   RTC_DCHECK_RUN_ON(&thread_check_);
+
+  if (close_) {
+    return srs_error_new(ERROR_SOCKET_CLOSED, "socket closed");
+  }
 
   srs_error_t err = srs_success;
   int isent = 0;
@@ -151,11 +158,19 @@ void AsyncSokcetWrapper::OnReadEvent(rtc::AsyncPacketSocket*,
 void AsyncSokcetWrapper::OnCloseEvent(rtc::AsyncPacketSocket* socket, int err) {
   RTC_DCHECK_RUN_ON(&thread_check_);
 
-  MLOG_TRACE("" << err);
-  if (conn_) {
-    conn_ = nullptr;
-  }
+  MLOG_TRACE(err << (server_?"server":""));
 
+  if (!close_) {
+    conn_->Close();
+  }
+  close_ = true;
+
+  // avoid dtor in this function, will cause dead lock
+  rtc::Thread* thread = rtc::ThreadManager::Instance()->CurrentThread();
+  thread->PostTask(RTC_FROM_HERE, [share_this = shared_from_this()] {
+    // call dtor
+  });
+  
   if (server_) {
     auto p = req_reader_.lock();
     if (p) {
@@ -167,14 +182,17 @@ void AsyncSokcetWrapper::OnCloseEvent(rtc::AsyncPacketSocket* socket, int err) {
 void AsyncSokcetWrapper::OnSentEvent(rtc::AsyncPacketSocket*, 
                                      const rtc::SentPacket& sp) {
   RTC_DCHECK_RUN_ON(&thread_check_);
-
-  //MLOG_INFO("");
 }
 
 void AsyncSokcetWrapper::OnWriteEvent(rtc::AsyncPacketSocket*) {
   RTC_DCHECK_RUN_ON(&thread_check_);
 
-  MLOG_TRACE("AsyncSokcetWrapper::OnWriteEvent");
+  MLOG_TRACE("AsyncSokcetWrapper::OnWriteEvent " << (close_?"closed":""));
+
+  if (close_) {
+    return ;
+  }
+  
   blocked_ = false;
   auto ptr = writer_.lock();
   if (ptr) {

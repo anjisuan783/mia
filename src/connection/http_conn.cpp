@@ -75,12 +75,12 @@ MediaHttpConn::MediaHttpConn(std::unique_ptr<IHttpProtocalFactory> fac,
       http_mux_{mux},
       cors_{std::make_unique<MediaHttpCorsMux>()},
       factory_{std::move(fac)} {
-  MLOG_TRACE("");
+  MLOG_TRACE_THIS("");
   parser_->initialize(HTTP_REQUEST);
 }
 
 MediaHttpConn::~MediaHttpConn() {
-  MLOG_TRACE("");
+  MLOG_TRACE_THIS("");
 }
 
 void MediaHttpConn::Start() {

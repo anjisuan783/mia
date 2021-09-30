@@ -38,6 +38,10 @@ class MediaServerApi {
     uint32_t rtc_workers_{1};
     std::vector<std::string> candidates_;  //local candidates [ip]
     std::string stun_addr_;            //[ip:port]
+
+    //for https
+    std::string https_key;          // pem fromat private key file path
+    std::string https_crt;          // pem fromat certificate file path
   };
  
   virtual ~MediaServerApi() { }

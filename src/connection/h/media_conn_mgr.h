@@ -45,8 +45,6 @@ class MediaConnMgr {
   std::map<IMediaConnection*, std::shared_ptr<IMediaConnection>> connections_;
 
   std::unique_ptr<MediaListenerMgr> listener_;
-
-  //std::shared_ptr<wa::ThreadPool>  g_workers_;
 };
 
 extern MediaConnMgr g_conn_mgr_;

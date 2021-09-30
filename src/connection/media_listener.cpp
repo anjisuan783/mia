@@ -1,34 +1,38 @@
 #include "connection/media_listener.h"
 
 #include "rtc_base/socket_address.h"
+#include "rtc_base/ssl_adapter.h"
 #include "network/basic_packet_socket_factory.h"
 
 #include "h/media_return_code.h"
 #include "utils/sigslot.h"
-#include "http/h/http_protocal.h"
-#include "common/media_log.h"
 #include "utils/protocol_utility.h"
+#include "common/media_log.h"
+#include "http/h/http_protocal.h"
 #include "connection/h/conn_interface.h"
 #include "connection/h/media_conn_mgr.h"
+#include "media_server.h"
 
 namespace ma {
 static log4cxx::LoggerPtr logger = log4cxx::Logger::getLogger("listener");
 
 void MediaListenerMgr::IMediaListener::OnNewConnectionEvent(
   rtc::AsyncPacketSocket* s, rtc::AsyncPacketSocket* c) {
-  MLOG_TRACE("new peer:" << c->GetRemoteAddress().ToString() << 
-      ", from:" << s->GetLocalAddress().ToString());
-
   auto factory = CreateDefaultHttpProtocalFactory(s, c);
   
-  auto conn = g_conn_mgr_.CreateConnection(MediaConnMgr::e_http, std::move(factory));
+  auto conn = g_conn_mgr_.CreateConnection(
+      MediaConnMgr::e_http, std::move(factory));
 
   conn->Start();
 }
 
-int MediaListenerMgr::IMediaListener::GetSocketType() {
-  return rtc::PacketSocketFactory::OPT_RAW |
-    rtc::PacketSocketFactory::OPT_ADDRESS_REUSE;
+rtc::PacketSocketServerOptions
+MediaListenerMgr::IMediaListener::GetSocketType() {
+  rtc::PacketSocketServerOptions op;
+  op.opts = rtc::PacketSocketFactory::OPT_RAW |
+            rtc::PacketSocketFactory::OPT_ADDRESS_REUSE;
+
+  return op;
 }
 
 //MediaRtmpListener
@@ -43,7 +47,7 @@ class MediaRtmpListener : public MediaListenerMgr::IMediaListener {
 void MediaRtmpListener::OnNewConnectionEvent(rtc::AsyncPacketSocket* s, 
                                              rtc::AsyncPacketSocket* c) {
   MLOG_TRACE("new peer:" << c->GetRemoteAddress().ToString() << 
-            ", from:" << s->GetLocalAddress().ToString());
+             ", from:" << s->GetLocalAddress().ToString());
 }
 
 int MediaRtmpListener::Listen(const rtc::SocketAddress& address, 
@@ -92,20 +96,37 @@ int MediaHttpListener::Listen(const rtc::SocketAddress& address,
 void MediaHttpListener::OnNewConnectionEvent(rtc::AsyncPacketSocket* s, 
                                              rtc::AsyncPacketSocket* c) {
   MLOG_TRACE("new peer:" << c->GetRemoteAddress().ToString() << 
-      ", from:" << s->GetLocalAddress().ToString());
+             ", from:" << s->GetLocalAddress().ToString());
   IMediaListener::OnNewConnectionEvent(s, c);
 }
 
 //MediaHttpsListener
 class MediaHttpsListener : public MediaListenerMgr::IMediaListener {
  public:
+  MediaHttpsListener();
+  ~MediaHttpsListener() override;
+  
   int Listen(const rtc::SocketAddress&, 
              rtc::PacketSocketFactory*) override;
   void OnNewConnectionEvent(rtc::AsyncPacketSocket*, 
                             rtc::AsyncPacketSocket*) override;
  private:
-  int GetSocketType() override;
+  void CheckInit();
+  void CheckClean();
+ private:
+  rtc::PacketSocketServerOptions GetSocketType() override;
+  static bool inited_;
 };
+
+bool MediaHttpsListener::inited_{false};
+
+MediaHttpsListener::MediaHttpsListener() {
+  CheckInit();
+}
+
+MediaHttpsListener::~MediaHttpsListener() {
+  CheckClean();
+}
 
 int MediaHttpsListener::Listen(const rtc::SocketAddress& address, 
                                rtc::PacketSocketFactory* factory) {
@@ -126,14 +147,33 @@ int MediaHttpsListener::Listen(const rtc::SocketAddress& address,
 void MediaHttpsListener::OnNewConnectionEvent(rtc::AsyncPacketSocket* s, 
                                               rtc::AsyncPacketSocket* c) {
   MLOG_TRACE("new peer:" << c->GetRemoteAddress().ToString() << 
-            ", from:" << s->GetLocalAddress().ToString());
+             ", from:" << s->GetLocalAddress().ToString());
   IMediaListener::OnNewConnectionEvent(s, c);
 }
 
-int MediaHttpsListener::GetSocketType() {
-  return rtc::PacketSocketFactory::OPT_RAW |
-         rtc::PacketSocketFactory::OPT_SSLTCP|
-         rtc::PacketSocketFactory::OPT_ADDRESS_REUSE;
+rtc::PacketSocketServerOptions MediaHttpsListener::GetSocketType() {
+  rtc::PacketSocketServerOptions op;
+  op.https_certificate = g_server_.config_.https_crt;
+  op.https_private_key = g_server_.config_.https_key;
+  
+  op.opts = rtc::PacketSocketFactory::OPT_RAW |
+            rtc::PacketSocketFactory::OPT_TLS_INSECURE |
+            rtc::PacketSocketFactory::OPT_ADDRESS_REUSE;
+  return op;
+}
+
+void MediaHttpsListener::CheckInit() {
+  if (!inited_) {
+    rtc::InitializeSSL();
+    inited_ = true;
+  }
+}
+
+void MediaHttpsListener::CheckClean() {
+  if (inited_) {
+    rtc::CleanupSSL();
+    inited_ = false;
+  }
 }
 
 //MediaListenerMgr
@@ -157,19 +197,20 @@ int MediaListenerMgr::Init(const std::vector<std::string>& addr) {
     std::string_view schema, host;
     int port;
     split_schema_host_port(i, schema, host, port);
-    MLOG_DEBUG(i << "[schema:" << schema << ", host:" << host << ", port:" << port << "]");
+    MLOG_DEBUG(i << "[schema:" << schema << ", host:" << host 
+                 << ", port:" << port << "]");
 
     rtc::SocketAddress host_port(std::string{host.data(), host.length()}, port);
       std::unique_ptr<IMediaListener> listener = CreateListener(schema);
       int ret = kma_ok;
-      if ((ret = listener->Listen(host_port, socket_factory_.get())) == kma_ok) {
+      if ((ret = listener->Listen(host_port, socket_factory_.get())) == kma_ok){
         listeners_.emplace_back(std::move(listener));
       }
       return ret;
     });
 
     if (result != 0) {
-      MLOG_CERROR("listen rtmp failed, code:%d, address:%s", result, i.c_str());
+      MLOG_CERROR("listen failed, code:%d, address:%s", result, i.c_str());
       return kma_listen_failed;
     }
   }

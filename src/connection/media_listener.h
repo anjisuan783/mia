@@ -29,7 +29,7 @@ class MediaListenerMgr {
     virtual void OnNewConnectionEvent(
       rtc::AsyncPacketSocket*, rtc::AsyncPacketSocket*);
    protected:
-    virtual int GetSocketType();  
+    virtual rtc::PacketSocketServerOptions GetSocketType();  
    protected:
     std::unique_ptr<rtc::AsyncPacketSocket> listen_socket_;
   };

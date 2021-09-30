@@ -70,6 +70,7 @@ class AsyncSokcetWrapper : public sigslot::has_slots<>,
  private:
   
   std::unique_ptr<rtc::AsyncPacketSocket> conn_;
+  bool close_{false};
 
   std::weak_ptr<HttpRequestReader> req_reader_;
   std::weak_ptr<HttpResponseWriterProxy> writer_;

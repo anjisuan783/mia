@@ -30,15 +30,17 @@ int main(int argc, char* argv[]) {
     30000,
     ma::JitterAlgorithmZERO,
     {                               //listen_addr_
-      {"rtmp://0.0.0.0:1936"},      
-      {"http://0.0.0.0:80"},
-      {"https://0.0.0.0:443"}
+      {"rtmp://192.168.1.156:1936"},      
+      {"http://192.168.1.156:80"},
+      {"https://192.168.1.156:443"}
     },
     (uint32_t)1,
     {                               //candidates_
       {"192.168.1.156"}             
     },                             
-    {"udp://192.168.1.156:9000"}    //stun_addr_
+    {"udp://192.168.1.156:9000"},    //stun_addr_
+    {"./mia.key"},
+    {"./mia.crt"}
   };
   
   ma::MediaServerApi* server = ma::MediaServerFactory().Create();
