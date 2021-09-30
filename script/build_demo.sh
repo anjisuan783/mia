@@ -3,11 +3,6 @@
 
 CUR_DIR=`pwd`
 source scl_source enable devtoolset-7
-
-cd 3rd/rtc_stack/scripts && ./buildProject.sh && cd $CUR_DIR
-
-cd ./script && ./build_3rd.sh && cd $CUR_DIR
-
 cmake ./src -Bbuild && cd build && make -j4 && cd $CUR_DIR
 
 rm -f media_server
