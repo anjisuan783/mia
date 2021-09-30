@@ -1,2 +1,2 @@
-# media_server
+# media library
 stream server library written with c++
