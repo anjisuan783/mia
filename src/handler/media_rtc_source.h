@@ -90,7 +90,7 @@ class MediaRtcSource  final
  private:
   std::string pc_id_{"1"};
   std::string stream_id_;
-  std::shared_ptr<IHttpResponseWriter> writer_;
+  std::weak_ptr<IHttpResponseWriter> writer_;
   std::string stream_url_;
   std::shared_ptr<MediaRequest> req_;
   std::shared_ptr<MediaSource> source_;

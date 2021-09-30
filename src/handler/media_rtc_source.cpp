@@ -182,7 +182,7 @@ srs_error_t MediaRtcSource::Init(wa::rtc_api* rtc,
                                  std::shared_ptr<IHttpResponseWriter> w, 
                                  const std::string& sdp, 
                                  const std::string& url) {
-  writer_ = std::move(w);
+  writer_ = w;
   stream_url_ = url;
   task_queue_ = this;
   rtc_ = rtc;
@@ -193,7 +193,7 @@ srs_error_t MediaRtcSource::Init(wa::rtc_api* rtc,
                                 std::shared_ptr<IHttpResponseWriter> w, 
                                 std::shared_ptr<ISrsHttpMessage> msg, 
                                 const std::string& url) {                             
-  writer_ = std::move(w);
+  writer_ = w;
   stream_url_ = url;
   task_queue_ = this; 
   rtc_ = rtc;
@@ -285,7 +285,13 @@ void MediaRtcSource::OnBody(const std::string& body) {
 }
 
 srs_error_t MediaRtcSource::Responese(int code, const std::string& sdp) {
-  writer_->header()->set("Connection", "Close");
+  srs_error_t err = srs_success;
+  auto write = writer_.lock();
+  if (!write) {
+    return err;
+  }
+  
+  write->header()->set("Connection", "Close");
 
   json::Object jroot;
   jroot["code"] = 200;
@@ -295,15 +301,11 @@ srs_error_t MediaRtcSource::Responese(int code, const std::string& sdp) {
   
   std::string jsonStr = std::move(json::Serialize(jroot));
 
-  srs_error_t err = writer_->write(jsonStr.c_str(), jsonStr.length());
-
-  if(err != srs_success){
+  if((err = write->write(jsonStr.c_str(), jsonStr.length())) != srs_success){
     return srs_error_wrap(err, "Responese");
   }
 
-  err = writer_->final_request();
-
-  if(err != srs_success){
+  if((err = write->final_request()) != srs_success){
     return srs_error_wrap(err, "final_request failed");
   }
 

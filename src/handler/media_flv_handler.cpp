@@ -213,10 +213,8 @@ void StreamEntry::consumer_push(customer& c, std::vector<std::shared_ptr<MediaMe
         MLOG_ERROR("write_tags failed, code:" << srs_error_code(err) << 
                    " desc:" << srs_error_desc(err));
       }
-      delete err;
-#ifndef __GS__      
+      delete err;      
       cache.swap(c.cache_);
-#endif
       break;
     } else {
       c.sent_ += count;
