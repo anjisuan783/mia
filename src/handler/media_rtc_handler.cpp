@@ -194,7 +194,8 @@ HTTP响应code码
 */
 
 srs_error_t MediaHttpPublishHandler::serve_http(
-    std::shared_ptr<IHttpResponseWriter> writer, std::shared_ptr<ISrsHttpMessage> msg) {
+    std::shared_ptr<IHttpResponseWriter> writer, 
+    std::shared_ptr<ISrsHttpMessage> msg) {
   assert(msg->get_body().length() == (size_t)msg->content_length());
   assert(msg->is_http_post());
   assert(msg->path() == RTC_PUBLISH_PREFIX);
@@ -212,24 +213,26 @@ srs_error_t MediaHttpPublishHandler::serve_http(
 
   size_t pos = streamurl.rfind("/");
   if (pos == std::string::npos) {
-    return s_handler_404.serve_http(writer, msg);
+    return s_handler_404.serve_http(std::move(writer), msg);
   }
   std::string stream_id = streamurl.substr(pos + 1);
 
   bool found = IsExisted(stream_id);
 
   if (found) {
-    return s_handler_403.serve_http(writer, msg);
+    return s_handler_403.serve_http(std::move(writer), msg);
   }
 
   auto ms = std::make_shared<MediaRtcSource>(stream_id, this);
 
   std::string sdp = std::move((std::string)jobj["sdp"]);
-  if ((err = ms->Init(rtc_api_, writer, sdp, streamurl)) != srs_success) {
+  if ((err = ms->Init(rtc_api_, std::move(writer), sdp, streamurl)) 
+      != srs_success) {
     srs_error_t err1 = ms->Responese(400, "");
     if (err1 != srs_success) {
       srs_error_t first = srs_error_wrap(err1, 
-          "responese failed, rtc source init failed[desc:%s]", srs_error_desc(err));
+          "responese failed, rtc source init failed[desc:%s]", 
+          srs_error_desc(err));
       delete err;
       return first;
     }
@@ -268,15 +271,16 @@ srs_error_t MediaHttpRtcServeMux::init() {
 }
 
 srs_error_t MediaHttpRtcServeMux::serve_http(
-    std::shared_ptr<IHttpResponseWriter> w, std::shared_ptr<ISrsHttpMessage> m) {
+    std::shared_ptr<IHttpResponseWriter> w, 
+    std::shared_ptr<ISrsHttpMessage> m) {
   srs_error_t result = srs_success;
   std::string path = m->path();
 
   if (path == RTC_PUBLISH_PREFIX) {
-    return handlers_[RTC_PUBLISH_HANDLER]->serve_http(w, m);
+    return handlers_[RTC_PUBLISH_HANDLER]->serve_http(std::move(w), m);
   } else {
     static HttpNotFoundHandler s_hangler_404;
-    return s_hangler_404.serve_http(w, m);
+    return s_hangler_404.serve_http(std::move(w), m);
   }
 
   return result;

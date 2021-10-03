@@ -12,9 +12,9 @@
 
 namespace ma {
 
-MediaHttpServeMux::MediaHttpServeMux() {
-  rtc_sevice_ = std::move(std::make_unique<MediaHttpRtcServeMux>());
-  flv_sevice_ = std::move(std::make_unique<MediaFlvPlayHandler>());
+MediaHttpServeMux::MediaHttpServeMux() 
+    : rtc_sevice_{std::move(std::make_unique<MediaHttpRtcServeMux>())},
+      flv_sevice_{std::move(std::make_unique<MediaFlvPlayHandler>())} {
 
   g_conn_mgr_.signal_destroy_conn_.connect(this, &MediaHttpServeMux::conn_destroy);
 }
@@ -26,29 +26,30 @@ srs_error_t MediaHttpServeMux::init() {
 }
 
 srs_error_t MediaHttpServeMux::serve_http( 
-    std::shared_ptr<IHttpResponseWriter> writer, std::shared_ptr<ISrsHttpMessage> msg) {
+    std::shared_ptr<IHttpResponseWriter> writer, 
+    std::shared_ptr<ISrsHttpMessage> msg) {
   
   std::string path = msg->path();
 
    if (path == RTC_PUBLISH_PREFIX || path == RTC_PALY_PREFIX) {
-    return rtc_sevice_->serve_http(writer, msg);
+    return rtc_sevice_->serve_http(std::move(writer), std::move(msg));
   }
 
-  return flv_sevice_->serve_http(writer, msg);
+  return flv_sevice_->serve_http(std::move(writer), std::move(msg));
 }
 
 srs_error_t MediaHttpServeMux::mount_service(
     std::shared_ptr<MediaSource> s, std::shared_ptr<MediaRequest> r) {
-  return flv_sevice_->mount_service(s, r);
+  return flv_sevice_->mount_service(std::move(s), std::move(r));
 }
 
 void MediaHttpServeMux::unmount_service(
     std::shared_ptr<MediaSource> s, std::shared_ptr<MediaRequest> r) {
-  flv_sevice_->unmount_service(s, r);
+  flv_sevice_->unmount_service(std::move(s), std::move(r));
 }
 
 void MediaHttpServeMux::conn_destroy(std::shared_ptr<IMediaConnection> conn) {
-  flv_sevice_->conn_destroy(conn);
+  flv_sevice_->conn_destroy(std::move(conn));
 }
 
 std::unique_ptr<IMediaHttpHandler> ServerHandlerFactor::Create() {

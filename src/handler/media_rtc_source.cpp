@@ -182,7 +182,7 @@ srs_error_t MediaRtcSource::Init(wa::rtc_api* rtc,
                                  std::shared_ptr<IHttpResponseWriter> w, 
                                  const std::string& sdp, 
                                  const std::string& url) {
-  writer_ = w;
+  writer_ = std::move(w);
   stream_url_ = url;
   task_queue_ = this;
   rtc_ = rtc;
@@ -192,8 +192,8 @@ srs_error_t MediaRtcSource::Init(wa::rtc_api* rtc,
 srs_error_t MediaRtcSource::Init(wa::rtc_api* rtc, 
                                 std::shared_ptr<IHttpResponseWriter> w, 
                                 std::shared_ptr<ISrsHttpMessage> msg, 
-                                const std::string& url) {                             
-  writer_ = w;
+                                const std::string& url) {
+  writer_ = std::move(w);
   stream_url_ = url;
   task_queue_ = this; 
   rtc_ = rtc;
@@ -286,12 +286,9 @@ void MediaRtcSource::OnBody(const std::string& body) {
 
 srs_error_t MediaRtcSource::Responese(int code, const std::string& sdp) {
   srs_error_t err = srs_success;
-  auto write = writer_.lock();
-  if (!write) {
-    return err;
-  }
-  
-  write->header()->set("Connection", "Close");
+
+  MLOG_DEBUG(sdp);
+  writer_->header()->set("Connection", "Close");
 
   json::Object jroot;
   jroot["code"] = 200;
@@ -301,11 +298,11 @@ srs_error_t MediaRtcSource::Responese(int code, const std::string& sdp) {
   
   std::string jsonStr = std::move(json::Serialize(jroot));
 
-  if((err = write->write(jsonStr.c_str(), jsonStr.length())) != srs_success){
+  if((err = writer_->write(jsonStr.c_str(), jsonStr.length())) != srs_success){
     return srs_error_wrap(err, "Responese");
   }
 
-  if((err = write->final_request()) != srs_success){
+  if((err = writer_->final_request()) != srs_success){
     return srs_error_wrap(err, "final_request failed");
   }
 
@@ -337,12 +334,10 @@ void MediaRtcSource::onReady() {
 }
 
 void MediaRtcSource::onAnswer(const std::string& sdp) {
-  MLOG_DEBUG(sdp);
-
   srs_error_t err = srs_success;
   std::string answer_sdp = std::move(srs_string_replace(sdp, "\r\n", "\\r\\n"));
   
-   if((err = this->Responese(200, answer_sdp)) != srs_success){
+  if((err = this->Responese(200, answer_sdp)) != srs_success){
     MLOG_ERROR("send rtc answer failed, desc" << srs_error_desc(err));
     delete err;
 

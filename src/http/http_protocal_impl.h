@@ -35,7 +35,7 @@ class AsyncSokcetWrapper : public sigslot::has_slots<>,
   AsyncSokcetWrapper(rtc::AsyncPacketSocket*);
   ~AsyncSokcetWrapper();
 
-  void Open(bool);
+  void Open(bool, rtc::Thread*);
   void Close();
   
   void SetReqReader(std::weak_ptr<HttpRequestReader> r) {
@@ -65,10 +65,13 @@ class AsyncSokcetWrapper : public sigslot::has_slots<>,
   
   void OnWriteEvent(rtc::AsyncPacketSocket* socket);
 
+  inline rtc::Thread* GetThread() {
+    return thread_;
+  }
  private:
   srs_error_t Write_i(const char* c_data, int c_size, int* sent);
  private:
-  
+  rtc::Thread* thread_{nullptr};
   std::unique_ptr<rtc::AsyncPacketSocket> conn_;
   bool close_{false};
 

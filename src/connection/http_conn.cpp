@@ -98,7 +98,7 @@ srs_error_t MediaHttpConn::set_crossdomain_enabled(bool v) {
 }
 
 srs_error_t MediaHttpConn::process_request(std::string_view req) {
-  MLOG_TRACE("");
+  MLOG_TRACE(req);
   srs_error_t err = srs_success;
   std::shared_ptr<ISrsHttpMessage> msg;
   if((err = parser_->parse_message(req, msg)) != srs_success) {

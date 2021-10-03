@@ -34,8 +34,8 @@ std::shared_ptr<DataBlock> DataBlock::Create(
     ::memcpy(pData, inData, aSize);
   }
   
-  return std::shared_ptr<DataBlock>(
-      new (pBuf) DataBlock(aSize, pData), DataBlockDeleter());
+  return std::move(std::shared_ptr<DataBlock>(
+      new (pBuf) DataBlock(aSize, pData), DataBlockDeleter()));
 }
 
 #ifndef MEDIA_NDEBUG

@@ -31,7 +31,7 @@ AsyncSokcetWrapper::~AsyncSokcetWrapper() {
   RTC_DCHECK_RUN_ON(&thread_check_);
 }
 
-void AsyncSokcetWrapper::Open(bool is_server) {
+void AsyncSokcetWrapper::Open(bool is_server, rtc::Thread* thread) {
   RTC_DCHECK_RUN_ON(&thread_check_);
   
   conn_->SignalSentPacket.connect(this, &AsyncSokcetWrapper::OnSentEvent);
@@ -40,6 +40,7 @@ void AsyncSokcetWrapper::Open(bool is_server) {
   conn_->SignalClose.connect(this, &AsyncSokcetWrapper::OnCloseEvent);
   
   server_ = is_server;
+  thread_ = thread;
 }
 
 void AsyncSokcetWrapper::Close() {
@@ -143,11 +144,9 @@ void AsyncSokcetWrapper::OnReadEvent(rtc::AsyncPacketSocket*,
                                      size_t c_size,
                                      const rtc::SocketAddress&,
                                      const int64_t&) {
-  RTC_DCHECK_RUN_ON(&thread_check_);
-  
+  RTC_DCHECK_RUN_ON(&thread_check_);  
   MA_ASSERT_RETURN(c_size, );
   std::string_view str_req{c_msg, c_size};
-
   if (server_) {
     auto p = req_reader_.lock();
     if (p) {
@@ -788,14 +787,15 @@ MessageChain* HttpResponseWriter::send_header(const char* data, int) {
 }
 
 //helper define
-#define IS_CURRENT_THREAD(x) thread_==rtc::ThreadManager::Instance()->CurrentThread()
+#define IS_CURRENT_THREAD(x) \
+    x==rtc::ThreadManager::Instance()->CurrentThread()
 
 //HttpResponseWriterProxy
 HttpResponseWriterProxy::HttpResponseWriterProxy(
     std::shared_ptr<AsyncSokcetWrapper> s, bool)
   : writer_{std::move(std::make_unique<HttpResponseWriter>())},
     socket_{std::move(s)} {
-  thread_ = rtc::ThreadManager::Instance()->CurrentThread();
+  thread_ = socket_->GetThread();
 }
 
 HttpResponseWriterProxy::~HttpResponseWriterProxy() {
@@ -806,7 +806,6 @@ HttpResponseWriterProxy::~HttpResponseWriterProxy() {
 
 void HttpResponseWriterProxy::open() {
   RTC_DCHECK_RUN_ON(&thread_check_);
-
   writer_->open();
   socket_->SetWriter(weak_from_this());
 }
@@ -838,7 +837,7 @@ srs_error_t HttpResponseWriterProxy::final_request_i() {
 }
 
 srs_error_t HttpResponseWriterProxy::final_request() {
-  if (IS_CURRENT_THREAD()) {
+  if (IS_CURRENT_THREAD(thread_)) {
     RTC_DCHECK_RUN_ON(&thread_check_);
     return final_request_i();
   }
@@ -885,7 +884,7 @@ srs_error_t HttpResponseWriterProxy::write(const char* data, int size) {
   }
 
   srs_error_t err = srs_success;
-  if (IS_CURRENT_THREAD()) {
+  if (IS_CURRENT_THREAD(thread_)) {
     RTC_DCHECK_RUN_ON(&thread_check_);
     if (buffer_) {
       err = srs_error_new(ERROR_SOCKET_WOULD_BLOCK, "need on send");
@@ -972,7 +971,7 @@ srs_error_t HttpResponseWriterProxy::write(MessageChain* data, ssize_t* pnwrite)
 
   uint32_t data_len = data->GetChainedLength();
 
-  if (IS_CURRENT_THREAD()) {
+  if (IS_CURRENT_THREAD(thread_)) {
     RTC_DCHECK_RUN_ON(&thread_check_);
     if (buffer_) {
       err = srs_error_new(ERROR_SOCKET_WOULD_BLOCK, "need on send");
@@ -1066,7 +1065,7 @@ srs_error_t HttpResponseWriterProxy::writev(
    
   srs_error_t err = srs_success;
 
-  if (IS_CURRENT_THREAD()) {
+  if (IS_CURRENT_THREAD(thread_)) {
     RTC_DCHECK_RUN_ON(&thread_check_);
     if (buffer_) {
       err = srs_error_new(ERROR_SOCKET_WOULD_BLOCK, "need on send");
@@ -1150,7 +1149,7 @@ srs_error_t HttpResponseWriterProxy::write_i(MessageChain* data) {
 }
 
 void HttpResponseWriterProxy::write_header(int code) {
-  if (IS_CURRENT_THREAD()) {
+  if (IS_CURRENT_THREAD(thread_)) {
     writer_->write_header(code);
     return;
   }
@@ -1214,14 +1213,30 @@ void HttpResponseReader::open(IHttpResponseReaderSink* s) {
   sink_ = s;
 }
 
+//AsyncSokcetWrapperDeleter
+class AsyncSokcetWrapperDeleter {
+ public:
+  void operator()(AsyncSokcetWrapper* socket) const {
+    if (IS_CURRENT_THREAD(socket->GetThread())) {
+      delete socket;
+      return;
+    }
+
+    socket->GetThread()->PostTask(RTC_FROM_HERE, [socket] {
+        delete socket;
+      });
+  }
+};
+
 //HttpProtocalImplFactory
 class HttpProtocalImplFactory : public IHttpProtocalFactory {
  public:
   HttpProtocalImplFactory(bool is_server, 
                           rtc::AsyncPacketSocket*, 
                           rtc::AsyncPacketSocket* p2)
-    : socket_{std::make_shared<AsyncSokcetWrapper>(p2)} {
-    socket_->Open(is_server);
+    : socket_{new AsyncSokcetWrapper(p2), 
+              AsyncSokcetWrapperDeleter()} {
+    socket_->Open(true, rtc::ThreadManager::Instance()->CurrentThread());
   }
 
   std::shared_ptr<IHttpRequestReader> 
