@@ -58,8 +58,9 @@ std::string srs_generate_stream_url(const std::string& vhost,
 // for example, rtmp://v.ossrs.net/live/livestream to
 //      tcUrl: rtmp://v.ossrs.net/live
 //      stream: livestream
-void srs_parse_rtmp_url(std::string url, 
-    std::string& tcUrl, std::string& stream);
+void srs_parse_rtmp_url(const std::string& url, 
+                        std::string& tcUrl, 
+                        std::string& stream);
 
 std::string srs_string_remove(std::string str, 
                               std::string remove_chars);

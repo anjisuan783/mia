@@ -244,23 +244,26 @@ srs_error_t StreamEntry::serve_http(std::shared_ptr<IHttpResponseWriter> writer,
   MLOG_TRACE(req_->tcUrl);
   writer->header()->set_content_type("video/x-flv");
   writer->write_header(SRS_CONSTS_HTTP_OK);
-  
-  auto conn = msg->connection();
-  
-  async_task([this, conn, writer]() {
+  std::weak_ptr<IHttpResponseWriter> weak_writer = writer;
+  async_task([this, conn = msg->connection().get(), weak_writer]() {
     RTC_DCHECK_RUN_ON(&thread_check_);
+    auto share_writer = weak_writer.lock();
+    if (!share_writer) {
+      MLOG_CWARN("http connection disconnected");
+      return;
+    }
   
     srs_error_t err = srs_success;
     std::unique_ptr<ISrsBufferEncoder> encoder = std::make_unique<SrsFlvStreamEncoder>();
   
     // the memory writer.
-    std::unique_ptr<SrsFileWriter> bw = std::make_unique<SrsBufferWriter>(writer);
+    std::unique_ptr<SrsFileWriter> bw = std::make_unique<SrsBufferWriter>(share_writer);
     if ((err = encoder->initialize(bw.get(), nullptr)) != srs_success) {
       MLOG_CERROR("init encoder, code:%d, desc:%s", 
                   srs_error_code(err), srs_error_desc(err).c_str());
       delete err;
 
-      writer->final_request();
+      share_writer->final_request();
       return;
     }
     auto consumer = source_->create_consumer();
@@ -270,7 +273,7 @@ srs_error_t StreamEntry::serve_http(std::shared_ptr<IHttpResponseWriter> writer,
       MLOG_CERROR("dumps consumer, code:%d, desc:%s", 
                   srs_error_code(err), srs_error_desc(err).c_str());
       delete err;
-      writer->final_request();
+      share_writer->final_request();
       return;
     }
     
@@ -280,20 +283,20 @@ srs_error_t StreamEntry::serve_http(std::shared_ptr<IHttpResponseWriter> writer,
         MLOG_CERROR("encoder dump cache, code:%d, desc:%s", 
                     srs_error_code(err), srs_error_desc(err).c_str());
         delete err;
-        writer->final_request();
+        share_writer->final_request();
         return;
       }
     }
 
-    add_customer(conn.get(), consumer, std::move(bw), std::move(encoder));
+    add_customer(conn, consumer, std::move(bw), std::move(encoder));
   });
 
   return srs_success;
 }
 
 void StreamEntry::conn_destroy(std::shared_ptr<IMediaConnection> conn) {
-  async_task([this, conn]() {
-    delete_customer(conn.get());
+  async_task([this, raw_conn = conn.get()]() {
+    delete_customer(raw_conn);
   });
 }
 

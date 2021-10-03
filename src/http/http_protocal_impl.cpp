@@ -28,6 +28,7 @@ AsyncSokcetWrapper::AsyncSokcetWrapper(rtc::AsyncPacketSocket* c)
 
 AsyncSokcetWrapper::~AsyncSokcetWrapper() {
   MLOG_TRACE_THIS("");
+  RTC_DCHECK_RUN_ON(&thread_check_);
 }
 
 void AsyncSokcetWrapper::Open(bool is_server) {

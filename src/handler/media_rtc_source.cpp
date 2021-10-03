@@ -596,6 +596,8 @@ void MediaRtcSource::OnPublish() {
   req->tcUrl = stream_url_;
   req->stream = stream_id_;
 
+  srs_parse_rtmp_url(stream_url_, req->tcUrl, req->stream);
+
   srs_discovery_tc_url(req->tcUrl, 
                        req->schema,
                        req->host, 
@@ -612,7 +614,7 @@ void MediaRtcSource::OnPublish() {
             ", stream:" << req->stream << 
             ", port:" << req->port << 
             ", param:" << req->param);
-
+            
   auto result = g_source_mgr_.FetchOrCreateSource(req->stream);
 
   if (!*result) {

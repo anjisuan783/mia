@@ -127,7 +127,7 @@ class IHttpResponseWriter;
 class SrsBufferWriter : public SrsFileWriter
 {
 private:
-  std::shared_ptr<IHttpResponseWriter> writer_;
+  std::weak_ptr<IHttpResponseWriter> writer_;
 public:
   SrsBufferWriter(std::shared_ptr<IHttpResponseWriter> w);
   virtual ~SrsBufferWriter() = default;

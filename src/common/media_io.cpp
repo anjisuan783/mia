@@ -171,7 +171,7 @@ srs_error_t SrsFileWriter::lseek(off_t offset, int whence, off_t* seeked) {
 }
 
 SrsBufferWriter::SrsBufferWriter(std::shared_ptr<IHttpResponseWriter> w)
-  : writer_{std::move(w)} {
+  : writer_{w} {
 }
 
 srs_error_t SrsBufferWriter::open(const std::string& /*file*/) {
@@ -190,16 +190,25 @@ int64_t SrsBufferWriter::tellg() {
 }
 
 srs_error_t SrsBufferWriter::write(void* buf, size_t count, ssize_t* pnwrite) {
+  srs_error_t err = srs_success;
   if (pnwrite) {
       *pnwrite = count;
   }
-  return writer_->write((const char*)buf, (int)count);
+
+  auto writer = writer_.lock();
+
+  if (writer) {
+    err = writer->write((const char*)buf, (int)count);
+  }
+  
+  return err;
 }
 
 srs_error_t SrsBufferWriter::write(MessageChain* msg, ssize_t* pnwrite) {
   srs_error_t result  = srs_success;
 
-  if ((result = writer_->write(msg, pnwrite)) != srs_success) {
+  auto writer = writer_.lock();
+  if (writer && (result = writer->write(msg, pnwrite)) != srs_success) {
     return srs_error_wrap(result, "SrsBufferWriter::write");
   }
 
@@ -209,7 +218,8 @@ srs_error_t SrsBufferWriter::write(MessageChain* msg, ssize_t* pnwrite) {
 srs_error_t SrsBufferWriter::writev(const iovec* iov, int iovcnt, ssize_t* pnwrite) {
   srs_error_t result  = srs_success;
 
-  if ((result = writer_->writev(iov, iovcnt, pnwrite)) != srs_success) {
+  auto writer = writer_.lock();
+  if (writer && (result = writer->writev(iov, iovcnt, pnwrite)) != srs_success) {
     return srs_error_wrap(result, "SrsBufferWriter::writev");
   }
 

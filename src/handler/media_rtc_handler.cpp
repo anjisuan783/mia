@@ -31,8 +31,66 @@ class MediaHttpPlayHandler : public IMediaHttpHandler {
   wa::rtc_api* rtc_api_;
 };
 
+/*
+1.拉流URL
+schema://domain:port/rtc/v1/play
+
+request
+{
+  streamurl: 'webrtc://domain/app/stream',
+  sdp: string,  // offer sdp
+  clientip: string // 可选项， 在实际接入过程中，拉流请求有可能是服务端发起，为了更好的做就近调度，可以把客户端的ip地址当做参数，如果没有此clientip参数，CDN放可以用请求方的ip来做就近接入。
+}
+
+response
+{
+  code: int,
+  msg:  string,
+  data: {
+    sdp:string,   // answer sdp 
+    sessionid:string // 该路下行的唯一id
+  }
+}
+
+HTTP响应code码
+200:  正常影响
+400:  请求不正确，URL 或者 参数不正确
+403:  鉴权失败
+404:  该流不存在
+500:  服务内部异常 
+
+
+2.停止拉流URL
+
+schema://domain:port/rtc/v1/unplay
+
+schema: http或者https
+method: POST
+content-type: json
+
+request
+{
+  code:int,
+  msg:string,
+  data:{
+    streamurl: 'webrtc://domain/app/stream',
+    sessionid:string // 拉流时返回的唯一id
+  }
+}
+
+HTTP响应code码
+
+200:  正常影响
+400:  请求不正确，URL 或者 参数不正确
+403:  鉴权失败
+404:  该流不存在
+500:  服务内部异常  
+
+*/
+
 srs_error_t MediaHttpPlayHandler::serve_http(
-    std::shared_ptr<IHttpResponseWriter> writer, std::shared_ptr<ISrsHttpMessage>) {
+    std::shared_ptr<IHttpResponseWriter> writer, 
+    std::shared_ptr<ISrsHttpMessage>) {
   srs_error_t err = srs_success;
   return err;
 }
@@ -77,6 +135,9 @@ bool MediaHttpPublishHandler::IsExisted(const std::string& id) {
 }
 
 /*
+1.推流URL
+schema://domain:port/rtc/v1/publish
+
 request
 {
   streamurl: 'webrtc://domain/app/stream',
@@ -100,6 +161,34 @@ HTTP响应code码
 403:  鉴权失败
 404:  该流不存在
 500:  服务内部异常 
+
+2.停止推流URL
+schema://domain:port/rtc/v1/unpublish
+
+schema: http或者https
+method: POST
+content-type: json
+
+request
+{
+  streamurl: 'webrtc://domain/app/stream',
+  sessionid:string // 推流时返回的唯一id
+}
+
+response
+{
+  code:int,
+  msg:string
+}
+
+HTTP响应code码
+
+200:  正常影响
+400:  请求不正确，URL 或者 参数不正确
+403:  鉴权失败
+404:  该流不存在
+500:  服务内部异常  
+
 
 @see https://github.com/rtcdn/rtcdn-draft
 */
