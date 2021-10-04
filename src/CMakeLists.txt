@@ -2,6 +2,9 @@ cmake_minimum_required(VERSION 2.6)
 
 project(media_server)
 
+set(CMAKE_C_COMPILER "/opt/rh/devtoolset-7/root/usr/bin/gcc")
+set(CMAKE_CXX_COMPILER "/opt/rh/devtoolset-7/root/usr/bin/g++")
+
 set(MA_BUILD_TYPE "debug")
 
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")

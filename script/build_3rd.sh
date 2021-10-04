@@ -75,8 +75,7 @@ install_opus(){
 install_rtc_stack(){
   cd $ROOT_DIR/3rd/
   git clone https://github.com/anjisuan783/rtc_stack.git
-  cd rtc_stack/scripts && ./buildProject.sh && cd $CUR_DIR
-  cd ./script && ./build_3rd.sh && cd $ROOT_DIR
+  cd rtc_stack/scripts && chmod +x *.sh && ./buildProject.sh && cd $CUR_DIR
 }
 
 export PKG_CONFIG_PATH
