@@ -190,40 +190,20 @@ int64_t SrsBufferWriter::tellg() {
 }
 
 srs_error_t SrsBufferWriter::write(void* buf, size_t count, ssize_t* pnwrite) {
-  srs_error_t err = srs_success;
   if (pnwrite) {
-      *pnwrite = count;
+    *pnwrite = count;
   }
 
-  auto writer = writer_.lock();
-
-  if (writer) {
-    err = writer->write((const char*)buf, (int)count);
-  }
-  
-  return err;
+  return writer_->write((const char*)buf, (int)count);
 }
 
 srs_error_t SrsBufferWriter::write(MessageChain* msg, ssize_t* pnwrite) {
-  srs_error_t result  = srs_success;
-
-  auto writer = writer_.lock();
-  if (writer && (result = writer->write(msg, pnwrite)) != srs_success) {
-    return srs_error_wrap(result, "SrsBufferWriter::write");
-  }
-
-  return result;
+  return writer_->write(msg, pnwrite);
 }
 
-srs_error_t SrsBufferWriter::writev(const iovec* iov, int iovcnt, ssize_t* pnwrite) {
-  srs_error_t result  = srs_success;
-
-  auto writer = writer_.lock();
-  if (writer && (result = writer->writev(iov, iovcnt, pnwrite)) != srs_success) {
-    return srs_error_wrap(result, "SrsBufferWriter::writev");
-  }
-
-  return result;
+srs_error_t SrsBufferWriter::writev(
+    const iovec* iov, int iovcnt, ssize_t* pnwrite) {
+  return writer_->writev(iov, iovcnt, pnwrite);
 }
 
 }

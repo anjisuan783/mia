@@ -124,7 +124,8 @@ void StreamEntry::initialize() {
     
     auto encoder = std::make_unique<SrsFlvStreamEncoder>();
 
-    if (srs_success != (result = encoder->initialize(file_writer.get(), nullptr))) {
+    if (srs_success != 
+        (result = encoder->initialize(file_writer.get(), nullptr))) {
       MLOG_FATAL("init encoder, desc:" << srs_error_desc(result));
       delete result;
       return;
@@ -139,7 +140,8 @@ void StreamEntry::initialize() {
     
     // if gop cache enabled for encoder, dump to consumer.
     if (encoder->has_cache()) {
-      if ((result = encoder->dump_cache(consumer.get(), source_->jitter())) != srs_success) {
+      if ((result = encoder->dump_cache(consumer.get(), source_->jitter())) 
+          != srs_success) {
         MLOG_ERROR("encoder dump cache, desc:" << srs_error_desc(result));
         delete result;
         return;
@@ -188,9 +190,11 @@ void StreamEntry::delete_customer(IMediaConnection* conn) {
   }  
 }
 
-void StreamEntry::consumer_push(customer& c, std::vector<std::shared_ptr<MediaMessage>>& cache) {
+void StreamEntry::consumer_push(
+    customer& c, std::vector<std::shared_ptr<MediaMessage>>& cache) {
   srs_error_t err = srs_success;
-  SrsFlvStreamEncoder* fast = dynamic_cast<SrsFlvStreamEncoder*>(c.encoder_.get());
+  SrsFlvStreamEncoder* fast = 
+      dynamic_cast<SrsFlvStreamEncoder*>(c.encoder_.get());
   int count;
   do {
     cache.clear();
@@ -244,51 +248,61 @@ srs_error_t StreamEntry::serve_http(std::shared_ptr<IHttpResponseWriter> writer,
   MLOG_TRACE(req_->tcUrl);
   writer->header()->set_content_type("video/x-flv");
   writer->write_header(SRS_CONSTS_HTTP_OK);
-  std::weak_ptr<IHttpResponseWriter> weak_writer = writer;
-  async_task([this, conn = msg->connection().get(), weak_writer]() {
-    RTC_DCHECK_RUN_ON(&thread_check_);
-    auto share_writer = weak_writer.lock();
-    if (!share_writer) {
-      MLOG_CWARN("http connection disconnected");
-      return;
-    }
-  
-    srs_error_t err = srs_success;
-    std::unique_ptr<ISrsBufferEncoder> encoder = std::make_unique<SrsFlvStreamEncoder>();
-  
-    // the memory writer.
-    std::unique_ptr<SrsFileWriter> bw = std::make_unique<SrsBufferWriter>(share_writer);
-    if ((err = encoder->initialize(bw.get(), nullptr)) != srs_success) {
-      MLOG_CERROR("init encoder, code:%d, desc:%s", 
-                  srs_error_code(err), srs_error_desc(err).c_str());
-      delete err;
 
-      share_writer->final_request();
+  async_task([this, key = msg->connection().get(), 
+              shared_writer = std::move(writer)]() {
+    RTC_DCHECK_RUN_ON(&thread_check_);
+    srs_error_t err = srs_success;
+
+    std::unique_ptr<ISrsBufferEncoder> encoder = 
+        std::make_unique<SrsFlvStreamEncoder>();
+
+    // the memory writer.
+    std::unique_ptr<SrsFileWriter> bw = 
+        std::make_unique<SrsBufferWriter>(shared_writer);
+
+    if ((err = encoder->initialize(bw.get(), nullptr)) != srs_success) {
+      MLOG_CERROR("flv encoder initialize failed, desc:%s", 
+                  srs_error_desc(err));
+      delete err;
+      if ((err = shared_writer->final_request()) != srs_success) {
+        MLOG_CERROR("flv encoder initialize failed final request, desc:%s", 
+                    srs_error_desc(err));
+        delete err;
+      }
       return;
     }
+    
     auto consumer = source_->create_consumer();
 
     if ((err = source_->consumer_dumps(
         consumer.get(), true, true, !encoder->has_cache())) != srs_success) {
-      MLOG_CERROR("dumps consumer, code:%d, desc:%s", 
-                  srs_error_code(err), srs_error_desc(err).c_str());
+      MLOG_CERROR("dumps consumer, desc:%s", srs_error_desc(err));
       delete err;
-      share_writer->final_request();
+      if ((err = shared_writer->final_request()) != srs_success) {
+        MLOG_CERROR("consumer_dumps final request, desc:%s", 
+                    srs_error_desc(err));
+        delete err;
+      }
       return;
     }
     
     // if gop cache enabled for encoder, dump to consumer.
     if (encoder->has_cache()) {
-      if ((err = encoder->dump_cache(consumer.get(), source_->jitter())) != srs_success) {
-        MLOG_CERROR("encoder dump cache, code:%d, desc:%s", 
-                    srs_error_code(err), srs_error_desc(err).c_str());
+      if ((err = encoder->dump_cache(consumer.get(), source_->jitter())) 
+          != srs_success) {
+        MLOG_CERROR("encoder dump cache, desc:%s", srs_error_desc(err));
         delete err;
-        share_writer->final_request();
+        if ((err = shared_writer->final_request()) != srs_success) {
+          MLOG_CERROR("encoder dump cache final request, desc:%s", 
+                      srs_error_desc(err));
+          delete err;
+        }
         return;
       }
     }
 
-    add_customer(conn, consumer, std::move(bw), std::move(encoder));
+    add_customer(key, std::move(consumer), std::move(bw), std::move(encoder));
   });
 
   return srs_success;
@@ -366,9 +380,8 @@ void MediaFlvPlayHandler::conn_destroy(std::shared_ptr<IMediaConnection> conn) {
 }
 
 srs_error_t MediaFlvPlayHandler::serve_http(
-    std::shared_ptr<IHttpResponseWriter> writer, std::shared_ptr<ISrsHttpMessage> msg) {
-
-  assert(msg->is_http_get());
+    std::shared_ptr<IHttpResponseWriter> writer, 
+    std::shared_ptr<ISrsHttpMessage> msg) {
 
   std::shared_ptr<StreamEntry> handler;
   std::string path = msg->path();

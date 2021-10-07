@@ -203,10 +203,9 @@ srs_error_t MediaRtcSource::Init(wa::rtc_api* rtc,
 }
 
 srs_error_t MediaRtcSource::Init_i(const std::string& isdp) {
-  std::string sdp = srs_string_replace(isdp, "\\r\\n", "\r\n");
+  MLOG_DEBUG("sdp:" << isdp);
 
-  MLOG_DEBUG("sdp:" << sdp);
-  
+  std::string sdp = srs_string_replace(isdp, "\\r\\n", "\r\n");
   worker_ = g_source_mgr_.GetWorker();
   
   wa::TOption  t;

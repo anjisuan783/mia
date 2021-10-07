@@ -209,7 +209,7 @@ int MediaListenerMgr::Init(const std::vector<std::string>& addr) {
       return ret;
     });
 
-    if (result != 0) {
+    if (result != kma_ok) {
       MLOG_CERROR("listen failed, code:%d, address:%s", result, i.c_str());
       return kma_listen_failed;
     }

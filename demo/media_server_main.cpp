@@ -26,13 +26,12 @@ int main(int argc, char* argv[]) {
     (uint32_t)1,
     true,
     false,
-    false,
+    true,                          //flv_record_
     30000,
     ma::JitterAlgorithmZERO,
     {                               //listen_addr_
-      {"rtmp://0.0.0.0:1936"},      
-      {"http://0.0.0.0:80"},
-      {"https://0.0.0.0:443"}
+      {"https://0.0.0.0:443"},
+      {"http://0.0.0.0:80"}
     },
     (uint32_t)1,
     {                               //candidates_
@@ -46,7 +45,7 @@ int main(int argc, char* argv[]) {
   ma::MediaServerApi* server = ma::MediaServerFactory().Create();
   int ret = server->Init(_config);
   if (ma::kma_ok != ret) {
-    char buffer[1024]; \
+    char buffer[1024];
     snprintf(buffer, 1024, "initialize failed, code:%d \n", ret);
     LOG4CXX_INFO(rootLogger, buffer);
 
