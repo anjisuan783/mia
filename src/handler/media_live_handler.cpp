@@ -1,4 +1,4 @@
-#include "media_flv_handler.h"
+#include "media_live_handler.h"
 
 #include <chrono>
 
@@ -6,12 +6,12 @@
 #include "http/http_consts.h"
 #include "utils/protocol_utility.h"
 #include "connection/h/conn_interface.h"
-#include "media_consumer.h"
+#include "live/media_consumer.h"
 #include "common/media_message.h"
 #include "http/http_stack.h"
 #include "http/h/http_message.h"
 #include "media_source_mgr.h"
-#include "handler/media_404_handler.h"
+#include "handler/media_error_handler.h"
 #include "media_source.h"
 #include "common/media_io.h"
 #include "http/h/http_protocal.h"
@@ -96,8 +96,8 @@ StreamEntry::StreamEntry(std::shared_ptr<MediaSource> s,
   : source_{s},  
     req_{r}, 
     worker_{source_->get_worker()} {
-  std::string service_id = srs_generate_stream_url("", req_->app, req_->stream);
-  MLOG_TRACE("service created:" << service_id );
+  std::string stream_id = srs_generate_stream_url("", req_->app, req_->stream);
+  MLOG_TRACE("service created:" << stream_id );
   thread_check_.Detach();
 }
 
@@ -323,6 +323,7 @@ void StreamEntry::async_task(std::function<void()> f) {
   });
 }
 
+//MediaFlvPlayHandler
 MDEFINE_LOGGER(MediaFlvPlayHandler, "MediaFlvPlayHandler");
 
 MediaFlvPlayHandler::MediaFlvPlayHandler() = default;
@@ -336,14 +337,14 @@ srs_error_t MediaFlvPlayHandler::mount_service(
   std::map<std::string, std::shared_ptr<StreamEntry>>::iterator found;
   
   {
-    std::string service_id = srs_generate_stream_url("", r->app, r->stream);
+    std::string stream_id = srs_generate_stream_url("", r->app, r->stream);
     std::lock_guard<std::mutex> guard(stream_lock_);
-    found = steams_.find(service_id);
+    found = steams_.find(stream_id);
 
     if (found == steams_.end()) {
       auto stream = std::make_shared<StreamEntry>(s, r);
       stream->initialize();
-      steams_.emplace(service_id, stream);
+      steams_.emplace(stream_id, stream);
       return result;
     } 
   }
@@ -363,7 +364,6 @@ void MediaFlvPlayHandler::unmount_service(std::shared_ptr<MediaSource>,
 }
 
 void MediaFlvPlayHandler::conn_destroy(std::shared_ptr<IMediaConnection> conn) {
-
   std::shared_ptr<StreamEntry> handler;
   {
     std::lock_guard<std::mutex> guard(index_lock_);
@@ -394,6 +394,7 @@ srs_error_t MediaFlvPlayHandler::serve_http(
   if (found != path.npos) {
     path.erase(found, 4);
   }
+  
   MLOG_TRACE(path);
   {
     std::lock_guard<std::mutex> guard(stream_lock_);
@@ -413,5 +414,5 @@ srs_error_t MediaFlvPlayHandler::serve_http(
   return handler->serve_http(writer, msg);
 }
 
-}
+} //namespace ma
 

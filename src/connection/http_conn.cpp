@@ -18,6 +18,12 @@ public:
 
   srs_error_t serve_http(std::shared_ptr<IHttpResponseWriter> w, 
                          std::shared_ptr<ISrsHttpMessage> r) override;
+  srs_error_t mount_service(std::shared_ptr<MediaSource> s, 
+                            std::shared_ptr<MediaRequest> r) override {
+    return srs_success;
+  }
+  void unmount_service(std::shared_ptr<MediaSource> s, 
+                       std::shared_ptr<MediaRequest> r) override { }
   void conn_destroy(std::shared_ptr<IMediaConnection>) override {}
 private:
   bool required{false};

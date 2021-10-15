@@ -7,7 +7,7 @@
 #include "http/h/http_message.h"
 #include "connection/h/media_conn_mgr.h"
 #include "rtmp/media_req.h"
-#include "handler/media_flv_handler.h"
+#include "handler/media_live_handler.h"
 #include "handler/media_rtc_handler.h"
 
 namespace ma {
@@ -40,11 +40,17 @@ srs_error_t MediaHttpServeMux::serve_http(
 
 srs_error_t MediaHttpServeMux::mount_service(
     std::shared_ptr<MediaSource> s, std::shared_ptr<MediaRequest> r) {
+  srs_error_t err = srs_success;
+  if ((err = rtc_sevice_->mount_service(s, r)) != srs_success) {
+    return srs_error_wrap(err, "rtc mount service");
+  }
+
   return flv_sevice_->mount_service(std::move(s), std::move(r));
 }
 
 void MediaHttpServeMux::unmount_service(
     std::shared_ptr<MediaSource> s, std::shared_ptr<MediaRequest> r) {
+  rtc_sevice_->unmount_service(s, r);
   flv_sevice_->unmount_service(std::move(s), std::move(r));
 }
 

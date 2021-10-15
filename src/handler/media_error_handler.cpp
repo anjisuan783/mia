@@ -1,4 +1,4 @@
-#include "media_404_handler.h"
+#include "media_error_handler.h"
 
 #include "http/http_consts.h"
 #include "http/http_stack.h"
@@ -6,12 +6,10 @@
 
 namespace ma {
 
-
 srs_error_t HttpForbiddonHandler::serve_http(
     std::shared_ptr<IHttpResponseWriter> w, std::shared_ptr<ISrsHttpMessage>) {
   return srs_go_http_error(w.get(), SRS_CONSTS_HTTP_Forbidden); 
 }
-
 
 srs_error_t HttpNotFoundHandler::serve_http(
     std::shared_ptr<IHttpResponseWriter> w, std::shared_ptr<ISrsHttpMessage>) {

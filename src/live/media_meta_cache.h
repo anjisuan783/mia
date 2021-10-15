@@ -11,7 +11,7 @@
 #include <memory>
 #include "common/media_log.h"
 #include "common/media_kernel_error.h"
-#include "media_consumer.h"
+#include "live/media_consumer.h"
 
 namespace ma {
 
@@ -24,8 +24,7 @@ class MessageHeader;
 
 // Each stream have optional meta(sps/pps in sequence header and metadata).
 // This class cache and update the meta.
-class MediaMetaCache final
-{
+class MediaMetaCache final {
   MDECLARE_LOGGER();
 
 public:
@@ -81,6 +80,6 @@ private:
     std::unique_ptr<SrsRtmpFormat> aformat;
 };
 
-}
+} //namespace ma
 
 #endif //!__MEDIA_META_CACHE_H__

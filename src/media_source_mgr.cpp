@@ -1,7 +1,6 @@
 #include "media_source_mgr.h"
-
-#include "media_source.h"
 #include "media_server.h"
+#include "rtmp/media_req.h"
 
 namespace ma {
 
@@ -12,35 +11,59 @@ void MediaSourceMgr::Init(unsigned int num) {
   workers_->start();
 }
 
-std::optional<std::shared_ptr<MediaSource>> 
-    MediaSourceMgr::FetchOrCreateSource(const std::string& url) {
+std::shared_ptr<MediaSource>
+MediaSourceMgr::FetchOrCreateSource(MediaSource::Config& cfg,
+                                    std::shared_ptr<MediaRequest> req) {
   {
     std::lock_guard<std::mutex> guard(source_lock_);
-    auto found = sources_.find(url);
+    auto found = sources_.find(req->stream);
     if(found != sources_.end()){
       return found->second;
     }
   }
   
-  auto ms = std::make_shared<MediaSource>(url);
+  auto ms = std::make_shared<MediaSource>(req);
 
-  if (!ms->initialize(std::move(this->GetWorker()),
-                      g_server_.config_.enable_gop_,
-                      g_server_.config_.enable_atc_)) {
-    return std::nullopt;
-  }
+  ms->Initialize(cfg);
   
   {
     std::lock_guard<std::mutex> guard(source_lock_);
-    sources_[url] = ms;
+    sources_[req->stream] = ms;
   }
+
+  g_server_.on_publish(ms, req);
 
   return std::move(ms);
 }
 
-void MediaSourceMgr::RemoveSource(const std::string& id) {
+std::optional<std::shared_ptr<MediaSource>> 
+MediaSourceMgr::FetchSource(const std::string& stream_id) {
+
+  std::lock_guard<std::mutex> guard(source_lock_);  
+  auto found = sources_.find(stream_id);
+  if (found != sources_.end()) {
+    return found->second;
+  }
+
+  return std::nullopt;
+}
+
+void MediaSourceMgr::RemoveSource(const std::string& stream_id) {
+  // lock twice optimize ?
+  auto found = sources_.end();
+  {
+    std::lock_guard<std::mutex> guard(source_lock_);
+    found = sources_.find(stream_id);
+    if (found == sources_.end()) {
+      assert(false);
+      return;
+    }
+  }
+  
+  g_server_.on_unpublish(found->second, found->second->GetRequest());
+  
   std::lock_guard<std::mutex> guard(source_lock_);
-  sources_.erase(id);
+  sources_.erase(stream_id);
 }
 
 std::shared_ptr<wa::Worker> MediaSourceMgr::GetWorker() {
@@ -49,5 +72,5 @@ std::shared_ptr<wa::Worker> MediaSourceMgr::GetWorker() {
 
 MediaSourceMgr g_source_mgr_;
 
-}
+} //namespace ma
 

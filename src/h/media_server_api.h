@@ -24,7 +24,7 @@ enum JitterAlgorithm {
 
 class MediaServerApi {
  public:
-  struct config {
+  struct Config {
     uint32_t workers_{1};
     uint32_t ioworkers_{1};          // TODO multi-theads not implement
     bool enable_gop_{true};
@@ -50,7 +50,7 @@ class MediaServerApi {
    *  num1 : thread num of media thread pool
    *  num2 : thread num of connection thread pool  TODO not implement
    */
-  virtual int Init(const config&) = 0;
+  virtual int Init(const Config&) = 0;
 };
 
 class MediaServerFactory {

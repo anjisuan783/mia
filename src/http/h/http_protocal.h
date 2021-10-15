@@ -14,8 +14,7 @@ class SrsHttpHeader;
 class ISrsHttpMessage;
 class MessageChain;
 
-class IHttpRequestReader
-{
+class IHttpRequestReader {
 public:
   class CallBack {
    public:
@@ -31,8 +30,7 @@ public:
   virtual void disconnect() = 0;
 };
 
-class IHttpResponseWriter
-{
+class IHttpResponseWriter {
 public:
   virtual ~IHttpResponseWriter() = default;
 public:

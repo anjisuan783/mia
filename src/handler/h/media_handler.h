@@ -37,13 +37,10 @@ class IMediaHttpHandler {
                                  std::shared_ptr<ISrsHttpMessage>) = 0;
 
   virtual srs_error_t mount_service(std::shared_ptr<MediaSource> s, 
-                                    std::shared_ptr<MediaRequest> r)  {
-    return srs_success;
-  }
+                                    std::shared_ptr<MediaRequest> r) = 0;
   
   virtual void unmount_service(std::shared_ptr<MediaSource> s, 
-                               std::shared_ptr<MediaRequest> r) {
-  }
+                               std::shared_ptr<MediaRequest> r) = 0;
 
   virtual void conn_destroy(std::shared_ptr<IMediaConnection>) = 0;
 };

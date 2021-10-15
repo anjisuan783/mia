@@ -4,8 +4,8 @@
 // SPDX-License-Identifier: MIT
 //
 
-#ifndef __MEDIA_FLV_SERVER_HANDLER_H__
-#define __MEDIA_FLV_SERVER_HANDLER_H__
+#ifndef __MEDIA_LIVE_SERVER_HANDLER_H__
+#define __MEDIA_LIVE_SERVER_HANDLER_H__
 
 #include <memory>
 #include <map>
@@ -52,5 +52,5 @@ class MediaFlvPlayHandler : public IMediaHttpHandler {
 
 }
 
-#endif //!__MEDIA_FLV_SERVER_HANDLER_H__
+#endif //!__MEDIA_LIVE_SERVER_HANDLER_H__
 

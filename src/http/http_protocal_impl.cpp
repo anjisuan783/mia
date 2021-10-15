@@ -412,7 +412,7 @@ srs_error_t HttpMessageParser::parse_message_imp(std::string_view str_msg) {
       }
     }
       
-    MLOG_CINFO("size=%d, nparsed=%d", buffer_.length(), (int)consumed);
+    MLOG_CDEBUG("size=%d, nparsed=%d", buffer_.length(), (int)consumed);
 
     // Only consume the header bytes.
     buffer_view_.remove_prefix(consumed);

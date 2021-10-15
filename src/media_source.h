@@ -8,92 +8,77 @@
 #define __NEW_MEDIA_SOURCE_H__
 
 #include <memory>
-#include <mutex>
-#include <list>
 
-#include "rtc_base/sequence_checker.h"
-#include "utils/Worker.h"
-
+#include "h/rtc_stack_api.h"
+#include "h/media_server_api.h"
 #include "common/media_log.h"
+#include "utils/Worker.h"
 #include "common/media_kernel_error.h"
-#include "media_consumer.h"
 
 namespace ma {
 
-class MediaMessage;
-class SrsGopCache;
-class MediaMetaCache;
+class MediaLiveSource;
+class MediaRtcSource;
+class MediaConsumer;
+class MediaRequest;
+class IHttpResponseWriter;
 
-// live streaming source.
 class MediaSource final : public std::enable_shared_from_this<MediaSource> {
   MDECLARE_LOGGER();
-  
+
  public:
-  MediaSource(const std::string& id);
+  struct Config {
+    std::shared_ptr<wa::Worker> worker;
+    bool gop{false};
+    bool atc{false};
+    JitterAlgorithm jitter_algorithm{JitterAlgorithmZERO};
+    wa::rtc_api* rtc_api{nullptr};
+  };
+
+  MediaSource(std::shared_ptr<MediaRequest>);
   ~MediaSource();
 
-  //called by MediaSourceMgr
-  bool initialize(std::shared_ptr<wa::Worker>, bool gop, bool atc);
-
-  void on_publish();
-  
-  void on_unpublish();
+  void Initialize(Config&);
 
   std::shared_ptr<MediaConsumer> create_consumer();
-  
-  srs_error_t on_audio(std::shared_ptr<MediaMessage>);
-
-  srs_error_t on_video(std::shared_ptr<MediaMessage>);
-
   srs_error_t consumer_dumps(MediaConsumer* consumer, 
                              bool dump_seq_header, 
                              bool dump_meta, 
                              bool dump_gop);
 
-  JitterAlgorithm jitter() {
-    return jitter_algorithm_;
+  JitterAlgorithm jitter();
+  
+  inline std::shared_ptr<wa::Worker> get_worker() {
+    return config_.worker;
   }
 
-  std::shared_ptr<wa::Worker> get_worker() {
-    return worker_;
+  inline std::shared_ptr<MediaRequest> GetRequest() {
+    return req_;
   }
 
- private:
-  void on_av_i(std::shared_ptr<MediaMessage> msg);
-  void async_task(std::function<void(std::shared_ptr<MediaSource>)> f);
-  void on_audio_async(std::shared_ptr<MediaMessage> shared_audio);
-  void on_video_async(std::shared_ptr<MediaMessage> shared_video);
+  //for rtc
+  srs_error_t Publish(const std::string& sdp, 
+                      std::shared_ptr<IHttpResponseWriter> writer,
+                      std::string& publisher_id);
+  srs_error_t UnPublish() { return srs_success; }
   
+  srs_error_t Subscribe(const std::string& sdp, 
+                        std::shared_ptr<IHttpResponseWriter> writer,
+                        std::string& subscriber_id);
+  srs_error_t UnSubscribe() { return srs_success; }
+
  private:
-  std::string id_;
+  void CheckLiveSource();
+  void CheckRtcSource();
 
-  std::mutex consumer_lock_;
-  //TODO need optimize
-  std::list<std::weak_ptr<MediaConsumer>> consumers_; 
+  Config config_;
+  std::shared_ptr<MediaLiveSource> live_source_;
+  std::shared_ptr<MediaRtcSource> rtc_source_;
 
-  // whether stream is monotonically increase.
-  bool is_monotonically_increase_{false};
-  // The time of the packet we just got.
-  int64_t last_packet_time_{0};
-
-  bool atc_{false};
-
-  bool active_{false};
-
-  JitterAlgorithm jitter_algorithm_{JitterAlgorithmZERO};
-
-  // The gop cache for client fast startup.
-  std::unique_ptr<SrsGopCache> gop_cache_;
-
-  // The metadata cache.
-  std::unique_ptr<MediaMetaCache> meta_;
-
-  std::shared_ptr<wa::Worker> worker_;
-  
-  webrtc::SequenceChecker thread_check_;
+  std::shared_ptr<MediaRequest> req_;
 };
 
-}
+} //namespace ma
 
 #endif //!__NEW_MEDIA_SOURCE_H__
 

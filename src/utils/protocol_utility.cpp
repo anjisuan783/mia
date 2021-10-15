@@ -385,13 +385,13 @@ void srs_discovery_tc_url(const std::string& tcUrl,
   if ((pos = url.find("://")) != std::string_view::npos) {
     schema = url.substr(0, pos);
     url = url.substr(schema.length() + 3);
-    MLOG_INFO("discovery schema=" << schema);
+    MLOG_DEBUG("discovery schema=" << schema);
   }
   
   if ((pos = url.find("/")) != std::string_view::npos) {
     host = url.substr(0, pos);
     url = url.substr(host.length() + 1);
-    MLOG_INFO("discovery host=" << host.c_str());
+    MLOG_DEBUG("discovery host=" << host.c_str());
   }
   
   port = SRS_CONSTS_RTMP_DEFAULT_PORT;
@@ -399,7 +399,7 @@ void srs_discovery_tc_url(const std::string& tcUrl,
     std::string_view host_view;
     srs_parse_hostport(host, host_view, port);
     host = host_view;
-    MLOG_CINFO("discovery host=%s, port=%d", host.c_str(), port);
+    MLOG_CDEBUG("discovery host=%s, port=%d", host.c_str(), port);
   }
   
   if (url.empty()) {

@@ -4,8 +4,8 @@
 // SPDX-License-Identifier: MIT
 //
 
-#ifndef __RTC_SERVER_API_H__
-#define __RTC_SERVER_API_H__
+#ifndef __MEDIA_MUX_H__
+#define __MEDIA_MUX_H__
 
 #include <string>
 #include <map>
@@ -44,5 +44,5 @@ private:
 
 }
 
-#endif //!__RTC_SERVER_API_H__
+#endif //!__MEDIA_MUX_H__
 

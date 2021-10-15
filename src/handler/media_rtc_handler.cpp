@@ -6,29 +6,40 @@
 
 #include "common/media_log.h"
 #include "utils/json.h"
+#include "utils/protocol_utility.h"
 #include "http/h/http_message.h"
 #include "connection/h/conn_interface.h"
 #include "media_server.h"
-#include "handler/media_rtc_source.h"
-#include "handler/media_404_handler.h"
+#include "rtc/media_rtc_source.h"
+#include "rtmp/media_req.h"
+#include "media_source_mgr.h"
+#include "media_source.h"
 
 namespace ma {
 
 #define RTC_PUBLISH_HANDLER 0
 #define RTC_PLAY_HANDLER 1
 
-static log4cxx::LoggerPtr logger = log4cxx::Logger::getLogger("MediaHttpRtcServer");
+static log4cxx::LoggerPtr logger = 
+    log4cxx::Logger::getLogger("MediaHttpRtcServer");
 
 class MediaHttpPlayHandler : public IMediaHttpHandler {
  public: 
   MediaHttpPlayHandler(wa::rtc_api* p) : rtc_api_(p){
   }
  private:
-  void conn_destroy(std::shared_ptr<IMediaConnection>) override { }
   srs_error_t serve_http(std::shared_ptr<IHttpResponseWriter>, 
                          std::shared_ptr<ISrsHttpMessage>) override;
+  void conn_destroy(std::shared_ptr<IMediaConnection>) override { }
+  
+  srs_error_t mount_service(std::shared_ptr<MediaSource> s, 
+                            std::shared_ptr<MediaRequest> r) override;
+  void unmount_service(std::shared_ptr<MediaSource> s, 
+                       std::shared_ptr<MediaRequest> r) override;
  private:
   wa::rtc_api* rtc_api_;
+  std::mutex stream_lock_;
+  std::map<std::string, std::shared_ptr<MediaSource>> source_map_;
 };
 
 /*
@@ -39,7 +50,9 @@ request
 {
   streamurl: 'webrtc://domain/app/stream',
   sdp: string,  // offer sdp
-  clientip: string // 可选项， 在实际接入过程中，拉流请求有可能是服务端发起，为了更好的做就近调度，可以把客户端的ip地址当做参数，如果没有此clientip参数，CDN放可以用请求方的ip来做就近接入。
+  clientip: string // 可选项， 在实际接入过程中，拉流请求有可能是服务端发起，
+                      为了更好的做就近调度，可以把客户端的ip地址当做参数，
+                      如果没有此clientip参数，CDN放可以用请求方的ip来做就近接入。
 }
 
 response
@@ -90,49 +103,59 @@ HTTP响应code码
 
 srs_error_t MediaHttpPlayHandler::serve_http(
     std::shared_ptr<IHttpResponseWriter> writer, 
-    std::shared_ptr<ISrsHttpMessage>) {
+    std::shared_ptr<ISrsHttpMessage> msg) {
   srs_error_t err = srs_success;
+  json::Object jobj = json::Deserialize(msg->get_body());
+
+  std::string streamurl = std::move((std::string)jobj["streamurl"]);
+  std::string sdp = std::move((std::string)jobj["sdp"]);
+
+  std::string tcUrl;
+  std::string stream_id;
+  srs_parse_rtmp_url(streamurl, tcUrl, stream_id);
+
+  std::string subscriber_id;
+  auto result = g_source_mgr_.FetchSource(stream_id);
+  if (*result) {  
+    err = (*result)->Subscribe(sdp, std::move(writer), subscriber_id);
+  }
   return err;
 }
 
+srs_error_t MediaHttpPlayHandler::mount_service(std::shared_ptr<MediaSource> s, 
+                                      std::shared_ptr<MediaRequest> r)  {
+  std::lock_guard<std::mutex> guard(stream_lock_);
+  source_map_.emplace(r->stream, std::move(s));
+  return srs_success;
+}
+
+void MediaHttpPlayHandler::unmount_service(std::shared_ptr<MediaSource> s, 
+                             std::shared_ptr<MediaRequest> r) {
+  std::lock_guard<std::mutex> guard(stream_lock_);
+  source_map_.erase(r->stream);
+}
+
 //MediaHttpPublishHandler
-class MediaHttpPublishHandler : public IMediaHttpHandler,
-                                public IRtcEraser {
+class MediaHttpPublishHandler : public IMediaHttpHandler {
  public:
   MediaHttpPublishHandler(wa::rtc_api* p) : rtc_api_{p} {
   }
  private:
-  void RemoveSource(const std::string& id) override;
-  void conn_destroy(std::shared_ptr<IMediaConnection> conn) override { }
+  
   srs_error_t serve_http(std::shared_ptr<IHttpResponseWriter>, 
                          std::shared_ptr<ISrsHttpMessage>) override;
+  srs_error_t mount_service(std::shared_ptr<MediaSource> s, 
+                            std::shared_ptr<MediaRequest> r) override {
+    return srs_success;
+  }
+  
+  void unmount_service(std::shared_ptr<MediaSource> s, 
+                       std::shared_ptr<MediaRequest> r) override { }
+  void conn_destroy(std::shared_ptr<IMediaConnection> conn) override { }
 
  private:
-  bool IsExisted(const std::string& id);
-
- private:
-  std::mutex source_lock_;
-  std::map<std::string, std::shared_ptr<MediaRtcSource>> sources_;
-
   wa::rtc_api* rtc_api_;
 };
-
-void MediaHttpPublishHandler::RemoveSource(const std::string& id) {
-  std::lock_guard<std::mutex> guard(source_lock_);
-  sources_.erase(id);
-}
-
-bool MediaHttpPublishHandler::IsExisted(const std::string& id) {
-  bool found = true;
-  {
-    std::lock_guard<std::mutex> guard(source_lock_);
-    if(sources_.find(id) == sources_.end()) {
-      found = false;
-    }
-  }
-
-  return found;
-}
 
 /*
 1.推流URL
@@ -201,50 +224,47 @@ srs_error_t MediaHttpPublishHandler::serve_http(
   assert(msg->path() == RTC_PUBLISH_PREFIX);
   assert(msg->is_body_eof());
 
-  static HttpForbiddonHandler s_handler_403;
-  static HttpNotFoundHandler  s_handler_404;
-
   srs_error_t err = srs_success;
   
   json::Object jobj = json::Deserialize(msg->get_body());
 
   std::string streamurl = std::move((std::string)jobj["streamurl"]);
   //std::string clientip = std::move((std::string)jobj["clientip"]);
-
-  size_t pos = streamurl.rfind("/");
-  if (pos == std::string::npos) {
-    return s_handler_404.serve_http(std::move(writer), msg);
-  }
-  std::string stream_id = streamurl.substr(pos + 1);
-
-  bool found = IsExisted(stream_id);
-
-  if (found) {
-    return s_handler_403.serve_http(std::move(writer), msg);
-  }
-
-  auto ms = std::make_shared<MediaRtcSource>(stream_id, this);
-
   std::string sdp = std::move((std::string)jobj["sdp"]);
-  if ((err = ms->Init(rtc_api_, std::move(writer), sdp, streamurl)) 
-      != srs_success) {
-    srs_error_t err1 = ms->Responese(400, "");
-    if (err1 != srs_success) {
-      srs_error_t first = srs_error_wrap(err1, 
-          "responese failed, rtc source init failed[desc:%s]", 
-          srs_error_desc(err));
-      delete err;
-      return first;
-    }
-    return srs_error_wrap(err, "rtc source init failed");
-  }
- 
-  {
-    std::lock_guard<std::mutex> guard(source_lock_);
-    sources_.emplace(stream_id, ms);
-  }
+
+  auto req = std::make_shared<MediaRequest>();
+  srs_parse_rtmp_url(streamurl, req->tcUrl, req->stream);
+
+  //req->stream = stream_id_;
+  srs_discovery_tc_url(req->tcUrl, 
+                       req->schema,
+                       req->host, 
+                       req->vhost, 
+                       req->app, 
+                       req->stream, 
+                       req->port, 
+                       req->param);
+
+  MLOG_INFO("schema:" << req->schema << 
+            ", host:" << req->host <<
+            ", vhost:" << req->vhost << 
+            ", app:" << req->app << 
+            ", stream:" << req->stream << 
+            ", port:" << req->port << 
+            ", param:" << req->param);
   
-  return srs_success;
+  MediaSource::Config cfg{std::move(g_source_mgr_.GetWorker()), 
+                          g_server_.config_.enable_gop_,
+                          g_server_.config_.enable_atc_,
+                          JitterAlgorithmZERO,
+                          rtc_api_};
+  auto ms = g_source_mgr_.FetchOrCreateSource(cfg, req);
+
+  std::string publisher_id;
+  err = ms->Publish(sdp, std::move(writer), publisher_id);
+
+  //TODO double publisher  
+  return err;
 }
 
 //MediaHttpRtcServeMux
@@ -270,20 +290,19 @@ srs_error_t MediaHttpRtcServeMux::init() {
   return err;
 }
 
+int tcUrl2Handle(const std::string& tcurl) {
+  if (tcurl == RTC_PUBLISH_PREFIX) {
+    return RTC_PUBLISH_HANDLER;
+  }
+
+  return RTC_PLAY_HANDLER;
+}
+
 srs_error_t MediaHttpRtcServeMux::serve_http(
     std::shared_ptr<IHttpResponseWriter> w, 
     std::shared_ptr<ISrsHttpMessage> m) {
-  srs_error_t result = srs_success;
   std::string path = m->path();
-
-  if (path == RTC_PUBLISH_PREFIX) {
-    return handlers_[RTC_PUBLISH_HANDLER]->serve_http(std::move(w), m);
-  } else {
-    static HttpNotFoundHandler s_hangler_404;
-    return s_hangler_404.serve_http(std::move(w), m);
-  }
-
-  return result;
+  return handlers_[tcUrl2Handle(path)]->serve_http(std::move(w), m);
 }
 
 void MediaHttpRtcServeMux::conn_destroy(std::shared_ptr<IMediaConnection>) {
@@ -291,13 +310,15 @@ void MediaHttpRtcServeMux::conn_destroy(std::shared_ptr<IMediaConnection>) {
 
 srs_error_t MediaHttpRtcServeMux::mount_service(
     std::shared_ptr<MediaSource> s, std::shared_ptr<MediaRequest> r) {
-  return srs_success;
+  return handlers_[RTC_PUBLISH_HANDLER]->mount_service(std::move(s), 
+                                                       std::move(r));
 }
 
 void MediaHttpRtcServeMux::unmount_service(
     std::shared_ptr<MediaSource> s, std::shared_ptr<MediaRequest> r) {
+  handlers_[RTC_PLAY_HANDLER]->unmount_service(std::move(s),
+                                               std::move(r));
 }
-
 
 }
 

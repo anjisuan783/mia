@@ -1,11 +1,11 @@
-#include "media_consumer.h"
+#include "live/media_consumer.h"
 
 #include <algorithm>
 
 #include "common/media_log.h"
 #include "common/media_message.h"
 #include "encoder/media_codec.h"
-#include "media_source.h"
+#include "live/media_live_source.h"
 
 namespace ma {
 
@@ -211,7 +211,7 @@ int64_t MediaConsumer::MediaJitter::get_time() {
   return last_pkt_correct_time;
 }
 
-MediaConsumer::MediaConsumer(MediaSource* s) {
+MediaConsumer::MediaConsumer(MediaLiveSource* s) {
   MLOG_TRACE("");
   source_ = s;
   paused_ = false;

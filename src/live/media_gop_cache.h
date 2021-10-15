@@ -12,7 +12,7 @@
 #include "common/media_log.h"
 #include "common/media_define.h"
 #include "common/media_kernel_error.h"
-#include "media_consumer.h"
+#include "live/media_consumer.h"
 
 namespace ma {
 

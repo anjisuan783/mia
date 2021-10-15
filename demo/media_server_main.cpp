@@ -21,12 +21,12 @@ int main(int argc, char* argv[]) {
   log4cxx::LoggerPtr rootLogger = log4cxx::Logger::getRootLogger();  
   LOG4CXX_INFO(rootLogger, "init log4cxx with log4cxx.properties");
 
-  ma::MediaServerApi::config _config{
-    (uint32_t)1,
-    (uint32_t)1,
+  ma::MediaServerApi::Config _config{
+    .workers_= (uint32_t)2,
+    .ioworkers_ = (uint32_t)2,
     true,
     false,
-    true,                          //flv_record_
+    false,                          //flv_record_
     30000,
     ma::JitterAlgorithmZERO,
     {                               //listen_addr_
@@ -35,9 +35,9 @@ int main(int argc, char* argv[]) {
     },
     (uint32_t)1,
     {                               //candidates_
-      {"192.168.11.156"}             
+      {"192.168.1.156"}             
     },
-    {"udp://192.168.11.156:9000"},    //stun_addr_
+    {"udp://192.168.1.156:9000"},    //stun_addr_
     {"./mia.key"},
     {"./mia.crt"}
   };

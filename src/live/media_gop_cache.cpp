@@ -1,6 +1,6 @@
-#include "media_gop_cache.h"
+#include "live/media_gop_cache.h"
 
-#include "media_consumer.h"
+#include "live/media_consumer.h"
 #include "common/media_message.h"
 #include "encoder/media_codec.h"
 

@@ -66,11 +66,11 @@ private:
   std::vector<std::shared_ptr<MediaMessage>> msgs;
 };
 
-class MediaSource;
+class MediaLiveSource;
 
 class MediaConsumer final {
 public:
-  MediaConsumer(MediaSource*);
+  MediaConsumer(MediaLiveSource*);
   ~MediaConsumer();
 
   // Set the size of queue.
@@ -112,7 +112,7 @@ public:
   };
  
   MediaJitter jitter_;
-  MediaSource* source_;
+  MediaLiveSource* source_;
   MessageQueue queue_;
 
   bool paused_;

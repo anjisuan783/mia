@@ -14,20 +14,22 @@
 #include <optional>
 
 #include "utils/Worker.h"
+#include "media_source.h"
 
 namespace ma {
 
-class MediaSource;
-
-class MediaSourceMgr
-{
+class MediaSourceMgr {
  public:
   void Init(unsigned int);
   
+  std::shared_ptr<MediaSource> 
+      FetchOrCreateSource(MediaSource::Config& cfg,
+                          std::shared_ptr<MediaRequest> req);
+
   std::optional<std::shared_ptr<MediaSource>> 
-      FetchOrCreateSource(const std::string& id);
-  
-  void RemoveSource(const std::string& id);
+      FetchSource(const std::string& stream_id);
+
+  void RemoveSource(const std::string& stream_id);
 
   std::shared_ptr<wa::Worker> GetWorker();
  private:
@@ -36,6 +38,8 @@ class MediaSourceMgr
 };
 
 extern MediaSourceMgr g_source_mgr_;
-}
+
+} //namespace ma
+
 #endif //!__NEW_MEDIA_SOURCE_MGR_H__
 

@@ -4,14 +4,14 @@
 #include "media_source_mgr.h"
 #include "handler/h/media_handler.h"
 #include "connection/h/media_conn_mgr.h"
+#include "media_source.h"
+#include "rtmp/media_req.h"
 
 namespace ma {
+
 MDEFINE_LOGGER(MediaServerImp, "MediaServer");
 
-MediaServerImp::~MediaServerImp() {
-}
-
-int MediaServerImp::Init(const config& _config) {
+int MediaServerImp::Init(const Config& _config) {
   if (inited_) {
     return kma_already_initilized;
   }
@@ -36,7 +36,7 @@ int MediaServerImp::Init(const config& _config) {
 srs_error_t MediaServerImp::on_publish(std::shared_ptr<MediaSource> s, 
                                        std::shared_ptr<MediaRequest> r) {
   srs_error_t err = srs_success;
-  if ((err = mux_->mount_service(s, r)) != srs_success) {
+  if ((err = mux_->mount_service(std::move(s), std::move(r))) != srs_success) {
     return srs_error_wrap(err, "mount service");
   }
     
@@ -45,7 +45,7 @@ srs_error_t MediaServerImp::on_publish(std::shared_ptr<MediaSource> s,
 
 void MediaServerImp::on_unpublish(std::shared_ptr<MediaSource> s, 
                                   std::shared_ptr<MediaRequest> r) {
-  mux_->unmount_service(s, r);
+  mux_->unmount_service(std::move(s), std::move(r));
 }
 
 void MediaServerImp::OnLogMessage(const std::string& message) {
