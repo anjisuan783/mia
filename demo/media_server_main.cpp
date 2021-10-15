@@ -26,7 +26,7 @@ int main(int argc, char* argv[]) {
     .ioworkers_ = (uint32_t)2,
     true,
     false,
-    false,                          //flv_record_
+    true,                          //flv_record_
     30000,
     ma::JitterAlgorithmZERO,
     {                               //listen_addr_

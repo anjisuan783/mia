@@ -21,7 +21,7 @@ class ISrsHttpMessage;
 class IMediaConnection;
 
 class MediaHttpServeMux final: public IMediaHttpHandler,
-                            public sigslot::has_slots<> {
+                               public sigslot::has_slots<> {
 public:
   MediaHttpServeMux();
   ~MediaHttpServeMux();

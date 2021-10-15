@@ -3,11 +3,8 @@
 #include "myrtc/rtp_rtcp/rtp_packet.h"
 #include "utils/media_kernel_buffer.h"
 #include "utils/media_msg_chain.h"
-#include "encoder/media_rtc_codec.h"
+#include "common/media_define.h"
 #include "common/media_message.h"
-#include "common/media_io.h"
-#include "live/media_live_source.h"
-#include "encoder/media_codec.h"
 
 namespace ma {
 
@@ -282,7 +279,7 @@ srs_error_t MediaRtcLiveAdaptor::PacketVideoKeyFrame(StapPackage& pkg) {
     header.initialize_video(nb_payload, pkg.time_stamp_, 1);
     auto rtmp = std::make_shared<MediaMessage>();
     rtmp->create(&header, &mc);
-    if ((err = source_->on_video(rtmp)) != srs_success) {
+    if (sink_ && (err = sink_->OnVideo(rtmp)) != srs_success) {
       return err;
     }
   }
@@ -312,7 +309,7 @@ srs_error_t MediaRtcLiveAdaptor::PacketVideoRtmp(StapPackage& pkg) {
   header.initialize_video(nb_payload, pkg.time_stamp_, 1);
   auto rtmp = std::make_shared<MediaMessage>();
   rtmp->create(&header, &mc);
-  if ((err = source_->on_video(rtmp)) != srs_success) {
+  if (sink_ && (err = sink_->OnVideo(rtmp)) != srs_success) {
      MLOG_WARN("rtc on video")
   }
   return err;
@@ -382,7 +379,7 @@ srs_error_t MediaRtcLiveAdaptor::Trancode_audio(const owt_base::Frame& frm) {
 
     auto out_rtmp = PacketAudio((char*)header, header_len, ts, is_first_audio_);
 
-    if ((err = source_->on_audio(out_rtmp)) != srs_success) {
+    if (sink_ && (err = sink_->OnAudio(out_rtmp)) != srs_success) {
       return srs_error_wrap(err, "source on audio");
     }
 
@@ -411,7 +408,7 @@ srs_error_t MediaRtcLiveAdaptor::Trancode_audio(const owt_base::Frame& frm) {
                                 ts, 
                                 is_first_audio_);
 
-    if ((err = source_->on_audio(out_rtmp)) != srs_success) {
+    if (sink_ && (err = sink_->OnAudio(out_rtmp)) != srs_success) {
       err = srs_error_wrap(err, "source on audio");
       break;
     }

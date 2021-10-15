@@ -17,6 +17,7 @@
 #include "common/media_log.h"
 #include "common/media_kernel_error.h"
 #include "live/media_consumer.h"
+#include "rtc/media_rtc_live_adaptor.h"
 
 namespace ma {
 
@@ -25,7 +26,9 @@ class SrsGopCache;
 class MediaMetaCache;
 
 // live streaming source.
-class MediaLiveSource final : public std::enable_shared_from_this<MediaLiveSource>{
+class MediaLiveSource final : 
+    public std::enable_shared_from_this<MediaLiveSource>,
+    public RtcLiveAdapterSink {
   MDECLARE_LOGGER();
   
  public:
@@ -33,17 +36,17 @@ class MediaLiveSource final : public std::enable_shared_from_this<MediaLiveSourc
   ~MediaLiveSource();
 
   //called by MediaSourceMgr
-  bool initialize(wa::Worker*, bool gop, bool atc, JitterAlgorithm);
+  bool Initialize(wa::Worker*, bool gop, bool atc, JitterAlgorithm);
 
-  void on_publish();
+  void OnPublish();
   
-  void on_unpublish();
+  void OnUnpublish();
 
   std::shared_ptr<MediaConsumer> create_consumer();
   
-  srs_error_t on_audio(std::shared_ptr<MediaMessage>);
+  srs_error_t OnAudio(std::shared_ptr<MediaMessage>);
 
-  srs_error_t on_video(std::shared_ptr<MediaMessage>);
+  srs_error_t OnVideo(std::shared_ptr<MediaMessage>);
 
   srs_error_t consumer_dumps(MediaConsumer* consumer, 
                              bool dump_seq_header, 

@@ -49,17 +49,8 @@ srs_error_t MediaRtcSource::Publish(
     return err;
   }
 
-  publisher_id_ = pc_id;
   id = pc_id;
-  MLOG_INFO("new publisher id:" << id);
-  
-  std::lock_guard<std::mutex> guard(attendees_lock_);
-  auto found = attendees_.find(id);
-  if (found != attendees_.end()) {
-    return srs_error_new(ERROR_RTC_INVALID_PARAMS, "duplicated ice-ufrag");
-  }
-
-  attendees_.emplace(id, std::move(publisher));
+  publisher->signal_join_ok_.connect(this, &MediaRtcSource::OnAttendeeJoined);
   return err;
 }
 
@@ -69,6 +60,7 @@ void MediaRtcSource::UnPublish(const std::string& pc_id) {
     std::lock_guard<std::mutex> guard(attendees_lock_);
     auto found = attendees_.find(pc_id);
     if (found == attendees_.end()) {
+      assert(false);
       return ;
     }
 
@@ -93,21 +85,114 @@ srs_error_t MediaRtcSource::Subscribe(
     return err;
   }
 
-  id = pc_id;
-  MLOG_INFO("new subscriber id:" << id);
-  
-  std::lock_guard<std::mutex> guard(attendees_lock_);
-  auto found = attendees_.find(id);
-  if (found != attendees_.end()) {
-    return srs_error_new(ERROR_RTC_INVALID_PARAMS, "duplicated ice-ufrag");
-  }
+  subscriber->signal_join_ok_.connect(this, &MediaRtcSource::OnAttendeeJoined);
 
-  attendees_.emplace(id, std::move(subscriber));
+  id = pc_id;
   return err;
 }
 
 void MediaRtcSource::UnSubscribe(const std::string& id) {
   UnPublish(id);
+}
+
+void MediaRtcSource::OnFirstPacket(std::shared_ptr<MediaRtcAttendeeBase> p) {
+  signal_rtc_publish_();
+}
+
+void MediaRtcSource::OnAttendeeJoined(std::shared_ptr<MediaRtcAttendeeBase> p) {
+  MLOG_CINFO("%s %s joined",
+      (p->IsPublisher()?"published":"subscriber"), p->Id());
+
+  p->signal_join_ok_.disconnect(this);
+
+  bool first = false;
+
+  {
+    std::lock_guard<std::mutex> guard(attendees_lock_);
+    auto found = attendees_.find(p->Id());
+    if (found != attendees_.end()) {
+      assert(false);
+      MLOG_ERROR("duplicated pc id:" << p->Id());
+      // what to do ?
+      return ;
+    }
+
+    first = attendees_.empty() ? true : false;
+    attendees_.emplace(p->Id(), p);
+  }
+
+  p->signal_left_.connect(this, &MediaRtcSource::OnAttendeeLeft);
+
+  if (p->IsPublisher()) {
+    OnPublisherJoin(std::move(p));
+  }
+
+  if (first) {
+    signal_rtc_first_suber_();
+  }
+}
+
+void MediaRtcSource::OnAttendeeLeft(std::shared_ptr<MediaRtcAttendeeBase> p) {
+  MLOG_CINFO("%s %s left",
+      (p->IsPublisher()?"published":"subscriber"), p->Id());
+  p->Close();
+
+  bool empty = false;
+  {
+    std::lock_guard<std::mutex> guard(attendees_lock_);
+    auto found = attendees_.find(p->Id());
+    if (found == attendees_.end()) {
+      assert(false);
+      MLOG_ERROR("not found pc id:" << p->Id());
+      return ;
+    }
+    attendees_.erase(p->Id());
+    empty = attendees_.empty() ? true : false;
+  }
+
+  if (p->IsPublisher()) {
+    signal_rtc_unpublish_();
+    publisher_id_ = "";
+  }
+
+  if (empty) {
+    signal_rtc_nobody_();
+  }
+}
+
+void MediaRtcSource::SetMediaSink(RtcMediaSink* s) {
+  media_sink_ = s;
+
+  if (publisher_id_.empty()) {
+    return;
+  }
+  
+  {
+    std::lock_guard<std::mutex> guard(attendees_lock_);
+    auto found = attendees_.find(publisher_id_);
+    if (found == attendees_.end()) {
+      return ;
+    }
+
+    found->second->SetSink(s);
+    media_sink_ = nullptr;
+  }
+}
+
+void MediaRtcSource::OnPublisherJoin(std::shared_ptr<MediaRtcAttendeeBase> p) {
+  p->signal_first_packet_.connect(this, &MediaRtcSource::OnFirstPacket);
+  publisher_id_ = p->Id();
+  if (media_sink_) {
+    p->SetSink(media_sink_);
+    media_sink_ = nullptr;
+  }
+
+  {
+    std::lock_guard<std::mutex> guard(attendees_lock_);
+    for (auto& i : attendees_) {
+      i.second->OnPublisherJoin(publisher_id_);
+    }
+  }
 }
 
 } //namespace ma

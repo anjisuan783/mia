@@ -8,12 +8,13 @@
 #define __NEW_MEDIA_SOURCE_H__
 
 #include <memory>
-
+#include "utils/sigslot.h"
 #include "h/rtc_stack_api.h"
 #include "h/media_server_api.h"
 #include "common/media_log.h"
 #include "utils/Worker.h"
 #include "common/media_kernel_error.h"
+#include "rtc/media_rtc_source.h"
 
 namespace ma {
 
@@ -22,8 +23,11 @@ class MediaRtcSource;
 class MediaConsumer;
 class MediaRequest;
 class IHttpResponseWriter;
+class MediaRtcLiveAdaptor;
 
-class MediaSource final : public std::enable_shared_from_this<MediaSource> {
+class MediaSource final : public sigslot::has_slots<>,
+                          public std::enable_shared_from_this<MediaSource>,
+                          public RtcMediaSink {
   MDECLARE_LOGGER();
 
  public:
@@ -67,15 +71,22 @@ class MediaSource final : public std::enable_shared_from_this<MediaSource> {
                         std::string& subscriber_id);
   srs_error_t UnSubscribe() { return srs_success; }
 
- private:
+  void OnRtcPublish();
+  void OnRtcUnPublish();
+  void OnRtcFirstSubscriber();
+  void OnRtcNobody();
+ private: 
   void CheckLiveSource();
   void CheckRtcSource();
 
+  void OnMediaFrame(const owt_base::Frame& frm) override;
+ private:
   Config config_;
   std::shared_ptr<MediaLiveSource> live_source_;
   std::shared_ptr<MediaRtcSource> rtc_source_;
 
   std::shared_ptr<MediaRequest> req_;
+  std::unique_ptr<MediaRtcLiveAdaptor> live_adapter_;
 };
 
 } //namespace ma

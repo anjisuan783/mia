@@ -1,5 +1,6 @@
 #include "media_server.h"
 
+#include "h/rtc_return_value.h"
 #include "h/media_return_code.h"
 #include "media_source_mgr.h"
 #include "handler/h/media_handler.h"
@@ -28,12 +29,17 @@ int MediaServerImp::Init(const Config& _config) {
 
   mux_->init();
 
-  g_source_mgr_.Init(config_.workers_);
+  int rv = g_source_mgr_.Init(config_.workers_);
+
+  if (rv != wa::wa_ok) {
+    MLOG_ERROR("wa init failed. code:" << rv);
+    return kma_invalid_argument;
+  }
 
   return g_conn_mgr_.Init(config_.ioworkers_, config_.listen_addr_);
 }
 
-srs_error_t MediaServerImp::on_publish(std::shared_ptr<MediaSource> s, 
+srs_error_t MediaServerImp::OnPublish(std::shared_ptr<MediaSource> s, 
                                        std::shared_ptr<MediaRequest> r) {
   srs_error_t err = srs_success;
   if ((err = mux_->mount_service(std::move(s), std::move(r))) != srs_success) {
@@ -43,7 +49,7 @@ srs_error_t MediaServerImp::on_publish(std::shared_ptr<MediaSource> s,
   return err;
 }
 
-void MediaServerImp::on_unpublish(std::shared_ptr<MediaSource> s, 
+void MediaServerImp::OnUnpublish(std::shared_ptr<MediaSource> s, 
                                   std::shared_ptr<MediaRequest> r) {
   mux_->unmount_service(std::move(s), std::move(r));
 }

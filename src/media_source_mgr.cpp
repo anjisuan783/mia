@@ -6,9 +6,13 @@ namespace ma {
 
 static std::shared_ptr<wa::ThreadPool>  workers_;
 
-void MediaSourceMgr::Init(unsigned int num) {
+int MediaSourceMgr::Init(unsigned int num) {
   workers_ = std::make_shared<wa::ThreadPool>(num);
   workers_->start();
+  rtc_api_ = std::move(wa::AgentFactory().create_agent());
+  return rtc_api_->initiate(g_server_.config_.rtc_workers_,
+                            g_server_.config_.candidates_,
+                            g_server_.config_.stun_addr_);
 }
 
 std::shared_ptr<MediaSource>
@@ -21,6 +25,10 @@ MediaSourceMgr::FetchOrCreateSource(MediaSource::Config& cfg,
       return found->second;
     }
   }
+
+  if (!cfg.rtc_api) {
+    cfg.rtc_api = rtc_api_.get();
+  }
   
   auto ms = std::make_shared<MediaSource>(req);
 
@@ -31,12 +39,10 @@ MediaSourceMgr::FetchOrCreateSource(MediaSource::Config& cfg,
     sources_[req->stream] = ms;
   }
 
-  g_server_.on_publish(ms, req);
-
   return std::move(ms);
 }
 
-std::optional<std::shared_ptr<MediaSource>> 
+std::optional<std::shared_ptr<MediaSource>>
 MediaSourceMgr::FetchSource(const std::string& stream_id) {
 
   std::lock_guard<std::mutex> guard(source_lock_);  
@@ -49,20 +55,14 @@ MediaSourceMgr::FetchSource(const std::string& stream_id) {
 }
 
 void MediaSourceMgr::RemoveSource(const std::string& stream_id) {
-  // lock twice optimize ?
   auto found = sources_.end();
-  {
-    std::lock_guard<std::mutex> guard(source_lock_);
-    found = sources_.find(stream_id);
-    if (found == sources_.end()) {
-      assert(false);
-      return;
-    }
-  }
-  
-  g_server_.on_unpublish(found->second, found->second->GetRequest());
   
   std::lock_guard<std::mutex> guard(source_lock_);
+  found = sources_.find(stream_id);
+  if (found == sources_.end()) {
+    assert(false);
+    return;
+  }
   sources_.erase(stream_id);
 }
 

@@ -22,7 +22,7 @@ MediaLiveSource::MediaLiveSource()
 
 MediaLiveSource::~MediaLiveSource() = default;
 
-bool MediaLiveSource::initialize(wa::Worker* worker, 
+bool MediaLiveSource::Initialize(wa::Worker* worker, 
     bool gop, bool atc, JitterAlgorithm algorithm) {
   worker_ = worker;
   gop_cache_->set(gop);
@@ -31,12 +31,12 @@ bool MediaLiveSource::initialize(wa::Worker* worker,
   return true;
 }
 
-void MediaLiveSource::on_publish() {
+void MediaLiveSource::OnPublish() {
   is_monotonically_increase_ = true;
   active_ = true;
 }
 
-void MediaLiveSource::on_unpublish() {
+void MediaLiveSource::OnUnpublish() {
   active_ = false;
 }
 
@@ -136,9 +136,9 @@ void MediaLiveSource::on_audio_async(std::shared_ptr<MediaMessage> shared_audio)
   }
 }
 
-srs_error_t MediaLiveSource::on_audio(std::shared_ptr<MediaMessage> shared_audio) {
+srs_error_t MediaLiveSource::OnAudio(
+    std::shared_ptr<MediaMessage> shared_audio) {
   srs_error_t err = srs_success;
-
   if (!active_) { 
     return err;
   }
@@ -239,10 +239,8 @@ void MediaLiveSource::on_video_async(std::shared_ptr<MediaMessage> shared_video)
   }
 }
 
-srs_error_t MediaLiveSource::on_video(std::shared_ptr<MediaMessage> shared_video) {
-  
+srs_error_t MediaLiveSource::OnVideo(std::shared_ptr<MediaMessage> shared_video) {
   srs_error_t err = srs_success;
-
   if (!active_) { 
     return err;
   }

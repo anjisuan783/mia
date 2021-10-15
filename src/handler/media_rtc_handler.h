@@ -7,8 +7,7 @@
 #ifndef __MEDIA_RTC_HANDLER_H__
 #define __MEDIA_RTC_HANDLER_H__
 
-#include "h/rtc_stack_api.h"
-
+#include <vector>
 #include "handler/h/media_handler.h"
 #include "common/media_kernel_error.h"
 
@@ -33,7 +32,6 @@ class MediaHttpRtcServeMux final : public IMediaHttpHandler{
                        std::shared_ptr<MediaRequest> r) override;
 
  private:
-  std::unique_ptr<wa::rtc_api> api_;
   std::vector<std::unique_ptr<IMediaHttpHandler>> handlers_;
 };
 

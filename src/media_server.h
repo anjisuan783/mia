@@ -30,10 +30,10 @@ class MediaServerImp final : public MediaServerApi,
 
   int Init(const Config&) override;
 
-  srs_error_t on_publish(std::shared_ptr<MediaSource> s, 
-                         std::shared_ptr<MediaRequest> r);
-  void on_unpublish(std::shared_ptr<MediaSource> s, 
-                    std::shared_ptr<MediaRequest> r);
+  srs_error_t OnPublish(std::shared_ptr<MediaSource> s, 
+                        std::shared_ptr<MediaRequest> r);
+  void OnUnpublish(std::shared_ptr<MediaSource> s, 
+                   std::shared_ptr<MediaRequest> r);
 
  private:
   //rtc::LogSink implement

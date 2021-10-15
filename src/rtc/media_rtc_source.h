@@ -26,12 +26,18 @@ class IRtcEraser {
   virtual void RemoveSource(const std::string& id) = 0;
 };
 
+class RtcMediaSink {
+ public:
+  virtual ~RtcMediaSink() = default;
+  virtual void OnMediaFrame(const owt_base::Frame& frm) = 0;
+};
+
 class Worker;
 class IHttpResponseWriter;
 class MediaRtcAttendeeBase;
 
 //MediaRtcSource
-class MediaRtcSource  final {
+class MediaRtcSource final : public sigslot::has_slots<> {
 
   MDECLARE_LOGGER();
  public:
@@ -40,6 +46,8 @@ class MediaRtcSource  final {
 
   void Open(wa::rtc_api*, wa::Worker*);
   void Close();
+
+  void SetMediaSink(RtcMediaSink* s);
 
   srs_error_t Publish(const std::string& sdp, 
                       std::shared_ptr<IHttpResponseWriter>,
@@ -51,11 +59,17 @@ class MediaRtcSource  final {
                         std::string& id);
   void UnSubscribe(const std::string& id);
 
+  void OnFirstPacket(std::shared_ptr<MediaRtcAttendeeBase>);
+  void OnAttendeeJoined(std::shared_ptr<MediaRtcAttendeeBase>);
+  void OnAttendeeLeft(std::shared_ptr<MediaRtcAttendeeBase>);
  private:
-  srs_error_t ProcessOffer(const std::string& sdp, 
-                           std::shared_ptr<IHttpResponseWriter>);
+  void OnPublisherJoin(std::shared_ptr<MediaRtcAttendeeBase>);
+
  public:
+  sigslot::signal0<> signal_rtc_first_suber_;
   sigslot::signal0<> signal_rtc_nobody_;
+  sigslot::signal0<> signal_rtc_publish_;
+  sigslot::signal0<> signal_rtc_unpublish_;
   
  private:
   wa::rtc_api* rtc_{nullptr};
@@ -63,7 +77,9 @@ class MediaRtcSource  final {
 
   std::mutex attendees_lock_;
   std::map<std::string, std::shared_ptr<MediaRtcAttendeeBase>> attendees_;
-  std::string publisher_id_;
+  std::string publisher_id_;  //not safe, change to smart pointer
+
+  RtcMediaSink* media_sink_{nullptr};
 };
 
 } //namespace ma

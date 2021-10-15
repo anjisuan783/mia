@@ -13,6 +13,7 @@
 #include <memory>
 #include <optional>
 
+#include "h/rtc_stack_api.h"
 #include "utils/Worker.h"
 #include "media_source.h"
 
@@ -20,7 +21,7 @@ namespace ma {
 
 class MediaSourceMgr {
  public:
-  void Init(unsigned int);
+  int Init(unsigned int);
   
   std::shared_ptr<MediaSource> 
       FetchOrCreateSource(MediaSource::Config& cfg,
@@ -35,6 +36,7 @@ class MediaSourceMgr {
  private:
   std::mutex source_lock_;
   std::map<std::string, std::shared_ptr<MediaSource>> sources_;
+  std::unique_ptr<wa::rtc_api> rtc_api_;
 };
 
 extern MediaSourceMgr g_source_mgr_;

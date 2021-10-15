@@ -9,6 +9,7 @@
 #include "http/h/http_protocal.h"
 #include "media_server.h"
 #include "rtmp/media_req.h"
+#include "rtc/media_rtc_source.h"
 
 namespace ma {
 
@@ -151,12 +152,13 @@ void MediaRtcPublisher::onAnswer(const std::string& sdp) {
     }
 
     pc_in_ = false;
-    return;
   }
 }
 
 void MediaRtcPublisher::onReady() {
   MLOG_TRACE(pc_id_);
+  signal_join_ok_(
+      std::dynamic_pointer_cast<MediaRtcAttendeeBase>(shared_from_this()));
 }
 
 void MediaRtcPublisher::onFailed(const std::string& /*remoted_sdp*/) {
@@ -167,14 +169,21 @@ void MediaRtcPublisher::onFailed(const std::string& /*remoted_sdp*/) {
 
   if (rv != wa::wa_ok) {
     MLOG_ERROR("pc[" << pc_id_ << "] not found");
-    return ;
   }
+
+  signal_left_(
+      std::dynamic_pointer_cast<MediaRtcAttendeeBase>(shared_from_this()));
 }
 
 void MediaRtcPublisher::onFrame(const owt_base::Frame& frm) {
   if (!first_packet_) {
     first_packet_ = true;
-    signal_rtc_first_packet_();
+    signal_first_packet_(
+        std::dynamic_pointer_cast<MediaRtcAttendeeBase>(shared_from_this()));
+  }
+
+  if (sink_) {
+    sink_->OnMediaFrame(frm);
   }
 }
 
@@ -238,12 +247,14 @@ void MediaRtcSubscriber::onAnswer(const std::string& sdp) {
     }
 
     pc_in_ = false;
-    return;
   }
 }
 
 void MediaRtcSubscriber::onReady() {
   MLOG_TRACE(pc_id_);
+  signal_join_ok_(
+      std::dynamic_pointer_cast<MediaRtcAttendeeBase>(shared_from_this()));
+  
   if (publisher_id_.empty()) {
     return ;
   }
@@ -252,7 +263,10 @@ void MediaRtcSubscriber::onReady() {
   if (rv != wa::wa_ok) {
     MLOG_ERROR(pc_id_ << " subscribe " << 
                publisher_id_ << " failed code:" << rv);
+    return ;
   }
+
+  linked_ = true;
 }
 
 void MediaRtcSubscriber::onFailed(const std::string& /*remoted_sdp*/) {
@@ -269,10 +283,51 @@ void MediaRtcSubscriber::onFailed(const std::string& /*remoted_sdp*/) {
 
   if (rv != wa::wa_ok) {
     MLOG_CERROR("pc[%s] unpublish failed, code:%d",  pc_id_, rv);
-    return ;
   }
+
+  signal_left_(
+      std::dynamic_pointer_cast<MediaRtcAttendeeBase>(shared_from_this()));
 }
 
+
+void MediaRtcSubscriber::OnPublisherJoin(const std::string& id) {
+  if (linked_) {
+    return;
+  }
+
+  publisher_id_ = id;
+  int rv = rtc_->linkup(publisher_id_, pc_id_);
+  if (rv != wa::wa_ok) {
+    MLOG_ERROR(pc_id_ << " subscribe " << publisher_id_ << " failed code:" << rv);
+    return ;
+  }
+
+  linked_ = true;
+}
+
+void MediaRtcSubscriber::OnPublisherChange(const std::string& id) {
+  if (publisher_id_ == id){
+    return;
+  }
+
+  if (!linked_) {
+    return;
+  }
+  
+  publisher_id_ = id;
+  int rv = rtc_->cutoff(publisher_id_, pc_id_);
+  if (rv != wa::wa_ok) {
+    MLOG_CERROR("pc[%s] unsub failed, publisher[%s] not found", publisher_id_);
+  }
+
+  rv = rtc_->linkup(publisher_id_, pc_id_);
+  if (rv != wa::wa_ok) {
+    MLOG_ERROR(pc_id_ << " subscribe " << publisher_id_ << " failed code:" << rv);
+    return ;
+  }
+
+  linked_ = true;
+}
 
 } //namespace ma
 

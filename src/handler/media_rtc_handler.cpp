@@ -25,8 +25,8 @@ static log4cxx::LoggerPtr logger =
 
 class MediaHttpPlayHandler : public IMediaHttpHandler {
  public: 
-  MediaHttpPlayHandler(wa::rtc_api* p) : rtc_api_(p){
-  }
+  MediaHttpPlayHandler() = default;
+  ~MediaHttpPlayHandler() override = default;
  private:
   srs_error_t serve_http(std::shared_ptr<IHttpResponseWriter>, 
                          std::shared_ptr<ISrsHttpMessage>) override;
@@ -37,7 +37,6 @@ class MediaHttpPlayHandler : public IMediaHttpHandler {
   void unmount_service(std::shared_ptr<MediaSource> s, 
                        std::shared_ptr<MediaRequest> r) override;
  private:
-  wa::rtc_api* rtc_api_;
   std::mutex stream_lock_;
   std::map<std::string, std::shared_ptr<MediaSource>> source_map_;
 };
@@ -138,8 +137,9 @@ void MediaHttpPlayHandler::unmount_service(std::shared_ptr<MediaSource> s,
 //MediaHttpPublishHandler
 class MediaHttpPublishHandler : public IMediaHttpHandler {
  public:
-  MediaHttpPublishHandler(wa::rtc_api* p) : rtc_api_{p} {
-  }
+  MediaHttpPublishHandler() = default;
+  ~MediaHttpPublishHandler() override = default;
+  
  private:
   
   srs_error_t serve_http(std::shared_ptr<IHttpResponseWriter>, 
@@ -152,9 +152,6 @@ class MediaHttpPublishHandler : public IMediaHttpHandler {
   void unmount_service(std::shared_ptr<MediaSource> s, 
                        std::shared_ptr<MediaRequest> r) override { }
   void conn_destroy(std::shared_ptr<IMediaConnection> conn) override { }
-
- private:
-  wa::rtc_api* rtc_api_;
 };
 
 /*
@@ -256,8 +253,7 @@ srs_error_t MediaHttpPublishHandler::serve_http(
   MediaSource::Config cfg{std::move(g_source_mgr_.GetWorker()), 
                           g_server_.config_.enable_gop_,
                           g_server_.config_.enable_atc_,
-                          JitterAlgorithmZERO,
-                          rtc_api_};
+                          JitterAlgorithmZERO};
   auto ms = g_source_mgr_.FetchOrCreateSource(cfg, req);
 
   std::string publisher_id;
@@ -268,25 +264,16 @@ srs_error_t MediaHttpPublishHandler::serve_http(
 }
 
 //MediaHttpRtcServeMux
-MediaHttpRtcServeMux::MediaHttpRtcServeMux()
-  : api_(std::move(wa::AgentFactory().create_agent())) {
+MediaHttpRtcServeMux::MediaHttpRtcServeMux() {
   handlers_.resize(2);
-  handlers_[RTC_PUBLISH_HANDLER].reset(new MediaHttpPublishHandler(api_.get()));
-  handlers_[RTC_PLAY_HANDLER].reset(new MediaHttpPlayHandler(api_.get()));
+  handlers_[RTC_PUBLISH_HANDLER] = std::make_unique<MediaHttpPublishHandler>();
+  handlers_[RTC_PLAY_HANDLER] = std::make_unique<MediaHttpPlayHandler>();
 }
 
 MediaHttpRtcServeMux::~MediaHttpRtcServeMux() = default;
 
 srs_error_t MediaHttpRtcServeMux::init() {
-  int ret = api_->initiate(g_server_.config_.rtc_workers_,
-                           g_server_.config_.candidates_,
-                           g_server_.config_.stun_addr_);
-
   srs_error_t err = srs_success;
-  if (ret != wa::wa_ok) {
-    err = srs_error_wrap(err, "wa init failed. %d", ret); 
-  }
-
   return err;
 }
 

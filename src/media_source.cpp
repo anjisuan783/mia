@@ -10,6 +10,8 @@
 #include "live/media_consumer.h"
 #include "live/media_live_source.h"
 #include "rtc/media_rtc_source.h"
+#include "media_server.h"
+#include "rtc/media_rtc_live_adaptor.h"
 
 namespace ma {
 
@@ -47,10 +49,13 @@ srs_error_t MediaSource::consumer_dumps(
 void MediaSource::CheckLiveSource() {
   if (!live_source_) {
     live_source_ = std::make_shared<MediaLiveSource>();
-    live_source_->initialize(config_.worker.get(), 
+    live_source_->Initialize(config_.worker.get(), 
                              config_.gop,
                              config_.atc,
                              config_.jitter_algorithm);
+    live_adapter_ = std::move(
+        std::make_unique<MediaRtcLiveAdaptor>(req_->stream));
+    live_adapter_->SetSink(live_source_.get());
   }
 }
 
@@ -58,6 +63,14 @@ void MediaSource::CheckRtcSource() {
   if (!rtc_source_) {
     rtc_source_ = std::move(std::make_shared<MediaRtcSource>());
     rtc_source_->Open(config_.rtc_api, config_.worker.get());
+    rtc_source_->signal_rtc_first_suber_.connect(
+                     this, &MediaSource::OnRtcFirstSubscriber);
+    rtc_source_->signal_rtc_nobody_.connect(
+                     this, &MediaSource::OnRtcNobody);
+    rtc_source_->signal_rtc_publish_.connect(
+                     this, &MediaSource::OnRtcPublish);
+    rtc_source_->signal_rtc_unpublish_.connect(
+                     this, &MediaSource::OnRtcUnPublish);
   }
 }
 
@@ -77,6 +90,30 @@ srs_error_t MediaSource::Subscribe(const std::string& s,
 
 JitterAlgorithm MediaSource::jitter() {
   return live_source_->jitter();
+}
+
+void MediaSource::OnRtcPublish() {
+  CheckLiveSource();
+  g_server_.OnPublish(shared_from_this(), req_);
+  live_source_->OnPublish();
+  rtc_source_->SetMediaSink(this);
+}
+
+void MediaSource::OnRtcUnPublish() {
+  g_server_.OnUnpublish(shared_from_this(), req_);
+  live_source_->OnUnpublish();
+}
+
+void MediaSource::OnRtcFirstSubscriber() {
+}
+
+void MediaSource::OnRtcNobody() {
+}
+
+void MediaSource::OnMediaFrame(const owt_base::Frame& frm) {
+  if (live_adapter_ ) {
+    live_adapter_->onFrame(frm);
+  }
 }
 
 } //namespace ma

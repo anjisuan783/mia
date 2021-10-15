@@ -21,6 +21,7 @@ enum {
   kma_streamurl_error = 5,
   kma_wrong_status = 6,
   kma_listen_failed = 7,
+  kma_invalid_argument = 8,
 };
 
 }

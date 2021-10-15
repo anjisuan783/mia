@@ -12,14 +12,20 @@
 #include "h/rtc_media_frame.h"
 #include "common/media_kernel_error.h"
 #include "common/media_log.h"
+#include "encoder/media_rtc_codec.h"
+#include "common/media_io.h"
 
 namespace ma {
-
+  
 class StapPackage;
 class MediaMessage;
-class SrsFileWriter;
-class MediaLiveSource;
-class SrsAudioTranscoder;
+
+class RtcLiveAdapterSink {
+ public:
+  virtual ~RtcLiveAdapterSink() = default;
+  virtual srs_error_t OnAudio(std::shared_ptr<MediaMessage>) = 0;
+  virtual srs_error_t OnVideo(std::shared_ptr<MediaMessage>) = 0;
+};
 
 class MediaRtcLiveAdaptor {
   MDECLARE_LOGGER();
@@ -27,6 +33,9 @@ class MediaRtcLiveAdaptor {
   MediaRtcLiveAdaptor(const std::string& stream_id);
   ~MediaRtcLiveAdaptor() = default;
   void onFrame(const owt_base::Frame& frm);
+  void SetSink(RtcLiveAdapterSink* s) {
+    sink_ = s;
+  }
  private:
   srs_error_t PacketVideoKeyFrame(StapPackage& nalus);
   srs_error_t PacketVideoRtmp(StapPackage& nalus) ;
@@ -40,7 +49,7 @@ class MediaRtcLiveAdaptor {
   void dump_video(uint8_t * buf, uint32_t count);
  private:
   std::string stream_id_;
-  std::shared_ptr<MediaLiveSource> source_;
+  RtcLiveAdapterSink* sink_{nullptr};
   std::unique_ptr<SrsAudioTranscoder> codec_;
   bool is_first_audio_{true};
 
