@@ -602,6 +602,12 @@ bool MessageChain::operator ==(const MessageChain& right) {
   if(this->GetChainedLength() != right.GetChainedLength()) {
     return false;
   }
+
+  //length equal
+  if (this->GetChainedLength() == 0) {
+    return true;
+  }
+
   if(this->FlattenChained() == const_cast<MessageChain&>(right).FlattenChained()) {
     return true;
   }

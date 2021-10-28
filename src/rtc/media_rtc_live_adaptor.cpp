@@ -1,6 +1,13 @@
+//
+// Copyright (c) 2021- anjisuan783
+//
+// SPDX-License-Identifier: MIT
+//
+
 #include "rtc/media_rtc_live_adaptor.h"
 
 #include "myrtc/rtp_rtcp/rtp_packet.h"
+#include "owt_base/MediaUtilities.h"
 #include "utils/media_kernel_buffer.h"
 #include "utils/media_msg_chain.h"
 #include "common/media_define.h"
@@ -23,8 +30,12 @@ class StapPackage final {
   StapPackage(bool f, uint32_t ts);
   ~StapPackage() = default;
 
-  SrsSample* get_sps();
-  SrsSample* get_pps();
+  SrsSample* get_sps() {
+    return sps_;
+  }
+  SrsSample* get_pps() {
+    return pps_;
+  }
 
   uint64_t nb_bytes();
   srs_error_t encode(SrsBuffer* buf);
@@ -32,56 +43,18 @@ class StapPackage final {
 
  public:
   // The NRI in NALU type.
-  SrsAvcNaluType nri_{SrsAvcNaluTypeReserved};
+  //SrsAvcNaluType nri_{SrsAvcNaluTypeReserved};
   // The NALU samples, we will manage the samples.
   std::vector<SrsSample> nalus_;
+  SrsSample* sps_{nullptr};
+  SrsSample* pps_{nullptr};
   bool key_frame_{false};
   uint32_t time_stamp_{0};
 };
 
 StapPackage::StapPackage(bool f, uint32_t ts)
     : key_frame_{f}, time_stamp_(ts) {
-}
-
-SrsSample* StapPackage::get_sps() {
-  SrsSample* p = nullptr;
-#ifdef __OPTIMIZE__
-  if (key_frame_) {
-    assert(nalus_.size() >= 2);
-    p = &nalus_[0];
-  }
-#else
-  size_t n_nalus = nalus_.size();
-  for (size_t i = 0; i < n_nalus; ++i) {
-    p = &nalus_[i];
-    SrsAvcNaluType nalu_type = (SrsAvcNaluType)(p->bytes[0] & kNalTypeMask);
-    if (nalu_type == SrsAvcNaluTypeSPS) {
-      break;
-    }
-  }
-#endif
-  return p;
-}
-
-SrsSample* StapPackage::get_pps() {
-  SrsSample* p = nullptr;
-#ifdef __OPTIMIZE__
-  if (key_frame_) {
-    assert(nalus_.size() >= 2);
-    p = &nalus_[1];
-  }
-#else  
-  size_t n_nalus = nalus_.size();
-  for (int i = 0; i < n_nalus; ++i) {
-    p = &nalus_[i];
-
-    SrsAvcNaluType nalu_type = (SrsAvcNaluType)(p->bytes[0] & kNalTypeMask);
-    if (nalu_type == SrsAvcNaluTypePPS) {
-      break;
-    }
-  }
-#endif
-  return p;
+  nalus_.reserve(64);    
 }
 
 uint64_t StapPackage::nb_bytes() {
@@ -97,7 +70,6 @@ uint64_t StapPackage::nb_bytes() {
 }
 
 srs_error_t StapPackage::encode(SrsBuffer* buf) {
-  
   for (auto& sample : nalus_) {
     if (sample.size > 0) {  
       buf->write_4bytes(sample.size);
@@ -110,44 +82,42 @@ srs_error_t StapPackage::encode(SrsBuffer* buf) {
 
 srs_error_t StapPackage::decode(SrsBuffer* buf) {
   if (!buf->require(4)) {
-      return srs_error_new(ERROR_RTC_FRAME_MUXER, "requires %d bytes", 4);
+    return srs_error_new(ERROR_RTC_FRAME_MUXER, "requires %d bytes", 4);
   }
 
-  // Nalu Start Sequence
-  int start_seq_size = 3;
-  uint32_t nalu_start_seq = buf->read_3bytes();
+  int nalu_length = 0;
+  uint8_t* buffer_start = (uint8_t*)buf->data();
+  int buffer_length = buf->size();
+  int nalu_start_offset = 0;
+  int nalu_end_offset = 0;
+  int start_seq_size = 0;  // Nalu Start Sequence
 
-  if (nalu_start_seq != kNaluShortStartSequence) {
-    nalu_start_seq = kNaluLongStartSequence;
-    buf->read_1bytes();
-    start_seq_size = 4;
-  }
-
-  char* nalu_start = buf->head();
-  uint8_t v = buf->read_1bytes();
-  
-  // forbidden_zero_bit shoul be zero.
-  // @see https://tools.ietf.org/html/rfc6184#section-5.3
-  uint8_t f = (v & 0x80);
-  if (f == 0x80) {
-    return srs_error_new(ERROR_RTC_RTP_MUXER, "forbidden_zero_bit should be zero");
-  }
-
-  nri_ = SrsAvcNaluType(v & (~kNalTypeMask));
-
-  // NALUs.
-  while (!buf->empty()) {
-    uint32_t* first4 = (uint32_t*)buf->head();
-    if (*first4 == nalu_start_seq) {
-      if (nalu_start < buf->head()) {
-        nalus_.emplace_back(nalu_start, buf->head() - nalu_start);
+  while (buffer_length > 0) {
+    nalu_length = owt_base::findNALU(buffer_start,
+                                     buffer_length,
+                                     &nalu_start_offset,
+                                     &nalu_end_offset,
+                                     &start_seq_size);
+    if (UNLIKELY(nalu_length < 0)) {
+      /* Error, should never happen */
+      assert(false);
+      break;
+    } else {
+      /* SPS, PPS, I, P, IDR*/
+      nalus_.emplace_back((char*)(buffer_start+nalu_start_offset), nalu_length);
+      uint8_t v = buffer_start[nalu_start_offset];
+      if (SrsAvcNaluType(v & kNalTypeMask) == SrsAvcNaluTypeSPS) {
+        sps_ = &nalus_.back();
       }
-      nalu_start = buf->head() + start_seq_size;
-    }
-    buf->skip(1);
-  }
-  nalus_.emplace_back(nalu_start, buf->head() - nalu_start + 1);
 
+      if (SrsAvcNaluType(v & kNalTypeMask) == SrsAvcNaluTypePPS) {
+        pps_ = &nalus_.back();
+      }
+      
+      buffer_start += (nalu_start_offset + nalu_length);
+      buffer_length -= (nalu_start_offset + nalu_length);
+    }
+  }
 #if 0
   for(auto& x : nalus_) {
     SrsAvcNaluType nalu_type = (SrsAvcNaluType)(*(x.bytes) & kNalTypeMask);
@@ -196,7 +166,7 @@ void MediaRtcLiveAdaptor::onFrame(const owt_base::Frame& frm) {
           srs_error_code(err), srs_error_desc(err));
       delete err;
     }
-  } else if (frm.format == owt_base::FRAME_FORMAT_H264 ) {
+  } else if (frm.format == owt_base::FRAME_FORMAT_H264) {
     if ((err = PacketVideo(frm)) != srs_success) {
       MLOG_CERROR("packet video failed, code:%d, desc:%s",
           srs_error_code(err), srs_error_desc(err));
@@ -245,15 +215,15 @@ srs_error_t MediaRtcLiveAdaptor::PacketVideoKeyFrame(StapPackage& pkg) {
   //packet record decode sequence header
   SrsSample* sps = pkg.get_sps();
   SrsSample* pps = pkg.get_pps();
-  if (NULL == sps || NULL == pps) {
-    return srs_error_new(ERROR_RTC_FRAME_MUXER, 
-          "no sps or pps in stap-a sps: %p, pps:%p", sps, pps);
+  if (nullptr == sps || nullptr == pps) {
+    //IDR
+    assert(SrsAvcNaluType(pkg.nalus_[0].bytes[0] & kNalTypeMask) == SrsAvcNaluTypeIDR);
   } else {
     //type_codec1 + avc_type + composition time + 
     //fix header + count of sps + len of sps + sps + 
     //count of pps + len of pps + pps
     int nb_payload = 1 + 1 + 3 + 5 + 1 + 2 + sps->size + 1 + 2 + pps->size;
-    
+    //MLOG_DEBUG("PacketVideoKeyFrame, size:" << nb_payload);
     MessageChain mc(nb_payload);
 
     SrsBuffer payload(mc);
@@ -291,6 +261,7 @@ srs_error_t MediaRtcLiveAdaptor::PacketVideoRtmp(StapPackage& pkg) {
   srs_error_t err = srs_success;
   //type_codec1 + avc_type + composition time + nalu size + nalu
   int nb_payload = 1 + 1 + 3 + pkg.nb_bytes();
+  //MLOG_DEBUG("PacketVideoRtmp, size:" << nb_payload);
   MessageChain mc(nb_payload);
   SrsBuffer payload(mc);
   if (pkg.key_frame_) {

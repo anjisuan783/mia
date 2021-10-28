@@ -1,3 +1,10 @@
+//
+// Copyright (c) 2013-2021 Bepartofyou
+//
+// SPDX-License-Identifier: MIT
+//
+// This file is borrowed from srs with some modifications.
+
 #include "encoder/media_rtc_codec.h"
 
 namespace ma {

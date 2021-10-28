@@ -22,6 +22,6 @@ g++ -o mia -g3 -ggdb -std=gnu++17 ./demo/media_server_main.cpp  -I./src \
         ./3rd/rtc_stack/build/debug/3rd/libevent/libevent.a \
         ./3rd/rtc_stack/build/libdeps/build/lib/libssl.a \
         ./3rd/rtc_stack/build/libdeps/build/lib/libcrypto.a \
-        -llog4cxx -lpthread -ldl -lboost_system -lboost_thread -lgthread-2.0 -lgio-2.0 -lgobject-2.0 -lglib-2.0
+        -llog4cxx -lpthread -ldl -lgthread-2.0 -lgio-2.0 -lgobject-2.0 -lglib-2.0
 
 echo "build mia done"

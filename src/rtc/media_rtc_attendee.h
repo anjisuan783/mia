@@ -21,8 +21,7 @@ class IHttpResponseWriter;
 class RtcMediaSink;
 
 class MediaRtcAttendeeBase 
-  : public wa::WebrtcAgentSink,
-    public wa::WebrtcAgentSink::ITaskQueue {
+  : public wa::WebrtcAgentSink {
  public:
   MediaRtcAttendeeBase(const std::string& id) : pc_id_(id) {
   }
@@ -49,17 +48,15 @@ class MediaRtcAttendeeBase
   
  public:
   sigslot::signal1<std::shared_ptr<MediaRtcAttendeeBase>> 
-                                           signal_first_packet_;
+                                       signal_first_packet_;
   sigslot::signal1<std::shared_ptr<MediaRtcAttendeeBase>> 
-                                           signal_join_ok_;
+                                       signal_join_ok_;
   sigslot::signal1<std::shared_ptr<MediaRtcAttendeeBase>> 
-                                           signal_left_;
+                                       signal_left_;
  private:
   //WebrtcAgentSink implement
   void onCandidate(const std::string&) override;
   void onStat() override;
-
-  //ITaskQueue implment
   void post(Task) override;
 
  protected:

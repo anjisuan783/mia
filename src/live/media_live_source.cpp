@@ -61,20 +61,21 @@ void MediaLiveSource::destroy_consumer(MediaConsumer* consumer) {
 }
 */
 
-void MediaLiveSource::on_audio_async(std::shared_ptr<MediaMessage> shared_audio) {
+void MediaLiveSource::on_audio_async(
+    std::shared_ptr<MediaMessage> shared_audio) {
   RTC_DCHECK_RUN_ON(&thread_check_);
   srs_error_t err = srs_success;
   
-  bool is_sequence_header = SrsFlvAudio::sh(shared_audio->payload_->GetFirstMsgReadPtr(),
-                                            shared_audio->payload_->GetFirstMsgLength());
+  bool is_sequence_header = 
+        SrsFlvAudio::sh(shared_audio->payload_->GetFirstMsgReadPtr(),
+                        shared_audio->payload_->GetFirstMsgLength());
 
   // whether consumer should drop for the duplicated sequence header.
   bool drop_for_reduce = false;
   if (is_sequence_header && meta_->previous_ash()) {
-    if (meta_->previous_ash()->size_ == shared_audio->size_) {
-
-      drop_for_reduce = (*(meta_->previous_vsh()->payload_) == *(shared_audio->payload_));
-
+    drop_for_reduce = 
+            *(meta_->previous_vsh()->payload_)==*(shared_audio->payload_);
+    if (drop_for_reduce) {
       MLOG_WARN("drop for reduce sh audio, size=" << shared_audio->size_);
     }
   }
@@ -120,7 +121,7 @@ void MediaLiveSource::on_audio_async(std::shared_ptr<MediaMessage> shared_audio)
   }
 
   if ((err = gop_cache_->cache(shared_audio)) != srs_success) {
-    MLOG_CERROR("gop cache consume audio, code:%d desc:%s", srs_error_code(err), srs_error_desc(err).c_str());
+    MLOG_CERROR("gop cache consume audio, desc:%s",srs_error_desc(err).c_str());
     delete err;
     return;
   }
@@ -159,20 +160,23 @@ srs_error_t MediaLiveSource::OnAudio(
   return err;
 }
 
-void MediaLiveSource::on_video_async(std::shared_ptr<MediaMessage> shared_video) {
+void MediaLiveSource::on_video_async(
+    std::shared_ptr<MediaMessage> shared_video) {
   RTC_DCHECK_RUN_ON(&thread_check_);
 
   srs_error_t err = srs_success;
 
-  bool is_sequence_header = SrsFlvVideo::sh(shared_video->payload_->GetFirstMsgReadPtr(), 
-                                            shared_video->payload_->GetFirstMsgLength());
+  bool is_sequence_header = 
+      SrsFlvVideo::sh(shared_video->payload_->GetFirstMsgReadPtr(), 
+                      shared_video->payload_->GetFirstMsgLength());
 
   // whether consumer should drop for the duplicated sequence header.
   bool drop_for_reduce = false;
   if (is_sequence_header && meta_->previous_vsh()) {
-    if (meta_->previous_vsh()->size_ == shared_video->size_) {
-      drop_for_reduce = (*(meta_->previous_vsh()->payload_) == *(shared_video->payload_));
-      MLOG_CWARN("drop for reduce sh video, size=%d", shared_video->size_);
+    drop_for_reduce = 
+          *(meta_->previous_vsh()->payload_) == *(shared_video->payload_);
+    if (drop_for_reduce) {
+        MLOG_CWARN("drop for reduce sh video, size=%d", shared_video->size_);
     }
   }
 
@@ -197,10 +201,17 @@ void MediaLiveSource::on_video_async(std::shared_ptr<MediaMessage> shared_video)
     if (meta_->vsh_format()->is_avc_sequence_header()) {
       SrsVideoCodecConfig* c = meta_->vsh_format()->vcodec;
       srs_assert(c);
-      MLOG_CINFO("%dB video sh,  codec(%d, profile=%s, level=%s, %dx%d, %dkbps, %.1ffps, %.1fs)",
-            shared_video->size_, c->id, srs_avc_profile2str(c->avc_profile).c_str(),
-            srs_avc_level2str(c->avc_level).c_str(), c->width, c->height,
-            c->video_data_rate / 1000, c->frame_rate, c->duration);
+      MLOG_CINFO("%dB video sh,  "
+          "codec(%d, profile=%s, level=%s, %dx%d, %dkbps, %.1ffps, %.1fs)",
+          shared_video->size_, 
+          c->id, 
+          srs_avc_profile2str(c->avc_profile).c_str(),
+          srs_avc_level2str(c->avc_level).c_str(), 
+          c->width, 
+          c->height,
+          c->video_data_rate / 1000, 
+          c->frame_rate, 
+          c->duration);
     }
   }
   
@@ -223,7 +234,7 @@ void MediaLiveSource::on_video_async(std::shared_ptr<MediaMessage> shared_video)
 
   // cache the last gop packets
   if ((err = gop_cache_->cache(shared_video)) != srs_success) {
-    MLOG_CERROR("gop cache consume vdieo, code:%d desc:%s", srs_error_code(err), srs_error_desc(err).c_str());
+    MLOG_CERROR("gop cache consume vdieo, desc:%s",srs_error_desc(err).c_str());
     delete err;
     return ;
   }
@@ -239,7 +250,8 @@ void MediaLiveSource::on_video_async(std::shared_ptr<MediaMessage> shared_video)
   }
 }
 
-srs_error_t MediaLiveSource::OnVideo(std::shared_ptr<MediaMessage> shared_video) {
+srs_error_t MediaLiveSource::OnVideo(
+    std::shared_ptr<MediaMessage> shared_video) {
   srs_error_t err = srs_success;
   if (!active_) { 
     return err;
@@ -262,7 +274,8 @@ srs_error_t MediaLiveSource::OnVideo(std::shared_ptr<MediaMessage> shared_video)
     if (shared_video->size_ > 0) {
       shared_video->payload_->Peek(&b0, 1);
     }
-    MLOG_CWARN("drop unknown header video, size=%d, bytes[0]=%#x", shared_video->size_, b0);
+    MLOG_CWARN("drop unknown header video, size=%d, bytes[0]=%#x", 
+               shared_video->size_, b0);
     return err;
   }
 
@@ -281,7 +294,8 @@ srs_error_t MediaLiveSource::consumer_dumps(MediaConsumer* consumer,
 
   srs_error_t err = srs_success;
 
-  srs_utime_t queue_size = g_server_.config_.consumer_queue_size_ * SRS_UTIME_MILLISECONDS;
+  srs_utime_t queue_size = 
+        g_server_.config_.consumer_queue_size_ * SRS_UTIME_MILLISECONDS;
   consumer->set_queue_size(queue_size);
  
   // if atc, update the sequence header to gop cache time.
@@ -330,7 +344,8 @@ srs_error_t MediaLiveSource::consumer_dumps(MediaConsumer* consumer,
   return err;
 }
 
-void MediaLiveSource::async_task(std::function<void(std::shared_ptr<MediaLiveSource>)> f) {
+void MediaLiveSource::async_task
+    (std::function<void(std::shared_ptr<MediaLiveSource>)> f) {
   std::weak_ptr<MediaLiveSource> weak_this = shared_from_this();
   worker_->task([weak_this, f] {
     if (auto this_ptr = weak_this.lock()) {

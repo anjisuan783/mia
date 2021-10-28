@@ -10,6 +10,7 @@
 #include <memory>
 #include <string>
 #include <mutex>
+#include <unordered_map>
 
 #include "h/rtc_stack_api.h"
 #include "utils/sigslot.h"
@@ -76,7 +77,7 @@ class MediaRtcSource final : public sigslot::has_slots<> {
   wa::Worker*  worker_{nullptr};
 
   std::mutex attendees_lock_;
-  std::map<std::string, std::shared_ptr<MediaRtcAttendeeBase>> attendees_;
+  std::unordered_map<std::string, std::shared_ptr<MediaRtcAttendeeBase>> attendees_;
   std::string publisher_id_;  //not safe, change to smart pointer
 
   RtcMediaSink* media_sink_{nullptr};
