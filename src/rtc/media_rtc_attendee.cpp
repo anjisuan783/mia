@@ -1,3 +1,9 @@
+//
+// Copyright (c) 2021- anjisuan783
+//
+// SPDX-License-Identifier: MIT
+//
+
 #include "rtc/media_rtc_attendee.h"
 
 #include "utils/Worker.h"
@@ -112,6 +118,7 @@ srs_error_t MediaRtcPublisher::Open(
   FillTrack(sdp, t.tracks_);
 
   t.call_back_ = shared_from_this();
+  async_callback_ = true;
 
   int rv = rtc_->publish(t, sdp);
 
@@ -298,7 +305,8 @@ void MediaRtcSubscriber::OnPublisherJoin(const std::string& id) {
   publisher_id_ = id;
   int rv = rtc_->linkup(publisher_id_, pc_id_);
   if (rv != wa::wa_ok) {
-    MLOG_ERROR(pc_id_ << " subscribe " << publisher_id_ << " failed code:" << rv);
+    MLOG_ERROR(pc_id_ << " subscribe " << publisher_id_ << 
+               " failed code:" << rv);
     return ;
   }
 
@@ -322,7 +330,8 @@ void MediaRtcSubscriber::OnPublisherChange(const std::string& id) {
 
   rv = rtc_->linkup(publisher_id_, pc_id_);
   if (rv != wa::wa_ok) {
-    MLOG_ERROR(pc_id_ << " subscribe " << publisher_id_ << " failed code:" << rv);
+    MLOG_ERROR(pc_id_ << " subscribe " << publisher_id_ << 
+               " failed code:" << rv);
     return ;
   }
 

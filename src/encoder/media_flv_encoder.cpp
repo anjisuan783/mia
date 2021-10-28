@@ -1,3 +1,10 @@
+//
+// Copyright (c) 2013-2021 Winlin
+//
+// SPDX-License-Identifier: MIT
+//
+// This file is borrowed from srs with some modifications.
+
 #include "media_flv_encoder.h"
 
 #include "common/media_kernel_error.h"

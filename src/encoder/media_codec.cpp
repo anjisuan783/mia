@@ -1,10 +1,16 @@
+//
+// Copyright (c) 2013-2021 Winlin
+//
+// SPDX-License-Identifier: MIT
+//
+// This file is borrowed from srs with some modifications.
+
 #include "encoder/media_codec.h"
 
 #include "common/media_log.h"
 #include "utils/media_kernel_buffer.h"
 
-namespace ma
-{
+namespace ma {
 
 static log4cxx::LoggerPtr logger = log4cxx::Logger::getLogger("media_codec");
 

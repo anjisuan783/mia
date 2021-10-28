@@ -13,8 +13,7 @@
 
 #include "common/media_kernel_error.h"
 
-namespace ma
-{
+namespace ma {
 
 class SrsBuffer;
 

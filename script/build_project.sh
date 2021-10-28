@@ -20,7 +20,7 @@ installYumDeps(){
   ${SUDO} yum groupinstall " Development Tools" "Development Libraries " -y
   ${SUDO} yum install zlib-devel pkgconfig git log4cxx-devel gcc gcc-c++ bzip2 bzip2-devel bzip2-libs python-devel nasm yasm cmake -y
   ${SUDO} yum install h libtool -y
-  ${SUDO} yum install glib2-devel boost-devel -y
+  ${SUDO} yum install glib2-devel -y
   ${SUDO} yum install centos-release-scl -y
   ${SUDO} yum install devtoolset-7-gcc* -y
 }
@@ -62,7 +62,7 @@ g++ -o mia -g3 -ggdb -std=gnu++17 ./demo/media_server_main.cpp  -I./src \
 	./3rd/rtc_stack/build/debug/3rd/libevent/libevent.a \
 	./3rd/rtc_stack/build/libdeps/build/lib/libssl.a \
 	./3rd/rtc_stack/build/libdeps/build/lib/libcrypto.a \
-	-llog4cxx -lpthread -ldl -lboost_system -lboost_thread -lgthread-2.0 -lgio-2.0 -lgobject-2.0 -lglib-2.0
+	-llog4cxx -lpthread -ldl -lgthread-2.0 -lgio-2.0 -lgobject-2.0 -lglib-2.0
 
 echo "build mia done"
 

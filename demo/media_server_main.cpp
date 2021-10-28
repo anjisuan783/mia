@@ -22,8 +22,8 @@ int main(int argc, char* argv[]) {
   LOG4CXX_INFO(rootLogger, "init log4cxx with log4cxx.properties");
 
   ma::MediaServerApi::Config _config{
-    .workers_= (uint32_t)2,
-    .ioworkers_ = (uint32_t)2,
+    .workers_= (uint32_t)1,
+    .ioworkers_ = (uint32_t)1,
     true,
     false,
     true,                          //flv_record_
