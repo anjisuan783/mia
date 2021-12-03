@@ -41,18 +41,23 @@ int main(int argc, char* argv[]) {
     {"./mia.key"},
     {"./mia.crt"}
   };
-  
+
+  char buffer[1024];
+  snprintf(buffer, 1024, "mia start \n");
+  LOG4CXX_INFO(rootLogger, buffer);
+
   ma::MediaServerApi* server = ma::MediaServerFactory().Create();
   int ret = server->Init(_config);
   if (ma::kma_ok != ret) {
-    char buffer[1024];
     snprintf(buffer, 1024, "initialize failed, code:%d \n", ret);
     LOG4CXX_INFO(rootLogger, buffer);
-
     return ret;
   }
 
   do {::sleep(1);} while(true);
+
+  snprintf(buffer, 1024, "mia stop \n");
+  LOG4CXX_INFO(rootLogger, buffer);
 
   return 0;
 }
