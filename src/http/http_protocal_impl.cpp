@@ -417,7 +417,8 @@ srs_error_t HttpMessageParser::parse_message_imp(std::string_view str_msg) {
     // Only consume the header bytes.
     buffer_view_.remove_prefix(consumed);
 
-    // Done when header completed, never wait for body completed, because it maybe chunked.
+    // Done when header completed, never wait for body completed, 
+    // because it maybe chunked.
     if (state_ >= SrsHttpParseStateHeaderComplete) {
       HttpMessageParser* obj = this;
       if (!obj->field_value_.empty()) {
@@ -435,7 +436,7 @@ int HttpMessageParser::on_message_begin(http_parser* parser) {
   
   obj->state_ = SrsHttpParseStateStart;
   
-  MLOG_INFO("***MESSAGE BEGIN***");
+  MLOG_CDEBUG("***MESSAGE BEGIN***");
   
   return 0;
 }
@@ -454,7 +455,6 @@ int HttpMessageParser::on_headers_complete(http_parser* parser) {
 
   MLOG_CDEBUG("***HEADERS COMPLETE***");
   
-  // see http_parser.c:1570, return 1 to skip body.
   return 0;
 }
 

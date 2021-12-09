@@ -515,11 +515,15 @@ public:
     char* bytes;
     // Whether is B frame.
     bool bframe;
+
+    // delete bytes
+    bool own; 
 public:
     SrsSample();
     SrsSample(char* b, int s);
     ~SrsSample();
-public:
+
+    void set_own();  
     // If we need to know whether sample is bframe, we have to parse the NALU payload.
     srs_error_t parse_bframe();
     // Copy sample, share the bytes pointer.

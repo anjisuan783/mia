@@ -47,7 +47,7 @@ void FillTrack(const std::string& sdp, std::vector<wa::TTrackInfo>& tracks) {
         track.mid_ = sdp.substr(found, found_end-found);
         track.type_ = wa::media_video;
         track.preference_.format_ = wa::EFormatPreference::p_h264;
-        track.preference_.profile_ = "42001f";
+        track.preference_.profile_ = "42001f"; //"42e01f";
         tracks.emplace_back(track);
       }
     }

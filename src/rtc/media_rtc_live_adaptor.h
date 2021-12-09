@@ -58,6 +58,8 @@ class MediaRtcLiveAdaptor {
 
   std::unique_ptr<SrsFileWriter> video_writer_;
   bool debug_{false};
+
+  std::unique_ptr<SrsSample> sps_;
 };
 
 }

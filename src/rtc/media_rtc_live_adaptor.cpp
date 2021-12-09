@@ -155,21 +155,18 @@ void MediaRtcLiveAdaptor::onFrame(const owt_base::Frame& frm) {
 
       if ((err = codec_->initialize(from, to)) != srs_success) {
         assert(false);
-        MLOG_CERROR("transcoder initialize failed, code:%d, desc:%s",
-            srs_error_code(err), srs_error_desc(err));
+        MLOG_CERROR("transcoder initialize failed, desc:%s", srs_error_desc(err));
         delete err;
       }
     }
 
     if ((err = Trancode_audio(frm)) != srs_success) {
-      MLOG_CERROR("transcode audio failed, code:%d, desc:%s",
-          srs_error_code(err), srs_error_desc(err));
+      MLOG_CERROR("transcode audio failed, desc:%s", srs_error_desc(err));
       delete err;
     }
   } else if (frm.format == owt_base::FRAME_FORMAT_H264) {
     if ((err = PacketVideo(frm)) != srs_success) {
-      MLOG_CERROR("packet video failed, code:%d, desc:%s",
-          srs_error_code(err), srs_error_desc(err));
+      MLOG_CERROR("packet video failed, desc:%s", srs_error_desc(err));
       delete err;
     }
     dump_video(frm.payload, frm.length);
@@ -184,8 +181,7 @@ void MediaRtcLiveAdaptor::dump_video(uint8_t* buf, uint32_t count) {
   }
   srs_error_t err = srs_success;
   if (video_writer_ && (srs_success != (err = video_writer_->write(buf, count, nullptr)))) {
-     MLOG_CFATAL("to_file failed, code:%d, desc:%s", 
-                 srs_error_code(err), srs_error_desc(err).c_str());
+     MLOG_CFATAL("to_file failed, desc:%s", srs_error_desc(err).c_str());
      delete err;
   }
 }
@@ -200,8 +196,7 @@ void MediaRtcLiveAdaptor::open_dump() {
    std::string file_writer_path = "/tmp/" + stream_id_ + "_rtc.h264";
    srs_error_t err = srs_success;
    if (srs_success != (err = video_writer_->open(file_writer_path))) {
-     MLOG_CFATAL("open rtc file writer failed, code:%d, desc:%s", 
-                 srs_error_code(err), srs_error_desc(err).c_str());
+     MLOG_CFATAL("open rtc file writer failed, desc:%s", srs_error_desc(err).c_str());
      delete err;
      video_writer_.reset(nullptr);
      return;
@@ -215,10 +210,22 @@ srs_error_t MediaRtcLiveAdaptor::PacketVideoKeyFrame(StapPackage& pkg) {
   //packet record decode sequence header
   SrsSample* sps = pkg.get_sps();
   SrsSample* pps = pkg.get_pps();
-  if (nullptr == sps || nullptr == pps) {
-    //IDR
-    assert(SrsAvcNaluType(pkg.nalus_[0].bytes[0] & kNalTypeMask) == SrsAvcNaluTypeIDR);
-  } else {
+  if (nullptr != sps && nullptr == pps) {
+    assert(false);
+  }
+  
+  // for pps changed only
+  if (nullptr != sps) {
+    sps_.reset(sps->copy());
+    sps_->set_own();
+  }
+
+  if (nullptr == sps && nullptr != pps) {
+    assert(sps_.get());
+    sps = sps_.get();
+  }
+
+  if (sps && pps) {
     //type_codec1 + avc_type + composition time + 
     //fix header + count of sps + len of sps + sps + 
     //count of pps + len of pps + pps

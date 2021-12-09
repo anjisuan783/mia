@@ -386,6 +386,7 @@ SrsSample::SrsSample()
     size = 0;
     bytes = NULL;
     bframe = false;
+    own = false;
 }
 
 SrsSample::SrsSample(char* b, int s)
@@ -393,10 +394,14 @@ SrsSample::SrsSample(char* b, int s)
     size = s;
     bytes = b;
     bframe = false;
+    own = false;
 }
 
 SrsSample::~SrsSample()
 {
+  if (own) {
+    delete bytes;
+  }
 }
 
 srs_error_t SrsSample::parse_bframe()
@@ -443,6 +448,15 @@ SrsSample* SrsSample::copy()
     p->bframe = bframe;
     return p;
 }
+
+void SrsSample::set_own() 
+{
+  char* new_buf = new char[size];
+  memcpy(new_buf, bytes, size);
+  bytes = new_buf;
+  own = true;
+}
+
 
 SrsCodecConfig::SrsCodecConfig()
 {
