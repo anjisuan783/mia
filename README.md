@@ -1,5 +1,5 @@
-# media library
-stream server library written with c++
+# mia
+rtmp、rtc stream server written with c++
 
 build:
 
