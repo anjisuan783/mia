@@ -7,6 +7,7 @@
 #include "connection/h/media_conn_mgr.h"
 #include "media_source.h"
 #include "rtmp/media_req.h"
+#include "http/http_consts.h"
 
 namespace ma {
 
@@ -20,6 +21,9 @@ int MediaServerImp::Init(const Config& _config) {
   inited_ = true;
 
   config_ = _config;
+  if (config_.vhost.empty()) {
+    config_.vhost = SRS_CONSTS_RTMP_DEFAULT_VHOST;
+  }
 
   rtc::LogMessage::AddLogToStream(this, rtc::LS_INFO);
 

@@ -23,12 +23,13 @@ class RtcMediaSink;
 class MediaRtcAttendeeBase 
   : public wa::WebrtcAgentSink {
  public:
-  MediaRtcAttendeeBase(const std::string& id) : pc_id_(id) {
-  }
+  MediaRtcAttendeeBase(const std::string& id) 
+      : pc_id_(id) { }
   ~MediaRtcAttendeeBase() override = default;
   
   virtual srs_error_t Open(wa::rtc_api* rtc, 
                            std::shared_ptr<IHttpResponseWriter> w, 
+                           const std::string& stream_id,
                            const std::string& offer,
                            wa::Worker* worker,
                            const std::string& = "") = 0;
@@ -78,6 +79,7 @@ class MediaRtcPublisher : public MediaRtcAttendeeBase {
   
   srs_error_t Open(wa::rtc_api* rtc, 
                    std::shared_ptr<IHttpResponseWriter> writer, 
+                   const std::string& stream_id,
                    const std::string& offer,
                    wa::Worker* worker,
                    const std::string& = "") override;
@@ -105,7 +107,8 @@ class MediaRtcSubscriber : public MediaRtcAttendeeBase {
   ~MediaRtcSubscriber() override = default;
   
   srs_error_t Open(wa::rtc_api* rtc, 
-                   std::shared_ptr<IHttpResponseWriter> w, 
+                   std::shared_ptr<IHttpResponseWriter> w,
+                   const std::string& stream_id,
                    const std::string& offer,
                    wa::Worker* worker,
                    const std::string& publisher_id) override;

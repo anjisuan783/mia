@@ -28,9 +28,9 @@ class MediaSourceMgr {
                           std::shared_ptr<MediaRequest> req);
 
   std::optional<std::shared_ptr<MediaSource>> 
-      FetchSource(const std::string& stream_id);
+      FetchSource(std::shared_ptr<MediaRequest> req);
 
-  void RemoveSource(const std::string& stream_id);
+  void RemoveSource(std::shared_ptr<MediaRequest> req);
 
   std::shared_ptr<wa::Worker> GetWorker();
  private:

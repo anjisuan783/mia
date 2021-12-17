@@ -40,6 +40,7 @@ class MediaSource final : public sigslot::has_slots<>,
   };
 
   MediaSource(std::shared_ptr<MediaRequest>);
+  MediaSource() = delete;
   ~MediaSource();
 
   void Initialize(Config&);

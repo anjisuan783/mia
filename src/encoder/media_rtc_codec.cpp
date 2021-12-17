@@ -23,17 +23,6 @@ static const char* id2codec_name(SrsAudioCodecId id) {
 }
 
 SrsAudioTranscoder::SrsAudioTranscoder() {
-  dec_ = NULL;
-  dec_frame_ = NULL;
-  dec_packet_ = NULL;
-  enc_ = NULL;
-  enc_frame_ = NULL;
-  enc_packet_ = NULL;
-  swr_ = NULL;
-  swr_data_ = NULL;
-  fifo_ = NULL;
-  new_pkt_pts_ = AV_NOPTS_VALUE;
-  next_out_pts_ = AV_NOPTS_VALUE;
 }
 
 SrsAudioTranscoder::~SrsAudioTranscoder() {
@@ -100,18 +89,18 @@ srs_error_t SrsAudioTranscoder::transcode(SrsAudioFrame *in_pkt,
   srs_error_t err = srs_success;
 
   if ((err = decode_and_resample(in_pkt)) != srs_success) {
-      return srs_error_wrap(err, "decode and resample");
+    return srs_error_wrap(err, "decode and resample");
   }
 
   if ((err = encode(out_pkts)) != srs_success) {
-      return srs_error_wrap(err, "encode");
+    return srs_error_wrap(err, "encode");
   }
 
   return err;
 }
 
 void SrsAudioTranscoder::free_frames(std::vector<SrsAudioFrame*>& frames) {
-  for (std::vector<SrsAudioFrame*>::iterator it = frames.begin(); it != frames.end(); ++it) {
+  for (auto it = frames.begin(); it != frames.end(); ++it) {
     SrsAudioFrame* p = *it;
 
     for (int i = 0; i < p->nb_samples; i++) {
@@ -288,35 +277,37 @@ srs_error_t SrsAudioTranscoder::decode_and_resample(SrsAudioFrame *pkt)
 
   int error = avcodec_send_packet(dec_, dec_packet_);
   if (error < 0) {
-      return srs_error_new(ERROR_RTC_RTP_MUXER, "submit to dec(%d,%s)", error,
-          av_make_error_string(err_buf, AV_ERROR_MAX_STRING_SIZE, error));
+    return srs_error_new(ERROR_RTC_RTP_MUXER, "submit to dec(%d,%s)", error,
+        av_make_error_string(err_buf, AV_ERROR_MAX_STRING_SIZE, error));
   }
 
   new_pkt_pts_ = pkt->dts + pkt->cts;
   while (error >= 0) {
-      error = avcodec_receive_frame(dec_, dec_frame_);
-      if (error == AVERROR(EAGAIN) || error == AVERROR_EOF) {
-          return err;
-      } else if (error < 0) {
-          return srs_error_new(ERROR_RTC_RTP_MUXER, "Error during decoding(%d,%s)", error,
-              av_make_error_string(err_buf, AV_ERROR_MAX_STRING_SIZE, error));
+    error = avcodec_receive_frame(dec_, dec_frame_);
+    if (error == AVERROR(EAGAIN) || error == AVERROR_EOF) {
+      return err;
+    } else if (error < 0) {
+      return srs_error_new(ERROR_RTC_RTP_MUXER, 
+          "Error during decoding(%d,%s)", error,
+          av_make_error_string(err_buf, AV_ERROR_MAX_STRING_SIZE, error));
+    }
+
+    int in_samples = dec_frame_->nb_samples;
+    const uint8_t **in_data = (const uint8_t**)dec_frame_->extended_data;
+    do {
+      /* Convert the samples using the resampler. */
+      int frame_size = swr_convert(swr_, swr_data_, enc_->frame_size, in_data, in_samples);
+      if ((error = frame_size) < 0) {
+        return srs_error_new(ERROR_RTC_RTP_MUXER, 
+            "Could not convert input samples(%d,%s)", error,
+            av_make_error_string(err_buf, AV_ERROR_MAX_STRING_SIZE, error));
       }
 
-      int in_samples = dec_frame_->nb_samples;
-      const uint8_t **in_data = (const uint8_t**)dec_frame_->extended_data;
-      do {
-          /* Convert the samples using the resampler. */
-          int frame_size = swr_convert(swr_, swr_data_, enc_->frame_size, in_data, in_samples);
-          if ((error = frame_size) < 0) {
-              return srs_error_new(ERROR_RTC_RTP_MUXER, "Could not convert input samples(%d,%s)", error,
-                  av_make_error_string(err_buf, AV_ERROR_MAX_STRING_SIZE, error));
-          }
-
-          in_data = NULL; in_samples = 0;
-          if ((err = add_samples_to_fifo(swr_data_, frame_size)) != srs_success) {
-              return srs_error_wrap(err, "write samples");
-          }
-      } while (swr_get_out_samples(swr_, in_samples) >= enc_->frame_size);
+      in_data = NULL; in_samples = 0;
+      if ((err = add_samples_to_fifo(swr_data_, frame_size)) != srs_success) {
+        return srs_error_wrap(err, "write samples");
+      }
+    } while (swr_get_out_samples(swr_, in_samples) >= enc_->frame_size);
   }
 
   return err;
@@ -327,55 +318,56 @@ srs_error_t SrsAudioTranscoder::encode(std::vector<SrsAudioFrame*> &pkts)
   char err_buf[AV_ERROR_MAX_STRING_SIZE] = {0};
 
   if (next_out_pts_ == AV_NOPTS_VALUE) {
-      next_out_pts_ = new_pkt_pts_;
+    next_out_pts_ = new_pkt_pts_;
   } else {
-      int64_t diff = llabs(new_pkt_pts_ - next_out_pts_);
-      if (diff > 1000) {
-          MLOG_CWARN("time diff to large=%lld, next out=%lld, new pkt=%lld, set to new pkt",
-              diff, next_out_pts_, new_pkt_pts_);
-          next_out_pts_ = new_pkt_pts_;
-      }
+    int64_t diff = llabs(new_pkt_pts_ - next_out_pts_);
+    if (diff > 1000) {
+      MLOG_CWARN("time diff too large=%lld, next out=%lld, new pkt=%lld, set to new pkt",
+          diff, next_out_pts_, new_pkt_pts_);
+      next_out_pts_ = new_pkt_pts_;
+    }
   }
 
   int frame_cnt = 0;
   while (av_audio_fifo_size(fifo_) >= enc_->frame_size) {
-      /* Read as many samples from the FIFO buffer as required to fill the frame.
-      * The samples are stored in the frame temporarily. */
-      if (av_audio_fifo_read(fifo_, (void **)enc_frame_->data, enc_->frame_size) < enc_->frame_size) {
-          return srs_error_new(ERROR_RTC_RTP_MUXER, "Could not read data from FIFO");
-      }
-      /* send the frame for encoding */
-      enc_frame_->pts = next_out_pts_ + av_rescale(enc_->frame_size * frame_cnt, 1000, enc_->sample_rate);
-      ++frame_cnt;
-      int error = avcodec_send_frame(enc_, enc_frame_);
-      if (error < 0) {
-          return srs_error_new(ERROR_RTC_RTP_MUXER, "Error sending the frame to the encoder(%d,%s)", error,
+    /* Read as many samples from the FIFO buffer as required to fill the frame.
+    * The samples are stored in the frame temporarily. */
+    if (av_audio_fifo_read(fifo_, (void **)enc_frame_->data, enc_->frame_size) < enc_->frame_size) {
+        return srs_error_new(ERROR_RTC_RTP_MUXER, "Could not read data from FIFO");
+    }
+    /* send the frame for encoding */
+    enc_frame_->pts = next_out_pts_ + av_rescale(enc_->frame_size * frame_cnt, 1000, enc_->sample_rate);
+    ++frame_cnt;
+    int error = avcodec_send_frame(enc_, enc_frame_);
+    if (error < 0) {
+        return srs_error_new(ERROR_RTC_RTP_MUXER, 
+            "Error sending the frame to the encoder(%d,%s)", error,
+            av_make_error_string(err_buf, AV_ERROR_MAX_STRING_SIZE, error));
+    }
+
+    av_init_packet(enc_packet_);
+    enc_packet_->data = NULL;
+    enc_packet_->size = 0;
+    /* read all the available output packets (in general there may be any
+    * number of them */
+    while (error >= 0) {
+      error = avcodec_receive_packet(enc_, enc_packet_);
+      if (error == AVERROR(EAGAIN) || error == AVERROR_EOF) {
+          break;
+      } else if (error < 0) {
+          free_frames(pkts);
+          return srs_error_new(ERROR_RTC_RTP_MUXER, "Error during decoding(%d,%s)", error,
               av_make_error_string(err_buf, AV_ERROR_MAX_STRING_SIZE, error));
       }
 
-      av_init_packet(enc_packet_);
-      enc_packet_->data = NULL;
-      enc_packet_->size = 0;
-      /* read all the available output packets (in general there may be any
-      * number of them */
-      while (error >= 0) {
-          error = avcodec_receive_packet(enc_, enc_packet_);
-          if (error == AVERROR(EAGAIN) || error == AVERROR_EOF) {
-              break;
-          } else if (error < 0) {
-              free_frames(pkts);
-              return srs_error_new(ERROR_RTC_RTP_MUXER, "Error during decoding(%d,%s)", error,
-                  av_make_error_string(err_buf, AV_ERROR_MAX_STRING_SIZE, error));
-          }
-
-          SrsAudioFrame *out_frame = new SrsAudioFrame;
-          char *buf = new char[enc_packet_->size];
-          memcpy(buf, enc_packet_->data, enc_packet_->size);
-          out_frame->add_sample(buf, enc_packet_->size);
-          out_frame->dts = enc_packet_->dts;
-          out_frame->cts = enc_packet_->pts - enc_packet_->dts;
-          pkts.push_back(out_frame);
-      }
+      SrsAudioFrame *out_frame = new SrsAudioFrame;
+      char *buf = new char[enc_packet_->size];
+      memcpy(buf, enc_packet_->data, enc_packet_->size);
+      out_frame->add_sample(buf, enc_packet_->size);
+      out_frame->dts = enc_packet_->dts;
+      out_frame->cts = enc_packet_->pts - enc_packet_->dts;
+      pkts.push_back(out_frame);
+    }
   }
 
   next_out_pts_ += av_rescale(enc_->frame_size * frame_cnt, 1000, enc_->sample_rate);

@@ -26,11 +26,11 @@ class MediaServerApi {
  public:
   struct Config {
     uint32_t workers_{1};
-    uint32_t ioworkers_{1};          // TODO multi-theads not implement
+    uint32_t ioworkers_{1};             // TODO multi-theads not implement
     bool enable_gop_{true};
     bool enable_atc_{false};
     bool flv_record_{false};
-    int consumer_queue_size_{30000};
+    int consumer_queue_size_{30000};    // ms
     JitterAlgorithm jotter_algo_{JitterAlgorithmZERO};
     std::vector<std::string> listen_addr_;   // [schema://ip:port]
 
@@ -40,8 +40,14 @@ class MediaServerApi {
     std::string stun_addr_;            //[ip:port]
 
     //for https
-    std::string https_key;          // pem fromat private key file path
-    std::string https_crt;          // pem fromat certificate file path
+    std::string https_key;             // pem fromat private key file path
+    std::string https_crt;             // pem fromat certificate file path
+
+    //for rtmp
+    int32_t request_keyframe_interval{-1}; // second
+
+    //for vhost
+    std::string vhost;
   };
  
   virtual ~MediaServerApi() { }

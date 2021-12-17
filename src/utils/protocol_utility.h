@@ -77,6 +77,8 @@ void srs_discovery_tc_url(const std::string& tcUrl,
                           int& port, 
                           std::string& param);
 
+std::string srs_path_filename(const std::string_view path);
+
 // join string in vector with indicated separator
 template <typename T>
 std::string srs_join_vector_string(const std::vector<T>& vs, 

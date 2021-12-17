@@ -68,21 +68,21 @@ class SrsAudioTranscoder {
   void free_swr_samples();
 
  private:
-  AVCodecContext *dec_;
-  AVFrame *dec_frame_;
-  AVPacket *dec_packet_;
+  AVCodecContext *dec_{nullptr};
+  AVFrame *dec_frame_{nullptr};
+  AVPacket *dec_packet_{nullptr};
 
-  AVCodecContext *enc_;
-  AVFrame *enc_frame_;
-  AVPacket *enc_packet_;
+  AVCodecContext *enc_{nullptr};
+  AVFrame *enc_frame_{nullptr};
+  AVPacket *enc_packet_{nullptr};
 
-  SwrContext *swr_;
+  SwrContext *swr_{nullptr};
   //buffer for swr out put
-  uint8_t **swr_data_;
-  AVAudioFifo *fifo_;
+  uint8_t **swr_data_{nullptr};
+  AVAudioFifo *fifo_{nullptr};
 
-  int64_t new_pkt_pts_;
-  int64_t next_out_pts_;
+  int64_t new_pkt_pts_{AV_NOPTS_VALUE};
+  int64_t next_out_pts_{AV_NOPTS_VALUE};
 };
 
 } //namespace ma

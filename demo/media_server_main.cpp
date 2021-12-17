@@ -26,7 +26,7 @@ int main(int argc, char* argv[]) {
     .ioworkers_ = (uint32_t)1,
     true,
     false,
-    true,                          //flv_record_
+    false,                          //flv_record_
     30000,
     ma::JitterAlgorithmZERO,
     {                               //listen_addr_
@@ -39,7 +39,8 @@ int main(int argc, char* argv[]) {
     },
     {"udp://192.168.1.156:9000"},    //stun_addr_
     {"./mia.key"},
-    {"./mia.crt"}
+    {"./mia.crt"},
+    .request_keyframe_interval = 5  //rtmp request keyframe secode
   };
 
   char buffer[1024];

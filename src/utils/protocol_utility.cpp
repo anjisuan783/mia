@@ -418,5 +418,14 @@ void srs_discovery_tc_url(const std::string& tcUrl,
   }
 }
 
+std::string srs_path_filename(std::string_view path) {
+  size_t pos = path.rfind(".");
+  if (pos != std::string_view::npos) {
+    path = path.substr(0, pos);
+  }
+  
+  return std::move(std::string{path.data(), path.length()});
+}
+
 }
 

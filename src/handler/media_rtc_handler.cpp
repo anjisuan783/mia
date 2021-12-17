@@ -107,14 +107,32 @@ srs_error_t MediaHttpPlayHandler::serve_http(
   json::Object jobj = json::Deserialize(msg->get_body());
 
   std::string streamurl = std::move((std::string)jobj["streamurl"]);
+  //std::string clientip = std::move((std::string)jobj["clientip"]);
   std::string sdp = std::move((std::string)jobj["sdp"]);
 
-  std::string tcUrl;
-  std::string stream_id;
-  srs_parse_rtmp_url(streamurl, tcUrl, stream_id);
+  auto req = std::make_shared<MediaRequest>();
+  srs_parse_rtmp_url(streamurl, req->tcUrl, req->stream);
+  srs_discovery_tc_url(req->tcUrl, 
+                       req->schema, 
+                       req->host, 
+                       req->vhost, 
+                       req->app, 
+                       req->stream,
+                       req->port, 
+                       req->param);
+
+  req->vhost = g_server_.config_.vhost;
+
+  MLOG_INFO("subscriber desc schema:" << req->schema << 
+            ", host:" << req->host <<
+            ", vhost:" << req->vhost << 
+            ", app:" << req->app << 
+            ", stream:" << req->stream << 
+            ", port:" << req->port << 
+            ", param:" << req->param);
 
   std::string subscriber_id;
-  auto result = g_source_mgr_.FetchSource(stream_id);
+  auto result = g_source_mgr_.FetchSource(req);
   if (*result) {  
     err = (*result)->Subscribe(sdp, std::move(writer), subscriber_id);
   }
@@ -226,23 +244,24 @@ srs_error_t MediaHttpPublishHandler::serve_http(
   json::Object jobj = json::Deserialize(msg->get_body());
 
   std::string streamurl = std::move((std::string)jobj["streamurl"]);
-  //std::string clientip = std::move((std::string)jobj["clientip"]);
+  std::string clientip = std::move((std::string)jobj["clientip"]);
   std::string sdp = std::move((std::string)jobj["sdp"]);
 
   auto req = std::make_shared<MediaRequest>();
+  req->ip = clientip;
   srs_parse_rtmp_url(streamurl, req->tcUrl, req->stream);
-
-  //req->stream = stream_id_;
   srs_discovery_tc_url(req->tcUrl, 
-                       req->schema,
+                       req->schema, 
                        req->host, 
                        req->vhost, 
                        req->app, 
-                       req->stream, 
+                       req->stream,
                        req->port, 
                        req->param);
 
-  MLOG_INFO("schema:" << req->schema << 
+  req->vhost = g_server_.config_.vhost;
+
+  MLOG_INFO("publisher desc schema:" << req->schema << 
             ", host:" << req->host <<
             ", vhost:" << req->vhost << 
             ", app:" << req->app << 

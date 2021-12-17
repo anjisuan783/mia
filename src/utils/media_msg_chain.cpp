@@ -22,9 +22,6 @@ struct DataBlockDeleter {
 std::shared_ptr<DataBlock> DataBlock::Create(
     int32_t aSize, const char* inData) {
 
-  //static MyAllocator<DataBlock> block_allocator;
-  //static_assert(std::is_same_v<DataBlock, decltype(block_allocator)::value_type>);
-
   // alloc sizeof(DataBlock) and <aSize> at one time.
   std::allocator<char> allocChar;
   char *pBuf = allocChar.allocate(sizeof(DataBlock) + aSize, nullptr);
@@ -613,39 +610,6 @@ bool MessageChain::operator ==(const MessageChain& right) {
   }
   return false;
 }
-
-/*
-
-template <typename T>  
-class MyAllocator {  
- public:  
-  typedef size_t   size_type;  
-  typedef typename allocator<T>::pointer              pointer;  
-  typedef typename allocator<T>::value_type           value_type;  
-  typedef typename allocator<T>::const_pointer        const_pointer;  
-
-  pointer allocate(size_type _Count) {  
-    _Count *= sizeof(value_type) + ;
-    std::allocator<char> allocChar;
-    char *pBuf = allocChar.allocate(_Count, nullptr);
-    return (pointer)pBuf;  
-  }  
-
-  void deallocate(pointer _Ptr, size_type _Count) {
-    std::allocator<char> allocChar;
-    allocChar.deallocate(static_cast<char*>(_Ptr, _Count);
-  }
-
-  template< class T, class... Args >
-  void construct( T* p, Args&&... args ) {
-  }
-
-  template< class T >
-  void destroy( T* p ) {
-    
-  }
-}; 
-*/
 
 } //namespace ma
 

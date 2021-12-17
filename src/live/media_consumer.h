@@ -27,7 +27,7 @@ class MessageQueue final {
 public:
   MessageQueue(bool ignore_shrink = false);
   ~MessageQueue();
-public:
+
   // Get the size of queue.
   int size();
   // Get the duration of queue.
@@ -35,7 +35,7 @@ public:
   // Set the queue size
   // @param queue_size the queue size in srs_utime_t.
   void set_queue_size(srs_utime_t queue_size);
-public:
+
   void enqueue(std::shared_ptr<MediaMessage> msg, bool* is_overflow = NULL);
   // Get packets in consumer queue.
   // @pmsgs SrsSharedPtrMessage*[], used to store the msgs, user must alloc it.
@@ -45,15 +45,13 @@ public:
   // Dumps packets to consumer, use specified args.
   // @remark the atc/tba/tbv/ag are same to SrsConsumer.enqueue().
   void fetch_packets(MediaConsumer* consumer, bool atc, JitterAlgorithm ag);
-
+  
+  // clear all messages in queue.
+  void clear();
 private:
   // Remove a gop from the front.
   // if no iframe found, clear it.
   void shrink();
-public:
-  // clear all messages in queue.
-  void clear();
-
 private:
   // The start and end time.
   srs_utime_t av_start_time{-1};

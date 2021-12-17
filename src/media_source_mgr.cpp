@@ -20,7 +20,7 @@ MediaSourceMgr::FetchOrCreateSource(MediaSource::Config& cfg,
                                     std::shared_ptr<MediaRequest> req) {
   {
     std::lock_guard<std::mutex> guard(source_lock_);
-    auto found = sources_.find(req->stream);
+    auto found = sources_.find(req->get_stream_url());
     if(found != sources_.end()){
       return found->second;
     }
@@ -36,17 +36,17 @@ MediaSourceMgr::FetchOrCreateSource(MediaSource::Config& cfg,
   
   {
     std::lock_guard<std::mutex> guard(source_lock_);
-    sources_[req->stream] = ms;
+    sources_[req->get_stream_url()] = ms;
   }
 
   return std::move(ms);
 }
 
 std::optional<std::shared_ptr<MediaSource>>
-MediaSourceMgr::FetchSource(const std::string& stream_id) {
+MediaSourceMgr::FetchSource(std::shared_ptr<MediaRequest> req) {
 
   std::lock_guard<std::mutex> guard(source_lock_);  
-  auto found = sources_.find(stream_id);
+  auto found = sources_.find(req->get_stream_url());
   if (found != sources_.end()) {
     return found->second;
   }
@@ -54,16 +54,16 @@ MediaSourceMgr::FetchSource(const std::string& stream_id) {
   return std::nullopt;
 }
 
-void MediaSourceMgr::RemoveSource(const std::string& stream_id) {
+void MediaSourceMgr::RemoveSource(std::shared_ptr<MediaRequest> req) {
   auto found = sources_.end();
   
   std::lock_guard<std::mutex> guard(source_lock_);
-  found = sources_.find(stream_id);
+  found = sources_.find(req->get_stream_url());
   if (found == sources_.end()) {
     assert(false);
     return;
   }
-  sources_.erase(stream_id);
+  sources_.erase(found);
 }
 
 std::shared_ptr<wa::Worker> MediaSourceMgr::GetWorker() {

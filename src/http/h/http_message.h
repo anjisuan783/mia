@@ -13,6 +13,8 @@
 #include <map>
 #include "rtc_base/sigslot.h"
 
+#include "rtmp/media_req.h"
+
 namespace ma {
 
 // A Header represents the key-value pairs in an HTTP header.
@@ -83,7 +85,6 @@ public:
 
     virtual std::shared_ptr<IMediaConnection> connection() = 0;
     virtual void connection(std::shared_ptr<IMediaConnection> conn) = 0;
-public:
     virtual std::string method() = 0;
     virtual uint16_t status_code() = 0;
     // Method helpers.
@@ -92,7 +93,6 @@ public:
     virtual bool is_http_post() = 0;
     virtual bool is_http_delete() = 0;
     virtual bool is_http_options() = 0;
-public:
     virtual const std::string& schema() = 0;
 
     // Whether should keep the connection alive.
@@ -114,7 +114,8 @@ public:
 
     // The content length, -1 for chunked or not set.
     virtual int64_t content_length() = 0;
-public:
+
+    virtual std::shared_ptr<MediaRequest> to_request(const std::string&) = 0;
     // Get the param in query string,
     // for instance, query is "start=100&end=200",
     // then query_get("start") is "100", and query_get("end") is "200"
@@ -125,7 +126,7 @@ public:
     virtual const std::string& get_body() = 0;
 
     virtual bool is_body_eof() = 0;
-public:
+
     // Whether the current request is JSONP,
     // which has a "callback=xxx" in QueryString.
     virtual bool is_jsonp() = 0;

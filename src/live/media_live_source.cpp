@@ -75,9 +75,6 @@ void MediaLiveSource::on_audio_async(
   if (is_sequence_header && meta_->previous_ash()) {
     drop_for_reduce = 
             *(meta_->previous_vsh()->payload_)==*(shared_audio->payload_);
-    if (drop_for_reduce) {
-      MLOG_WARN("drop for reduce sh audio, size=" << shared_audio->size_);
-    }
   }
 
   // cache the sequence header of aac, or first packet of mp3.
@@ -175,9 +172,6 @@ void MediaLiveSource::on_video_async(
   if (is_sequence_header && meta_->previous_vsh()) {
     drop_for_reduce = 
           *(meta_->previous_vsh()->payload_) == *(shared_video->payload_);
-    if (drop_for_reduce) {
-        MLOG_CWARN("drop for reduce sh video, size=%d", shared_video->size_);
-    }
   }
 
   // cache the sequence header if h264
@@ -190,28 +184,30 @@ void MediaLiveSource::on_video_async(
     } else {
       sh_update = shared_video;
     }
-  
-    if ((err = meta_->update_vsh(sh_update)) != srs_success) {
-      MLOG_CERROR("meta update video, code:%d desc:%s", 
-          srs_error_code(err), srs_error_desc(err).c_str());
-      delete err;
-      return ;
-    }
+
+    if (!drop_for_reduce) {
+      if ((err = meta_->update_vsh(sh_update)) != srs_success) {
+        MLOG_CERROR("meta update video, code:%d desc:%s", 
+            srs_error_code(err), srs_error_desc(err).c_str());
+        delete err;
+        return ;
+      }
     
-    if (meta_->vsh_format()->is_avc_sequence_header()) {
-      SrsVideoCodecConfig* c = meta_->vsh_format()->vcodec;
-      srs_assert(c);
-      MLOG_CINFO("%dB video sh,  "
-          "codec(%d, profile=%s, level=%s, %dx%d, %dkbps, %.1ffps, %.1fs)",
-          shared_video->size_, 
-          c->id, 
-          srs_avc_profile2str(c->avc_profile).c_str(),
-          srs_avc_level2str(c->avc_level).c_str(), 
-          c->width, 
-          c->height,
-          c->video_data_rate / 1000, 
-          c->frame_rate, 
-          c->duration);
+      if (meta_->vsh_format()->is_avc_sequence_header()) {
+        SrsVideoCodecConfig* c = meta_->vsh_format()->vcodec;
+        srs_assert(c);
+        MLOG_CINFO("%dB video sh,  "
+            "codec(%d, profile=%s, level=%s, %dx%d, %dkbps, %.1ffps, %.1fs)",
+            shared_video->size_, 
+            c->id, 
+            srs_avc_profile2str(c->avc_profile).c_str(),
+            srs_avc_level2str(c->avc_level).c_str(), 
+            c->width, 
+            c->height,
+            c->video_data_rate / 1000, 
+            c->frame_rate, 
+            c->duration);
+      }
     }
   }
   
