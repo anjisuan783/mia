@@ -157,8 +157,7 @@ void AsyncSokcetWrapper::OnReadEvent(rtc::AsyncPacketSocket*,
 
 void AsyncSokcetWrapper::OnCloseEvent(rtc::AsyncPacketSocket* socket, int err) {
   RTC_DCHECK_RUN_ON(&thread_check_);
-
-  MLOG_TRACE(err << (server_?"server":""));
+  MLOG_TRACE("code:" << err << (server_?", server":""));
 
   if (!close_) {
     conn_->Close();

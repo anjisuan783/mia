@@ -48,6 +48,8 @@ void FillTrack(const std::string& sdp, std::vector<wa::TTrackInfo>& tracks) {
         track.type_ = wa::media_video;
         track.preference_.format_ = wa::EFormatPreference::p_h264;
         track.preference_.profile_ = "42001f"; //"42e01f";
+        track.request_keyframe_period_ = 
+            g_server_.config_.request_keyframe_interval;
         tracks.emplace_back(track);
       }
     }
@@ -101,6 +103,7 @@ void MediaRtcAttendeeBase::post(Task t) {
 srs_error_t MediaRtcPublisher::Open(
     wa::rtc_api* rtc, 
     std::shared_ptr<IHttpResponseWriter> writer, 
+    const std::string& stream_id,
     const std::string& isdp,
     wa::Worker* worker,
     const std::string&) {
@@ -114,6 +117,7 @@ srs_error_t MediaRtcPublisher::Open(
     
   wa::TOption  t;
   t.connectId_ = pc_id_;
+  t.stream_name_ = stream_id;
 
   FillTrack(sdp, t.tracks_);
 
@@ -197,7 +201,8 @@ void MediaRtcPublisher::onFrame(const owt_base::Frame& frm) {
 //MediaRtcPublisher
 srs_error_t MediaRtcSubscriber::Open(
     wa::rtc_api* rtc, 
-    std::shared_ptr<IHttpResponseWriter> writer, 
+    std::shared_ptr<IHttpResponseWriter> writer,
+    const std::string& stream_id,
     const std::string& isdp,
     wa::Worker* worker,
     const std::string& publisher_id) {
@@ -211,6 +216,7 @@ srs_error_t MediaRtcSubscriber::Open(
     
   wa::TOption  t;
   t.connectId_ = pc_id_;
+  t.stream_name_ = stream_id;
 
   FillTrack(sdp, t.tracks_);
 

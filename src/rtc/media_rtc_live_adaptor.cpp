@@ -344,11 +344,12 @@ std::shared_ptr<MediaMessage> MediaRtcLiveAdaptor::PacketAudio(
 }
 
 srs_error_t MediaRtcLiveAdaptor::Trancode_audio(const owt_base::Frame& frm) {
+  static int kAudioSamplerate  = 
+        frm.additionalInfo.audio.sampleRate/SRS_UTIME_MILLISECONDS;
   MA_ASSERT(frm.additionalInfo.audio.isRtpPacket);
   srs_error_t err = srs_success;
 
-  uint32_t ts = frm.timeStamp/(48000/1000);
-  
+  uint32_t ts = frm.timeStamp/kAudioSamplerate;
   if (is_first_audio_) {
     //audio sequence header
     int header_len = 0;

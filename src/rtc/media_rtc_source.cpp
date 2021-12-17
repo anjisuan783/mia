@@ -43,13 +43,14 @@ void MediaRtcSource::Close() {
 srs_error_t MediaRtcSource::Publish(
     const std::string& sdp, 
     std::shared_ptr<IHttpResponseWriter> w,
+    const std::string& stream_id,
     std::string& id) {
 
   std::string_view pc_id = GetPcId(sdp);
  
   auto publisher = std::make_shared<MediaRtcPublisher>(
                       std::string(pc_id.data(), pc_id.length()));
-  srs_error_t err = publisher->Open(rtc_, std::move(w), sdp, worker_);
+  srs_error_t err = publisher->Open(rtc_, std::move(w), stream_id, sdp, worker_);
 
   if (err != srs_success) {
     return err;
@@ -80,12 +81,13 @@ void MediaRtcSource::UnPublish(const std::string& pc_id) {
 srs_error_t MediaRtcSource::Subscribe(
     const std::string& sdp, 
     std::shared_ptr<IHttpResponseWriter> w,
+    const std::string& stream_id,
     std::string& id) {
   std::string_view pc_id = GetPcId(sdp);
   auto subscriber = std::make_shared<MediaRtcSubscriber>(
                         std::string(pc_id.data(), pc_id.length()));
   srs_error_t err = subscriber->Open(
-      rtc_, std::move(w), sdp, worker_, publisher_id_);
+      rtc_, std::move(w), stream_id, sdp, worker_, publisher_id_);
 
   if (err != srs_success) {
     return err;

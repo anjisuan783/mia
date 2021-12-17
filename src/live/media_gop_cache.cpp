@@ -71,7 +71,7 @@ srs_error_t SrsGopCache::cache(std::shared_ptr<MediaMessage> msg) {
     
     // curent msg is video frame, so we set to 1.
     cached_video_count = 1;
-    MLOG_TRACE("gop cache keyframe enqueue size:" << msg->size_);
+    //MLOG_TRACE("gop cache keyframe enqueue ksize:" << msg->size_);
   }
   
   // cache the frame.

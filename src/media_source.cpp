@@ -19,11 +19,11 @@ MDEFINE_LOGGER(MediaSource, "MediaSource");
 
 MediaSource::MediaSource(std::shared_ptr<MediaRequest> r)
   : req_{std::move(r)} {
-  MLOG_TRACE(req_->stream);
+  MLOG_TRACE(req_->get_stream_url());
 }
 
 MediaSource::~MediaSource() {
-  MLOG_TRACE(req_->stream)
+  MLOG_TRACE(req_->get_stream_url())
 }
 
 void MediaSource::Initialize(Config& c) {
@@ -78,14 +78,14 @@ srs_error_t MediaSource::Publish(const std::string& s,
                                  std::shared_ptr<IHttpResponseWriter> w,
                                  std::string& publisher_id) {
   CheckRtcSource();
-  return rtc_source_->Publish(s, std::move(w), publisher_id);
+  return rtc_source_->Publish(s, std::move(w), req_->stream, publisher_id);
 }
 
 srs_error_t MediaSource::Subscribe(const std::string& s, 
                                    std::shared_ptr<IHttpResponseWriter> w,
                                    std::string& subscriber_id) {
   CheckRtcSource();
-  return rtc_source_->Subscribe(s, std::move(w), subscriber_id);
+  return rtc_source_->Subscribe(s, std::move(w), req_->stream, subscriber_id);
 }
 
 JitterAlgorithm MediaSource::jitter() {

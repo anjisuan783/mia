@@ -94,15 +94,14 @@ MDEFINE_LOGGER(StreamEntry, "StreamEntry");
 StreamEntry::StreamEntry(std::shared_ptr<MediaSource> s, 
                          std::shared_ptr<MediaRequest> r) 
   : source_{s},  
-    req_{r}, 
+    req_{std::move(r)}, 
     worker_{source_->get_worker()} {
-  std::string stream_id = srs_generate_stream_url("", req_->app, req_->stream);
-  MLOG_TRACE("service created:" << stream_id );
   thread_check_.Detach();
+  MLOG_TRACE("service created:" << req_->get_stream_url());
 }
 
 StreamEntry::~StreamEntry() {
-  MLOG_TRACE("service destoryed:" << req_->stream);
+  MLOG_TRACE("service destoryed:" << req_->get_stream_url());
 }
 
 void StreamEntry::initialize() {
@@ -195,6 +194,7 @@ void StreamEntry::consumer_push(
   srs_error_t err = srs_success;
   SrsFlvStreamEncoder* fast = 
       dynamic_cast<SrsFlvStreamEncoder*>(c.encoder_.get());
+  
   int count;
   do {
     cache.clear();
@@ -390,15 +390,19 @@ srs_error_t MediaFlvPlayHandler::serve_http(
     return srs_go_http_error(writer.get(), SRS_CONSTS_HTTP_NotFound);
   }
 
-  size_t found = path.rfind(".");
-  if (found != path.npos) {
-    path.erase(found, 4);
-  }
-  
-  MLOG_TRACE(path);
+  auto req = msg->to_request(g_server_.config_.vhost);
+
+  MLOG_INFO("flv player desc schema:" << req->schema << 
+            ", host:" << req->host <<
+            ", vhost:" << req->vhost << 
+            ", app:" << req->app << 
+            ", stream:" << req->stream << 
+            ", port:" << req->port << 
+            ", param:" << req->param);
+
   {
     std::lock_guard<std::mutex> guard(stream_lock_);
-    auto found = steams_.find(path);
+    auto found = steams_.find(req->get_stream_url());
     if (found == steams_.end()) {
       return srs_go_http_error(writer.get(), SRS_CONSTS_HTTP_NotFound);
     }

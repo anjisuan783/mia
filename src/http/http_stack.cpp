@@ -1911,6 +1911,61 @@ void HttpMessage::on_body(std::string_view data) {
   }
 }
 
+std::shared_ptr<MediaRequest> 
+HttpMessage::to_request(const std::string& vhost) {
+  auto req = std::make_shared<MediaRequest>();
+  
+  // http path, for instance, /live/livestream.flv, parse to
+  //      app: /live
+  //      stream: livestream.flv
+  srs_parse_rtmp_url(uri_->get_path(), req->app, req->stream);
+  
+  // trim the start slash, for instance, /live to live
+  req->app = srs_string_trim_start(req->app, "/");
+  
+  // remove the extension, for instance, livestream.flv to livestream
+  req->stream = srs_path_filename(req->stream);
+  
+  // generate others.
+  req->tcUrl = "rtmp://" + vhost + "/" + req->app;
+  req->pageUrl = header_.get("Referer");
+  req->objectEncoding = 0;
+
+  std::string query = uri_->get_query();
+  if (!query.empty()) {
+      req->param = "?" + query;
+  }
+  
+  srs_discovery_tc_url(req->tcUrl, 
+                       req->schema, 
+                       req->host, 
+                       req->vhost, 
+                       req->app, 
+                       req->stream, 
+                       req->port, 
+                       req->param);
+  req->strip();
+  
+  // reset the host to http request host.
+  if (req->host == SRS_CONSTS_RTMP_DEFAULT_VHOST) {
+      req->host = uri_->get_host();
+  }
+
+  // Set ip by remote ip of connection.
+  //if (owner_) {
+  //    req->ip = owner_->remote_ip();
+  //}
+
+  // Overwrite by ip from proxy.
+  //string oip = srs_get_original_ip(this);
+  //if (!oip.empty()) {
+  //    req->ip = oip;
+  //}
+  
+  return std::move(req);
+}
+
+
 static constexpr uint32_t max_header_size = HTTP_MAX_HEADER_SIZE;
 
 #ifndef ULLONG_MAX

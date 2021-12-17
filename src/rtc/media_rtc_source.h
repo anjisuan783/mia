@@ -20,13 +20,6 @@
 
 namespace ma {
 
-class IRtcEraser {
- public:
-  virtual ~IRtcEraser() = default;
-
-  virtual void RemoveSource(const std::string& id) = 0;
-};
-
 class RtcMediaSink {
  public:
   virtual ~RtcMediaSink() = default;
@@ -52,11 +45,13 @@ class MediaRtcSource final : public sigslot::has_slots<> {
 
   srs_error_t Publish(const std::string& sdp, 
                       std::shared_ptr<IHttpResponseWriter>,
-                      std::string& id);
+                      const std::string& stream_id,
+                      std::string& pc_id);
   void UnPublish(const std::string& id);
 
   srs_error_t Subscribe(const std::string& sdp, 
                         std::shared_ptr<IHttpResponseWriter>,
+                        const std::string& stream_id,
                         std::string& id);
   void UnSubscribe(const std::string& id);
 

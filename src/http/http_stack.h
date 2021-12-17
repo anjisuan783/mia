@@ -123,6 +123,8 @@ public:
   }
 
   void on_body(std::string_view data);
+
+  std::shared_ptr<MediaRequest> to_request(const std::string&);
   
  private:
   uint8_t method_i();
