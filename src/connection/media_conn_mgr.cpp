@@ -12,7 +12,8 @@
 
 namespace ma {
 
-int MediaConnMgr::Init(uint32_t ioworkers, const std::vector<std::string>& addrs) {
+int MediaConnMgr::Init(uint32_t ioworkers, 
+                       const std::vector<std::string>& addrs) {
   if (addrs.empty()) {
     return kma_ok;
   }
@@ -26,9 +27,11 @@ std::shared_ptr<IMediaConnection> MediaConnMgr::CreateConnection(
 
   std::shared_ptr<IMediaConnection> conn;
   if (e_http == type) {
-    conn = std::make_shared<MediaHttpConn>(std::move(factory), g_server_.mux_.get());
+    conn = std::make_shared<MediaHttpConn>(
+        std::move(factory), g_server_.mux_.get());
   } else if (e_flv == type) {
-    conn = std::make_shared<MediaResponseOnlyHttpConn>(std::move(factory), g_server_.mux_.get());
+    conn = std::make_shared<MediaResponseOnlyHttpConn>(
+        std::move(factory), g_server_.mux_.get());
   } else {
     conn = std::make_shared<MediaDummyConnection>();
   }

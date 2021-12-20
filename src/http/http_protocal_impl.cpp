@@ -23,11 +23,9 @@ static log4cxx::LoggerPtr logger = log4cxx::Logger::getLogger("http_protocal_imp
 //AsyncSokcetWrapper
 AsyncSokcetWrapper::AsyncSokcetWrapper(rtc::AsyncPacketSocket* c)
   : conn_{c} {
-  MLOG_TRACE_THIS("");
 }
 
 AsyncSokcetWrapper::~AsyncSokcetWrapper() {
-  MLOG_TRACE_THIS("");
   RTC_DCHECK_RUN_ON(&thread_check_);
 }
 
@@ -185,8 +183,6 @@ void AsyncSokcetWrapper::OnSentEvent(rtc::AsyncPacketSocket*,
 
 void AsyncSokcetWrapper::OnWriteEvent(rtc::AsyncPacketSocket*) {
   RTC_DCHECK_RUN_ON(&thread_check_);
-
-  MLOG_TRACE("AsyncSokcetWrapper::OnWriteEvent " << (close_?"closed":""));
 
   if (close_) {
     return ;
