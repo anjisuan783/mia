@@ -15,11 +15,38 @@
 #include "h/media_return_code.h"
 #include "h/media_server_api.h"
 
-int main(int argc, char* argv[]) {
+int usage() {
+  printf("usage: ./mia -l[log4cxx.properties]\n");
+  return -1;
+}
 
-  log4cxx::PropertyConfigurator::configureAndWatch("log4cxx.properties");  
-  log4cxx::LoggerPtr rootLogger = log4cxx::Logger::getRootLogger();  
-  LOG4CXX_INFO(rootLogger, "init log4cxx with log4cxx.properties");
+int main(int argc, char* argv[]) {
+  if (argc < 2) {
+    return usage();
+  }
+  std::string log4cxx_config_path;
+  int c;
+  while ((c = getopt(argc, argv, "l:")) != -1) {
+		switch (c) {
+  		case 'l':
+        log4cxx_config_path = optarg;
+        break;
+      default:
+        return usage();
+		}
+	}
+
+  if (log4cxx_config_path.empty()) {
+    return usage();
+  }
+
+  log4cxx::PropertyConfigurator::configureAndWatch(log4cxx_config_path);  
+  log4cxx::LoggerPtr rootLogger = log4cxx::Logger::getRootLogger();
+  constexpr int MAX_BUFFER_SIZE = 256;
+  char log_buffer[MAX_BUFFER_SIZE];
+  snprintf(log_buffer, MAX_BUFFER_SIZE, "init log4cxx with %s", 
+           log4cxx_config_path.c_str());
+  LOG4CXX_INFO(rootLogger, log_buffer);
 
   ma::MediaServerApi::Config _config{
     .workers_= (uint32_t)1,
@@ -43,22 +70,21 @@ int main(int argc, char* argv[]) {
     .request_keyframe_interval = 5  //rtmp request keyframe secode
   };
 
-  char buffer[1024];
-  snprintf(buffer, 1024, "mia start \n");
-  LOG4CXX_INFO(rootLogger, buffer);
+  snprintf(log_buffer, MAX_BUFFER_SIZE, "mia start \n");
+  LOG4CXX_INFO(rootLogger, log_buffer);
 
   ma::MediaServerApi* server = ma::MediaServerFactory().Create();
   int ret = server->Init(_config);
   if (ma::kma_ok != ret) {
-    snprintf(buffer, 1024, "initialize failed, code:%d \n", ret);
-    LOG4CXX_INFO(rootLogger, buffer);
+    snprintf(log_buffer, MAX_BUFFER_SIZE, "initialize failed, code:%d \n", ret);
+    LOG4CXX_INFO(rootLogger, log_buffer);
     return ret;
   }
 
   do {::sleep(1);} while(true);
 
-  snprintf(buffer, 1024, "mia stop \n");
-  LOG4CXX_INFO(rootLogger, buffer);
+  snprintf(log_buffer, MAX_BUFFER_SIZE, "mia stop \n");
+  LOG4CXX_INFO(rootLogger, log_buffer);
 
   return 0;
 }
