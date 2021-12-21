@@ -12,6 +12,7 @@
 #include "rtc/media_rtc_source.h"
 #include "media_server.h"
 #include "rtc/media_rtc_live_adaptor.h"
+#include "media_source_mgr.h"
 
 namespace ma {
 
@@ -108,6 +109,9 @@ void MediaSource::OnRtcFirstSubscriber() {
 }
 
 void MediaSource::OnRtcNobody() {
+  MLOG_INFO("onbody, destroy source:" << req_->get_stream_url());
+  auto self = shared_from_this();
+  g_source_mgr_.RemoveSource(req_);
 }
 
 void MediaSource::OnMediaFrame(const owt_base::Frame& frm) {
