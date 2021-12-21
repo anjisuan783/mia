@@ -3,7 +3,6 @@
 #include <optional>
 
 #include "h/rtc_return_value.h"
-
 #include "common/media_log.h"
 #include "utils/json.h"
 #include "utils/protocol_utility.h"
@@ -36,9 +35,6 @@ class MediaHttpPlayHandler : public IMediaHttpHandler {
                             std::shared_ptr<MediaRequest> r) override;
   void unmount_service(std::shared_ptr<MediaSource> s, 
                        std::shared_ptr<MediaRequest> r) override;
- private:
-  std::mutex stream_lock_;
-  std::map<std::string, std::shared_ptr<MediaSource>> source_map_;
 };
 
 /*
@@ -107,7 +103,7 @@ srs_error_t MediaHttpPlayHandler::serve_http(
   json::Object jobj = json::Deserialize(msg->get_body());
 
   std::string streamurl = std::move((std::string)jobj["streamurl"]);
-  //std::string clientip = std::move((std::string)jobj["clientip"]);
+  std::string clientip = std::move((std::string)jobj["clientip"]);
   std::string sdp = std::move((std::string)jobj["sdp"]);
 
   auto req = std::make_shared<MediaRequest>();
@@ -132,24 +128,24 @@ srs_error_t MediaHttpPlayHandler::serve_http(
             ", param:" << req->param);
 
   std::string subscriber_id;
-  auto result = g_source_mgr_.FetchSource(req);
-  if (*result) {  
-    err = (*result)->Subscribe(sdp, std::move(writer), subscriber_id);
-  }
+  
+  MediaSource::Config cfg{std::move(g_source_mgr_.GetWorker()), 
+                          g_server_.config_.enable_gop_,
+                          g_server_.config_.enable_atc_,
+                          JitterAlgorithmZERO};
+
+  auto rtc_source = g_source_mgr_.FetchOrCreateSource(cfg, req);
+  err = rtc_source->Subscribe(sdp, std::move(writer), subscriber_id);
   return err;
 }
 
 srs_error_t MediaHttpPlayHandler::mount_service(std::shared_ptr<MediaSource> s, 
                                       std::shared_ptr<MediaRequest> r)  {
-  std::lock_guard<std::mutex> guard(stream_lock_);
-  source_map_.emplace(r->stream, std::move(s));
   return srs_success;
 }
 
 void MediaHttpPlayHandler::unmount_service(std::shared_ptr<MediaSource> s, 
                              std::shared_ptr<MediaRequest> r) {
-  std::lock_guard<std::mutex> guard(stream_lock_);
-  source_map_.erase(r->stream);
 }
 
 //MediaHttpPublishHandler
@@ -157,6 +153,8 @@ class MediaHttpPublishHandler : public IMediaHttpHandler {
  public:
   MediaHttpPublishHandler() = default;
   ~MediaHttpPublishHandler() override = default;
+
+  sigslot::signal1<std::shared_ptr<MediaRequest>> signal_publisher_joined_;
   
  private:
   
@@ -316,14 +314,17 @@ void MediaHttpRtcServeMux::conn_destroy(std::shared_ptr<IMediaConnection>) {
 
 srs_error_t MediaHttpRtcServeMux::mount_service(
     std::shared_ptr<MediaSource> s, std::shared_ptr<MediaRequest> r) {
-  return handlers_[RTC_PUBLISH_HANDLER]->mount_service(std::move(s), 
-                                                       std::move(r));
+  for (auto& handle : handlers_) {
+    handle->mount_service(std::move(s), std::move(r));
+  }
+  return srs_success;
 }
 
 void MediaHttpRtcServeMux::unmount_service(
     std::shared_ptr<MediaSource> s, std::shared_ptr<MediaRequest> r) {
-  handlers_[RTC_PLAY_HANDLER]->unmount_service(std::move(s),
-                                               std::move(r));
+  for (auto& handle : handlers_) {
+    handle->unmount_service(std::move(s), std::move(r));
+  }
 }
 
 }
