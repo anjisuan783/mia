@@ -16,15 +16,15 @@ CentOS 7 supported only now!
 
 ## Features
 
-1.chrome publisher (send side BWE)
+1.Browser publisher (send side BWE)
 
-2.chrome subscriber (without BWE)
+2.Browser subscriber (without BWE)
 
 3.http-flv subscriber
 
-audio codec : opus、aac
+4.codecs : opus、aac、H264
 
-video codec : H264
+5.Supported browsers: firefox、chrome、Edge 
 
 ## AUTHORS
 
