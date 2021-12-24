@@ -1,3 +1,9 @@
+//
+// Copyright (c) 2021- anjisuan783
+//
+// SPDX-License-Identifier: MIT
+//
+
 #include "media_live_handler.h"
 
 #include <chrono>

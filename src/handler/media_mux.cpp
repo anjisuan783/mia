@@ -1,3 +1,9 @@
+//
+// Copyright (c) 2021- anjisuan783
+//
+// SPDX-License-Identifier: MIT
+//
+
 #include "handler/media_mux.h"
 
 #include "common/media_kernel_error.h"
