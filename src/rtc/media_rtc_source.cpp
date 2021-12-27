@@ -49,8 +49,9 @@ srs_error_t MediaRtcSource::Publish(
   std::string_view pc_id = GetPcId(sdp);
  
   auto publisher = std::make_shared<MediaRtcPublisher>(
-                      std::string(pc_id.data(), pc_id.length()));
-  srs_error_t err = publisher->Open(rtc_, std::move(w), stream_id, sdp, worker_);
+      std::string(pc_id.data(), pc_id.length()));
+  srs_error_t err = 
+      publisher->Open(rtc_, std::move(w), stream_id, sdp, worker_);
 
   if (err != srs_success) {
     return err;
@@ -104,7 +105,7 @@ void MediaRtcSource::UnSubscribe(const std::string& id) {
 }
 
 void MediaRtcSource::OnFirstPacket(std::shared_ptr<MediaRtcAttendeeBase> p) {
-  signal_rtc_publish_();
+  signal_rtc_first_packet_();
 }
 
 void MediaRtcSource::OnAttendeeJoined(std::shared_ptr<MediaRtcAttendeeBase> p) {
@@ -159,7 +160,14 @@ void MediaRtcSource::OnAttendeeLeft(std::shared_ptr<MediaRtcAttendeeBase> p) {
   }
 
   if (p->IsPublisher()) {
-    signal_rtc_unpublish_();
+    {
+      std::lock_guard<std::mutex> guard(attendees_lock_);
+      for (auto& i : attendees_) {
+        i.second->OnPublisherLeft(publisher_id_);
+      }
+    }
+  
+    signal_rtc_publisher_left_();
     publisher_id_ = "";
   }
 

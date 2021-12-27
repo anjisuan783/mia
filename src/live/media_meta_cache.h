@@ -28,56 +28,56 @@ class MediaMetaCache final {
   MDECLARE_LOGGER();
 
 public:
-    MediaMetaCache();
-    ~MediaMetaCache();
+  MediaMetaCache();
+  ~MediaMetaCache();
 
-    // Dispose the metadata cache.
-    void dispose();
-    // For each publishing, clear the metadata cache.
-    void clear();
+  // Dispose the metadata cache.
+  void dispose();
+  // For each publishing, clear the metadata cache.
+  void clear();
 
-    // Get the cached metadata.
-    std::shared_ptr<MediaMessage> data();
-    // Get the cached vsh(video sequence header).
-    std::shared_ptr<MediaMessage> vsh();
-    SrsFormat* vsh_format();
-    // Get the cached ash(audio sequence header).
-    std::shared_ptr<MediaMessage> ash();
-    SrsFormat* ash_format();
-    // Dumps cached metadata to consumer.
-    // @param dm Whether dumps the metadata.
-    // @param ds Whether dumps the sequence header.
-    srs_error_t dumps(MediaConsumer* consumer, 
-                      bool atc, 
-                      JitterAlgorithm jitter_algo, 
-                      bool dump_meta, 
-                      bool dump_seq_header);
+  // Get the cached metadata.
+  std::shared_ptr<MediaMessage> data();
+  // Get the cached vsh(video sequence header).
+  std::shared_ptr<MediaMessage> vsh();
+  SrsFormat* vsh_format();
+  // Get the cached ash(audio sequence header).
+  std::shared_ptr<MediaMessage> ash();
+  SrsFormat* ash_format();
+  // Dumps cached metadata to consumer.
+  // @param dm Whether dumps the metadata.
+  // @param ds Whether dumps the sequence header.
+  srs_error_t dumps(MediaConsumer* consumer, 
+                    bool atc, 
+                    JitterAlgorithm jitter_algo, 
+                    bool dump_meta, 
+                    bool dump_seq_header);
 
-    // Previous exists sequence header.
-    std::shared_ptr<MediaMessage> previous_vsh();
-    std::shared_ptr<MediaMessage> previous_ash();
-    // Update previous sequence header, drop old one, set to new sequence header.
-    void update_previous_vsh();
-    void update_previous_ash();
+  // Previous exists sequence header.
+  std::shared_ptr<MediaMessage> previous_vsh();
+  std::shared_ptr<MediaMessage> previous_ash();
+  // Update previous sequence header, drop old one, set to new sequence header.
+  void update_previous_vsh();
+  void update_previous_ash();
 
-    // Update the cached metadata by packet.
-    srs_error_t update_data(MessageHeader* header, SrsOnMetaDataPacket* metadata, bool& updated);
-    // Update the cached audio sequence header.
-    srs_error_t update_ash(std::shared_ptr<MediaMessage> msg);
-    // Update the cached video sequence header.
-    srs_error_t update_vsh(std::shared_ptr<MediaMessage> msg);
+  // Update the cached metadata by packet.
+  srs_error_t update_data(MessageHeader* header, SrsOnMetaDataPacket* metadata, bool& updated);
+  // Update the cached audio sequence header.
+  srs_error_t update_ash(std::shared_ptr<MediaMessage> msg);
+  // Update the cached video sequence header.
+  srs_error_t update_vsh(std::shared_ptr<MediaMessage> msg);
 private:
-    // The cached metadata, FLV script data tag.
-    std::shared_ptr<MediaMessage> meta;
-    // The cached video sequence header, for example, sps/pps for h.264.
-    std::shared_ptr<MediaMessage> video;
-    std::shared_ptr<MediaMessage> previous_video;
-    // The cached audio sequence header, for example, asc for aac.
-    std::shared_ptr<MediaMessage> audio;
-    std::shared_ptr<MediaMessage> previous_audio;
-    // The format for sequence header.
-    std::unique_ptr<SrsRtmpFormat> vformat;
-    std::unique_ptr<SrsRtmpFormat> aformat;
+  // The cached metadata, FLV script data tag.
+  std::shared_ptr<MediaMessage> meta;
+  // The cached video sequence header, for example, sps/pps for h.264.
+  std::shared_ptr<MediaMessage> video;
+  std::shared_ptr<MediaMessage> previous_video;
+  // The cached audio sequence header, for example, asc for aac.
+  std::shared_ptr<MediaMessage> audio;
+  std::shared_ptr<MediaMessage> previous_audio;
+  // The format for sequence header.
+  std::unique_ptr<SrsRtmpFormat> vformat;
+  std::unique_ptr<SrsRtmpFormat> aformat;
 };
 
 } //namespace ma

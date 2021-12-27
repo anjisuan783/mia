@@ -48,31 +48,31 @@ srs_error_t MediaSource::consumer_dumps(
 }
 
 void MediaSource::CheckLiveSource() {
-  if (!live_source_) {
-    live_source_ = std::make_shared<MediaLiveSource>();
-    live_source_->Initialize(config_.worker.get(), 
-                             config_.gop,
-                             config_.atc,
-                             config_.jitter_algorithm);
-    live_adapter_ = std::move(
-        std::make_unique<MediaRtcLiveAdaptor>(req_->stream));
-    live_adapter_->SetSink(live_source_.get());
+  if (live_source_) {
+    return;
   }
+  live_source_ = std::make_shared<MediaLiveSource>();
+  live_source_->Initialize(config_.worker.get(), 
+                           config_.gop,
+                           config_.atc,
+                           config_.jitter_algorithm);
 }
 
 void MediaSource::CheckRtcSource() {
-  if (!rtc_source_) {
-    rtc_source_ = std::move(std::make_shared<MediaRtcSource>());
-    rtc_source_->Open(config_.rtc_api, config_.worker.get());
-    rtc_source_->signal_rtc_first_suber_.connect(
-                     this, &MediaSource::OnRtcFirstSubscriber);
-    rtc_source_->signal_rtc_nobody_.connect(
-                     this, &MediaSource::OnRtcNobody);
-    rtc_source_->signal_rtc_publish_.connect(
-                     this, &MediaSource::OnRtcPublish);
-    rtc_source_->signal_rtc_unpublish_.connect(
-                     this, &MediaSource::OnRtcUnPublish);
+  if (rtc_source_) {
+    return;
   }
+  
+  rtc_source_ = std::move(std::make_shared<MediaRtcSource>());
+  rtc_source_->Open(config_.rtc_api, config_.worker.get());
+  rtc_source_->signal_rtc_first_suber_.connect(
+                   this, &MediaSource::OnRtcFirstSubscriber);
+  rtc_source_->signal_rtc_nobody_.connect(
+                   this, &MediaSource::OnRtcNobody);
+  rtc_source_->signal_rtc_first_packet_.connect(
+                   this, &MediaSource::OnRtcFirstPacket);
+  rtc_source_->signal_rtc_publisher_left_.connect(
+                   this, &MediaSource::OnRtcPublisherLeft);
 }
 
 srs_error_t MediaSource::Publish(const std::string& s, 
@@ -93,16 +93,23 @@ JitterAlgorithm MediaSource::jitter() {
   return live_source_->jitter();
 }
 
-void MediaSource::OnRtcPublish() {
+void MediaSource::OnRtcFirstPacket() {
   CheckLiveSource();
   g_server_.OnPublish(shared_from_this(), req_);
   live_source_->OnPublish();
   rtc_source_->SetMediaSink(this);
+
+  assert(nullptr == live_adapter_.get());
+
+  live_adapter_.reset(new MediaRtcLiveAdaptor(req_->stream));
+  live_adapter_->SetSink(live_source_.get());
 }
 
-void MediaSource::OnRtcUnPublish() {
+void MediaSource::OnRtcPublisherLeft() {
+  publisher_in_.clear();
   g_server_.OnUnpublish(shared_from_this(), req_);
   live_source_->OnUnpublish();
+  live_adapter_.reset(nullptr);
 }
 
 void MediaSource::OnRtcFirstSubscriber() {

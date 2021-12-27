@@ -64,8 +64,8 @@ class MediaRtcSource final : public sigslot::has_slots<> {
  public:
   sigslot::signal0<> signal_rtc_first_suber_;
   sigslot::signal0<> signal_rtc_nobody_;
-  sigslot::signal0<> signal_rtc_publish_;
-  sigslot::signal0<> signal_rtc_unpublish_;
+  sigslot::signal0<> signal_rtc_first_packet_;
+  sigslot::signal0<> signal_rtc_publisher_left_;
   
  private:
   wa::rtc_api* rtc_{nullptr};

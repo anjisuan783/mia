@@ -319,6 +319,23 @@ void MediaRtcSubscriber::OnPublisherJoin(const std::string& id) {
   linked_ = true;
 }
 
+void MediaRtcSubscriber::OnPublisherLeft(const std::string& id) {
+  if (id != publisher_id_) {
+    MLOG_CFATAL("unexpected publisher:%s[%s]",id.c_str(),publisher_id_.c_str());
+  }
+
+  if (!linked_) {
+    return;
+  }
+  
+  int rv = rtc_->cutoff(publisher_id_, pc_id_);
+  if (rv != wa::wa_ok) {
+    MLOG_ERROR(publisher_id_ << " cutoff  " << pc_id_ << " failed code:" << rv);
+  }
+  publisher_id_ = "";
+  linked_ = false;
+}
+
 void MediaRtcSubscriber::OnPublisherChange(const std::string& id) {
   if (publisher_id_ == id){
     return;

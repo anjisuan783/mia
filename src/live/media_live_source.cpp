@@ -14,9 +14,7 @@ namespace ma {
 
 MDEFINE_LOGGER(MediaLiveSource, "MediaLiveSource");
 
-MediaLiveSource::MediaLiveSource()
-  : gop_cache_{std::make_unique<SrsGopCache>()},
-    meta_{std::make_unique<MediaMetaCache>()} {
+MediaLiveSource::MediaLiveSource() {
   thread_check_.Detach();
 }
 
@@ -25,18 +23,38 @@ MediaLiveSource::~MediaLiveSource() = default;
 bool MediaLiveSource::Initialize(wa::Worker* worker, 
     bool gop, bool atc, JitterAlgorithm algorithm) {
   worker_ = worker;
-  gop_cache_->set(gop);
+  enable_gop_ = gop;
   atc_ = atc;
   jitter_algorithm_ = algorithm;
   return true;
 }
 
 void MediaLiveSource::OnPublish() {
+  if (active_) {
+    MLOG_CERROR("wrong publish status, active");
+    return;
+  }
   is_monotonically_increase_ = true;
   active_ = true;
+
+  assert(nullptr == gop_cache_.get());
+  gop_cache_.reset(new SrsGopCache);
+  gop_cache_->set(enable_gop_);
+
+  assert(nullptr == meta_.get());
+  meta_.reset(new MediaMetaCache);
 }
 
 void MediaLiveSource::OnUnpublish() {
+  if (!active_) {
+    MLOG_CERROR("wrong publish status, unactive");
+    return;
+  }
+
+  gop_cache_.reset(nullptr);
+  meta_.reset(nullptr);
+
+  last_packet_time_ = 0;
   active_ = false;
 }
 

@@ -118,11 +118,15 @@ srs_error_t StapPackage::decode(SrsBuffer* buf) {
       buffer_length -= (nalu_start_offset + nalu_length);
     }
   }
-#if 0
+#if 1
   for(auto& x : nalus_) {
     SrsAvcNaluType nalu_type = (SrsAvcNaluType)(*(x.bytes) & kNalTypeMask);
-    printf("ts:%u, size:%d, t:%s, h264 %s_frame:%d\n", time_stamp_, (int)nalus_.size(),
-        srs_avc_nalu2str(nalu_type).c_str(), key_frame_?"k":"p", x.size);
+    if (key_frame_) {
+      printf("ts:%u, size:%d, t:%s, h264 %s_frame:%d\n", 
+        time_stamp_, (int)nalus_.size(),
+        srs_avc_nalu2str(nalu_type).c_str(), 
+        key_frame_?"k":"p", x.size);
+    }
   }
 #endif
   return srs_success;
@@ -180,9 +184,10 @@ void MediaRtcLiveAdaptor::dump_video(uint8_t* buf, uint32_t count) {
     return;
   }
   srs_error_t err = srs_success;
-  if (video_writer_ && (srs_success != (err = video_writer_->write(buf, count, nullptr)))) {
-     MLOG_CFATAL("to_file failed, desc:%s", srs_error_desc(err).c_str());
-     delete err;
+  if (video_writer_ && 
+      (srs_success != (err = video_writer_->write(buf, count, nullptr)))) {
+    MLOG_CFATAL("to_file failed, desc:%s", srs_error_desc(err).c_str());
+    delete err;
   }
 }
 
@@ -370,6 +375,18 @@ srs_error_t MediaRtcLiveAdaptor::Trancode_audio(const owt_base::Frame& frm) {
   webrtc::RtpPacket rtp;
   bool ret = rtp.Parse(frm.payload, frm.length);
   MA_ASSERT_RETURN(ret, srs_error_new(ERROR_RTC_FRAME_MUXER, "rtp parse failed"));
+
+  uint32_t timestamp = rtp.Timestamp();
+  if (!last_timestamp_) {
+    last_timestamp_ = timestamp;
+  }
+
+  if (last_timestamp_ > timestamp) {
+    MLOG_WARN("audio ts not mono increse.");
+  } else {
+    last_timestamp_ = timestamp;
+  }
+
   auto payload = rtp.payload();
   SrsAudioFrame frame;
   frame.add_sample((char*)payload.data(), payload.size());
