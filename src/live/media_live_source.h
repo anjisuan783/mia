@@ -88,6 +88,9 @@ class MediaLiveSource final :
   std::unique_ptr<MediaMetaCache> meta_;
 
   wa::Worker* worker_;
+
+  int last_width_{0};
+  int last_height_{0};
   
   webrtc::SequenceChecker thread_check_;
 };
