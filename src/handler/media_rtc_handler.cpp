@@ -13,6 +13,7 @@
 #include "utils/json.h"
 #include "utils/protocol_utility.h"
 #include "http/h/http_message.h"
+#include "http/h/http_protocal.h"
 #include "connection/h/conn_interface.h"
 #include "media_server.h"
 #include "rtc/media_rtc_source.h"
@@ -198,7 +199,7 @@ response
 }
 
 HTTP响应code码
-200:  正常影响
+200:  正常响应
 400:  请求不正确，URL 或者 参数不正确
 403:  鉴权失败
 404:  该流不存在
@@ -226,6 +227,7 @@ response
 HTTP响应code码
 
 200:  正常影响
+
 400:  请求不正确，URL 或者 参数不正确
 403:  鉴权失败
 404:  该流不存在
@@ -264,14 +266,6 @@ srs_error_t MediaHttpPublishHandler::serve_http(
                        req->param);
 
   req->vhost = g_server_.config_.vhost;
-
-  MLOG_INFO("publisher desc schema:" << req->schema << 
-            ", host:" << req->host <<
-            ", vhost:" << req->vhost << 
-            ", app:" << req->app << 
-            ", stream:" << req->stream << 
-            ", port:" << req->port << 
-            ", param:" << req->param);
   
   MediaSource::Config cfg{std::move(g_source_mgr_.GetWorker()), 
                           g_server_.config_.enable_gop_,
@@ -279,10 +273,45 @@ srs_error_t MediaHttpPublishHandler::serve_http(
                           JitterAlgorithmZERO};
   auto ms = g_source_mgr_.FetchOrCreateSource(cfg, req);
 
-  std::string publisher_id;
-  err = ms->Publish(sdp, std::move(writer), publisher_id);
+  // change publisher
+  if (!ms->IsPublisherJoined()) {
+    MLOG_INFO("publisher desc schema:" << req->schema << 
+          ", host:" << req->host <<
+          ", vhost:" << req->vhost << 
+          ", app:" << req->app << 
+          ", stream:" << req->stream << 
+          ", port:" << req->port << 
+          ", param:" << req->param <<
+          ", clientip:" << clientip);
+    std::string publisher_id;
+    return ms->Publish(sdp, std::move(writer), publisher_id);
+  }
 
-  //TODO double publisher  
+  MLOG_WARN("publisher existed! desc schema:" << req->schema << 
+      ", host:" << req->host <<
+      ", vhost:" << req->vhost << 
+      ", app:" << req->app << 
+      ", stream:" << req->stream << 
+      ", port:" << req->port << 
+      ", param:" << req->param <<
+      ", clientip:" << clientip);
+  
+  writer->header()->set("Connection", "Close");
+  
+  json::Object jroot;
+  jroot["code"] = SRS_CONSTS_HTTP_Conflict;
+  jroot["server"] = "mia rtc";
+  jroot["msg"] = "already exist";
+  
+  std::string jsonStr = std::move(json::Serialize(jroot));
+
+  if((err = writer->write(jsonStr.c_str(), jsonStr.length())) != srs_success){
+    return srs_error_wrap(err, "Responese");
+  }
+
+  if((err = writer->final_request()) != srs_success){
+    return srs_error_wrap(err, "final_request failed");
+  }
   return err;
 }
 

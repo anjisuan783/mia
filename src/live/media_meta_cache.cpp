@@ -148,13 +148,13 @@ srs_error_t MediaMetaCache::update_data(MessageHeader* header,
 srs_error_t MediaMetaCache::update_ash(std::shared_ptr<MediaMessage> msg) {
   audio = msg;
   update_previous_ash();
-  return aformat->on_audio(msg);
+  return aformat->on_audio(std::move(msg));
 }
 
 srs_error_t MediaMetaCache::update_vsh(std::shared_ptr<MediaMessage> msg) {
   video = msg;
   update_previous_vsh();
-  return vformat->on_video(msg);
+  return vformat->on_video(std::move(msg));
 }
 
 }

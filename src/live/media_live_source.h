@@ -65,6 +65,7 @@ class MediaLiveSource final :
   
  private:
   std::mutex consumer_lock_;
+  
   //TODO need optimize
   std::list<std::weak_ptr<MediaConsumer>> consumers_; 
 
@@ -78,8 +79,9 @@ class MediaLiveSource final :
   bool active_{false};
 
   JitterAlgorithm jitter_algorithm_{JitterAlgorithmZERO};
-
+  
   // The gop cache for client fast startup.
+  bool enable_gop_{false};
   std::unique_ptr<SrsGopCache> gop_cache_;
 
   // The metadata cache.

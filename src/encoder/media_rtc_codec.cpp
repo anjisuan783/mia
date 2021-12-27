@@ -62,7 +62,8 @@ SrsAudioTranscoder::~SrsAudioTranscoder() {
   }
 }
 
-srs_error_t SrsAudioTranscoder::initialize(const AudioFormat& from, const AudioFormat& to) {
+srs_error_t SrsAudioTranscoder::initialize(
+    const AudioFormat& from, const AudioFormat& to) {
   srs_error_t err = srs_success;
 
   if ((err = init_dec(from)) != srs_success) {
@@ -127,7 +128,8 @@ srs_error_t SrsAudioTranscoder::init_dec(const AudioFormat& format) {
 
   dec_ = avcodec_alloc_context3(codec);
   if (!dec_) {
-    return srs_error_new(ERROR_RTC_FRAME_MUXER, "Could not allocate audio codec context");
+    return srs_error_new(ERROR_RTC_FRAME_MUXER, 
+        "Could not allocate audio codec context");
   }
   
   dec_->channels = format.channels;
@@ -135,17 +137,20 @@ srs_error_t SrsAudioTranscoder::init_dec(const AudioFormat& format) {
   dec_->channel_layout = av_get_default_channel_layout(format.channels);
 
   if (avcodec_open2(dec_, codec, NULL) < 0) {
-    return srs_error_new(ERROR_RTC_FRAME_MUXER, "Could not open codec");
+    return srs_error_new(ERROR_RTC_FRAME_MUXER, 
+        "Could not open codec");
   }
 
   dec_frame_ = av_frame_alloc();
   if (!dec_frame_) {
-    return srs_error_new(ERROR_RTC_FRAME_MUXER, "Could not allocate audio decode out frame");
+    return srs_error_new(ERROR_RTC_FRAME_MUXER, 
+        "Could not allocate audio decode out frame");
   }
 
   dec_packet_ = av_packet_alloc();
   if (!dec_packet_) {
-    return srs_error_new(ERROR_RTC_FRAME_MUXER, "Could not allocate audio decode in packet");
+    return srs_error_new(ERROR_RTC_FRAME_MUXER, 
+        "Could not allocate audio decode in packet");
   }
 
   new_pkt_pts_ = AV_NOPTS_VALUE;
@@ -163,7 +168,8 @@ srs_error_t SrsAudioTranscoder::init_enc(const AudioFormat& format) {
   enc_ = avcodec_alloc_context3(codec);
   if (!enc_) {
     return srs_error_new(ERROR_RTC_RTP_MUXER, 
-        "Could not allocate audio codec context(%d,%s)", format.codec, codec_name);
+        "Could not allocate audio codec context(%d,%s)", 
+        format.codec, codec_name);
   }
 
   enc_->sample_rate = format.samplerate;
@@ -187,7 +193,8 @@ srs_error_t SrsAudioTranscoder::init_enc(const AudioFormat& format) {
 
   enc_frame_ = av_frame_alloc();
   if (!enc_frame_) {
-    return srs_error_new(ERROR_RTC_RTP_MUXER, "Could not allocate audio encode in frame");
+    return srs_error_new(ERROR_RTC_RTP_MUXER, 
+        "Could not allocate audio encode in frame");
   }
 
   enc_frame_->format = enc_->sample_fmt;
@@ -196,19 +203,22 @@ srs_error_t SrsAudioTranscoder::init_enc(const AudioFormat& format) {
   enc_frame_->sample_rate = enc_->sample_rate;
 
   if (av_frame_get_buffer(enc_frame_, 0) < 0) {
-    return srs_error_new(ERROR_RTC_RTP_MUXER, "Could not get audio frame buffer");
+    return srs_error_new(ERROR_RTC_RTP_MUXER, 
+        "Could not get audio frame buffer");
   }
 
   enc_packet_ = av_packet_alloc();
   if (!enc_packet_) {
-    return srs_error_new(ERROR_RTC_RTP_MUXER, "Could not allocate audio encode out packet");
+    return srs_error_new(ERROR_RTC_RTP_MUXER, 
+        "Could not allocate audio encode out packet");
   }
 
   next_out_pts_ = AV_NOPTS_VALUE;
   return srs_success;
 }
 
-srs_error_t SrsAudioTranscoder::init_swr(const AudioFormat& from, const AudioFormat& to) {
+srs_error_t SrsAudioTranscoder::init_swr(
+    const AudioFormat& from, const AudioFormat& to) {
   if (from.samplerate == to.samplerate
     && from.channels == to.channels
     && from.bitpersample == to.bitpersample) {
@@ -251,7 +261,8 @@ srs_error_t SrsAudioTranscoder::init_swr(const AudioFormat& from, const AudioFor
 
   /* Allocate memory for the samples of all channels in one consecutive
   * block for convenience. */
-  if ((error = av_samples_alloc(swr_data_, NULL, enc_->channels, enc_->frame_size, enc_->sample_fmt, 0)) < 0) {
+  if ((error = av_samples_alloc(swr_data_, NULL, 
+      enc_->channels, enc_->frame_size, enc_->sample_fmt, 0)) < 0) {
     return srs_error_new(ERROR_RTC_RTP_MUXER, "alloc swr buffer(%d:%s)", error,
         av_make_error_string(err_buf, AV_ERROR_MAX_STRING_SIZE, error));
   }

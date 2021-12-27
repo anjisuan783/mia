@@ -8,6 +8,8 @@
 #define __NEW_MEDIA_SOURCE_H__
 
 #include <memory>
+#include <atomic>
+
 #include "utils/sigslot.h"
 #include "h/rtc_stack_api.h"
 #include "h/media_server_api.h"
@@ -61,7 +63,10 @@ class MediaSource final : public sigslot::has_slots<>,
     return req_;
   }
 
-  //for rtc
+  inline bool IsPublisherJoined() {
+    return publisher_in_.test_and_set();
+  }
+  
   srs_error_t Publish(const std::string& sdp, 
                       std::shared_ptr<IHttpResponseWriter> writer,
                       std::string& publisher_id);
@@ -72,8 +77,9 @@ class MediaSource final : public sigslot::has_slots<>,
                         std::string& subscriber_id);
   srs_error_t UnSubscribe() { return srs_success; }
 
-  void OnRtcPublish();
-  void OnRtcUnPublish();
+  // rtc source signal
+  void OnRtcFirstPacket();
+  void OnRtcPublisherLeft();
   void OnRtcFirstSubscriber();
   void OnRtcNobody();
  private: 
@@ -88,6 +94,7 @@ class MediaSource final : public sigslot::has_slots<>,
 
   std::shared_ptr<MediaRequest> req_;
   std::unique_ptr<MediaRtcLiveAdaptor> live_adapter_;
+  std::atomic_flag publisher_in_{ATOMIC_FLAG_INIT};
 };
 
 } //namespace ma

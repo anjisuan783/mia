@@ -30,6 +30,7 @@ class MediaSourceMgr {
   std::optional<std::shared_ptr<MediaSource>> 
       FetchSource(std::shared_ptr<MediaRequest> req);
 
+  // MediaSource wiil be destroyed on nobody.
   void RemoveSource(std::shared_ptr<MediaRequest> req);
 
   std::shared_ptr<wa::Worker> GetWorker();

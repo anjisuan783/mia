@@ -60,6 +60,8 @@ class MediaRtcLiveAdaptor {
   bool debug_{false};
 
   std::unique_ptr<SrsSample> sps_;
+
+  uint32_t last_timestamp_{0};
 };
 
 }
