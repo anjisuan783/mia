@@ -1,3 +1,9 @@
+//
+// Copyright (c) 2021- anjisuan783
+//
+// SPDX-License-Identifier: MIT
+//
+
 #include "live/media_live_source.h"
 
 #include <inttypes.h>
@@ -214,17 +220,22 @@ void MediaLiveSource::on_video_async(
       if (meta_->vsh_format()->is_avc_sequence_header()) {
         SrsVideoCodecConfig* c = meta_->vsh_format()->vcodec;
         srs_assert(c);
-        MLOG_CINFO("%dB video sh,  "
-            "codec(%d, profile=%s, level=%s, %dx%d, %dkbps, %.1ffps, %.1fs)",
-            shared_video->size_, 
-            c->id, 
-            srs_avc_profile2str(c->avc_profile).c_str(),
-            srs_avc_level2str(c->avc_level).c_str(), 
-            c->width, 
-            c->height,
-            c->video_data_rate / 1000, 
-            c->frame_rate, 
-            c->duration);
+
+        if (last_width_ != c->width || last_height_ != c->height) {
+          MLOG_CINFO("%dB video sh, "
+              "codec[%d, profile=%s, level=%s, %dx%d, %dkbps, %.1ffps, %.1fs]",
+              shared_video->size_, 
+              c->id, 
+              srs_avc_profile2str(c->avc_profile).c_str(),
+              srs_avc_level2str(c->avc_level).c_str(), 
+              c->width, 
+              c->height,
+              c->video_data_rate / 1000, 
+              c->frame_rate, 
+              c->duration);
+          last_width_ = c->width;
+          last_height_ = c->height;
+        }
       }
     }
   }

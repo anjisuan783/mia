@@ -51,7 +51,7 @@ int main(int argc, char* argv[]) {
   ma::MediaServerApi::Config _config{
     .workers_= (uint32_t)1,
     .ioworkers_ = (uint32_t)1,
-    true,
+    false,
     false,
     false,                          //flv_record_
     30000,

@@ -7,7 +7,17 @@
 
 #include "encoder/media_rtc_codec.h"
 
+#include "common/media_define.h"
+
 namespace ma {
+
+#if 0
+  const int64_t kAccuracy_1 = 1000;
+  const int64_t kAccuracy_2 = 1;
+#else
+  const int64_t kAccuracy_1 = 1000000;
+  const int64_t kAccuracy_2 = 1000;
+#endif
 
 MDEFINE_LOGGER(SrsAudioTranscoder, "SrsAudioTranscoder");
 
@@ -22,43 +32,42 @@ static const char* id2codec_name(SrsAudioCodecId id) {
   }
 }
 
-SrsAudioTranscoder::SrsAudioTranscoder() {
-}
+SrsAudioTranscoder::SrsAudioTranscoder() = default;
 
 SrsAudioTranscoder::~SrsAudioTranscoder() {
   if (dec_) {
-      avcodec_free_context(&dec_);
+    avcodec_free_context(&dec_);
   }
 
   if (dec_frame_) {
-      av_frame_free(&dec_frame_);
+    av_frame_free(&dec_frame_);
   }
 
   if (dec_packet_) {
-      av_packet_free(&dec_packet_);
+    av_packet_free(&dec_packet_);
   }
 
   if (swr_) {
-      swr_free(&swr_);
+    swr_free(&swr_);
   }
 
   free_swr_samples();
 
   if (enc_) {
-      avcodec_free_context(&enc_);
+    avcodec_free_context(&enc_);
   }
 
   if (enc_frame_) {
-      av_frame_free(&enc_frame_);
+    av_frame_free(&enc_frame_);
   }
 
   if (enc_packet_) {
-      av_packet_free(&enc_packet_);
+    av_packet_free(&enc_packet_);
   }
 
   if (fifo_) {
-      av_audio_fifo_free(fifo_);
-      fifo_ = NULL;
+    av_audio_fifo_free(fifo_);
+    fifo_ = NULL;
   }
 }
 
@@ -277,8 +286,7 @@ srs_error_t SrsAudioTranscoder::init_fifo() {
   return srs_success;
 }
 
-srs_error_t SrsAudioTranscoder::decode_and_resample(SrsAudioFrame *pkt)
-{
+srs_error_t SrsAudioTranscoder::decode_and_resample(SrsAudioFrame *pkt) {
   srs_error_t err = srs_success;
 
   dec_packet_->data = (uint8_t *)pkt->samples[0].bytes;
@@ -292,7 +300,8 @@ srs_error_t SrsAudioTranscoder::decode_and_resample(SrsAudioFrame *pkt)
         av_make_error_string(err_buf, AV_ERROR_MAX_STRING_SIZE, error));
   }
 
-  new_pkt_pts_ = pkt->dts + pkt->cts;
+  new_pkt_pts_ = (pkt->dts + pkt->cts) * kAccuracy_2;
+  
   while (error >= 0) {
     error = avcodec_receive_frame(dec_, dec_frame_);
     if (error == AVERROR(EAGAIN) || error == AVERROR_EOF) {
@@ -324,17 +333,17 @@ srs_error_t SrsAudioTranscoder::decode_and_resample(SrsAudioFrame *pkt)
   return err;
 }
 
-srs_error_t SrsAudioTranscoder::encode(std::vector<SrsAudioFrame*> &pkts)
-{
+srs_error_t SrsAudioTranscoder::encode(std::vector<SrsAudioFrame*> &pkts) {
   char err_buf[AV_ERROR_MAX_STRING_SIZE] = {0};
 
-  if (next_out_pts_ == AV_NOPTS_VALUE) {
+  if (UNLIKELY(next_out_pts_ == AV_NOPTS_VALUE)) {
     next_out_pts_ = new_pkt_pts_;
   } else {
     int64_t diff = llabs(new_pkt_pts_ - next_out_pts_);
-    if (diff > 1000) {
-      MLOG_CWARN("time diff too large=%lld, next out=%lld, new pkt=%lld, set to new pkt",
-          diff, next_out_pts_, new_pkt_pts_);
+    if (diff > kAccuracy_1) {
+      MLOG_CWARN("time diff too large=%lld, next out=%lld, " 
+                 "new pkt=%lld, set to new pkt",
+                 diff, next_out_pts_, new_pkt_pts_);
       next_out_pts_ = new_pkt_pts_;
     }
   }
@@ -343,17 +352,21 @@ srs_error_t SrsAudioTranscoder::encode(std::vector<SrsAudioFrame*> &pkts)
   while (av_audio_fifo_size(fifo_) >= enc_->frame_size) {
     /* Read as many samples from the FIFO buffer as required to fill the frame.
     * The samples are stored in the frame temporarily. */
-    if (av_audio_fifo_read(fifo_, (void **)enc_frame_->data, enc_->frame_size) < enc_->frame_size) {
-        return srs_error_new(ERROR_RTC_RTP_MUXER, "Could not read data from FIFO");
+    if (av_audio_fifo_read(fifo_, 
+                           (void **)enc_frame_->data, 
+                           enc_->frame_size) < enc_->frame_size) {
+        return srs_error_new(ERROR_RTC_RTP_MUXER, 
+                             "Could not read data from FIFO");
     }
     /* send the frame for encoding */
-    enc_frame_->pts = next_out_pts_ + av_rescale(enc_->frame_size * frame_cnt, 1000, enc_->sample_rate);
+    enc_frame_->pts = (next_out_pts_ + av_rescale(enc_->frame_size * frame_cnt, 
+        kAccuracy_1, enc_->sample_rate))/kAccuracy_2;
     ++frame_cnt;
     int error = avcodec_send_frame(enc_, enc_frame_);
     if (error < 0) {
-        return srs_error_new(ERROR_RTC_RTP_MUXER, 
-            "Error sending the frame to the encoder(%d,%s)", error,
-            av_make_error_string(err_buf, AV_ERROR_MAX_STRING_SIZE, error));
+      return srs_error_new(ERROR_RTC_RTP_MUXER, 
+          "Error sending the frame to the encoder(%d,%s)", error,
+          av_make_error_string(err_buf, AV_ERROR_MAX_STRING_SIZE, error));
     }
 
     av_init_packet(enc_packet_);
@@ -364,11 +377,12 @@ srs_error_t SrsAudioTranscoder::encode(std::vector<SrsAudioFrame*> &pkts)
     while (error >= 0) {
       error = avcodec_receive_packet(enc_, enc_packet_);
       if (error == AVERROR(EAGAIN) || error == AVERROR_EOF) {
-          break;
+        break;
       } else if (error < 0) {
-          free_frames(pkts);
-          return srs_error_new(ERROR_RTC_RTP_MUXER, "Error during decoding(%d,%s)", error,
-              av_make_error_string(err_buf, AV_ERROR_MAX_STRING_SIZE, error));
+        free_frames(pkts);
+        return srs_error_new(ERROR_RTC_RTP_MUXER, 
+            "Error during decoding(%d,%s)", error,
+            av_make_error_string(err_buf, AV_ERROR_MAX_STRING_SIZE, error));
       }
 
       SrsAudioFrame *out_frame = new SrsAudioFrame;
@@ -381,13 +395,13 @@ srs_error_t SrsAudioTranscoder::encode(std::vector<SrsAudioFrame*> &pkts)
     }
   }
 
-  next_out_pts_ += av_rescale(enc_->frame_size * frame_cnt, 1000, enc_->sample_rate);
-
+  next_out_pts_ += av_rescale(enc_->frame_size * frame_cnt, 
+      kAccuracy_1, enc_->sample_rate);
   return srs_success;
 }
 
-srs_error_t  SrsAudioTranscoder::add_samples_to_fifo(uint8_t **samples, int frame_size)
-{
+srs_error_t  SrsAudioTranscoder::add_samples_to_fifo(
+    uint8_t **samples, int frame_size) {
   char err_buf[AV_ERROR_MAX_STRING_SIZE] = {0};
 
   int error;
@@ -401,19 +415,18 @@ srs_error_t  SrsAudioTranscoder::add_samples_to_fifo(uint8_t **samples, int fram
 
   /* Store the new samples in the FIFO buffer. */
   if ((error = av_audio_fifo_write(fifo_, (void **)samples, frame_size)) < frame_size) {
-      return srs_error_new(ERROR_RTC_RTP_MUXER, "Could not write data to FIFO(%d,%s)", error,
-          av_make_error_string(err_buf, AV_ERROR_MAX_STRING_SIZE, error));
+    return srs_error_new(ERROR_RTC_RTP_MUXER, "Could not write data to FIFO(%d,%s)", error,
+        av_make_error_string(err_buf, AV_ERROR_MAX_STRING_SIZE, error));
   }
 
   return srs_success;
 }
 
-void SrsAudioTranscoder::free_swr_samples()
-{
+void SrsAudioTranscoder::free_swr_samples() {
   if (swr_data_) {
-      av_freep(&swr_data_[0]);
-      free(swr_data_);
-      swr_data_ = NULL;
+    av_freep(&swr_data_[0]);
+    free(swr_data_);
+    swr_data_ = NULL;
   }
 }
 
