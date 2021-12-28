@@ -2,8 +2,7 @@
 
 #include "rtmp/media_rtmp_const.h"
 
-namespace ma
-{
+namespace ma {
 
 MDEFINE_LOGGER(MediaMessage, "MediaMessage");
 
@@ -37,6 +36,7 @@ inline bool MessageHeader::is_video() {
   return message_type == RTMP_MSG_VideoMessage ;
 }
 
+//MediaMessage
 MediaMessage::MediaMessage(MessageHeader* pheader, MessageChain* data)
   : header_{*pheader},
     timestamp_{header_.timestamp},
@@ -96,6 +96,10 @@ std::shared_ptr<MediaMessage> MediaMessage::create(
   media_msg->payload_ = new MessageChain(payload, MessageChain::DUPLICATED);
 
   return std::move(media_msg);
+}
+
+std::shared_ptr<MediaMessage> MediaMessage::Copy() {
+  return std::make_shared<MediaMessage>(*this);
 }
 
 bool MediaMessage::is_av() {

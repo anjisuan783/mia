@@ -95,7 +95,7 @@ void MessageQueue::fetch_packets(int max_count,
 }
 
 void MessageQueue::fetch_packets(
-    MediaConsumer* consumer, bool atc, JitterAlgorithm ag) {
+    MediaConsumer* consumer, JitterAlgorithm ag) {
 
   int nb_msgs = (int)msgs.size();
   if (nb_msgs <= 0) {
@@ -104,7 +104,7 @@ void MessageQueue::fetch_packets(
   
   for (int i = 0; i < nb_msgs; i++) {
     std::shared_ptr<MediaMessage> msg = msgs[i];
-    consumer->enqueue(msg, atc, ag);
+    consumer->enqueue(msg, ag);
   }
 }
 
@@ -155,24 +155,23 @@ void MessageQueue::clear() {
   av_start_time = av_end_time = -1;
 }
 
+//MediaJitter
 MediaConsumer::MediaJitter::MediaJitter() = default;
 
 void MediaConsumer::MediaJitter::correct(
     std::shared_ptr<MediaMessage> msg, JitterAlgorithm ag) {
   // for performance issue
-  if (ag != JitterAlgorithmFULL) {
+  if (JitterAlgorithmFULL != ag) {
     // all jitter correct features is disabled, ignore.
-    if (ag == JitterAlgorithmOFF) {
+    if (JitterAlgorithmOFF == ag) {
       return ;
     }
     
     // start at zero, but donot ensure monotonically increasing.
     if (ag == JitterAlgorithmZERO) {
-      // for the first time, last_pkt_correct_time is -1.
       if (last_pkt_correct_time == -1) {
         last_pkt_correct_time = msg->timestamp_;
       }
-
       msg->timestamp_ -= last_pkt_correct_time;
       return ;
     }
@@ -180,7 +179,8 @@ void MediaConsumer::MediaJitter::correct(
     // other algorithm, ignore.
     return ;
   }
-  
+
+  assert(false);
   // full jitter algorithm, do jitter correct.
   // set to 0 for metadata.
   if (!msg->is_av()) {
@@ -218,14 +218,13 @@ int64_t MediaConsumer::MediaJitter::get_time() {
   return last_pkt_correct_time;
 }
 
+//MediaConsumer
 MediaConsumer::MediaConsumer(MediaLiveSource* s) {
-  MLOG_TRACE("");
   source_ = s;
   paused_ = false;
 }
 
 MediaConsumer::~MediaConsumer() {
-  MLOG_TRACE("");
 }
 
 void MediaConsumer::set_queue_size(srs_utime_t queue_size) {
@@ -237,14 +236,10 @@ int64_t MediaConsumer::get_time() {
 }
 
 void MediaConsumer::enqueue(std::shared_ptr<MediaMessage> msg, 
-                            bool atc, JitterAlgorithm jitter_algo) {
-
-  //TODO need optimizing no copy
-  auto cp_msg = std::make_shared<MediaMessage>(*msg.get());
+                            JitterAlgorithm jitter_algo) {
+  auto cp_msg = msg->Copy();
   
-  if (!atc) {
-    jitter_.correct(cp_msg, jitter_algo);
-  }
+  jitter_.correct(cp_msg, jitter_algo);
 
   queue_.enqueue(cp_msg, nullptr);
 }

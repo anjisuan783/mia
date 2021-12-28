@@ -31,7 +31,7 @@ class MediaRtcLiveAdaptor {
   MDECLARE_LOGGER();
  public:
   MediaRtcLiveAdaptor(const std::string& stream_id);
-  ~MediaRtcLiveAdaptor() = default;
+  ~MediaRtcLiveAdaptor();
   void onFrame(const owt_base::Frame& frm);
   void SetSink(RtcLiveAdapterSink* s) {
     sink_ = s;

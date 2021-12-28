@@ -22,20 +22,25 @@ MDEFINE_LOGGER(MediaLiveSource, "MediaLiveSource");
 
 MediaLiveSource::MediaLiveSource() {
   thread_check_.Detach();
+  MLOG_TRACE_THIS("");
 }
 
-MediaLiveSource::~MediaLiveSource() = default;
+MediaLiveSource::~MediaLiveSource() {
+  MLOG_TRACE_THIS("");
+}
 
 bool MediaLiveSource::Initialize(wa::Worker* worker, 
-    bool gop, bool atc, JitterAlgorithm algorithm) {
+    bool gop, JitterAlgorithm algorithm) {
   worker_ = worker;
   enable_gop_ = gop;
-  atc_ = atc;
   jitter_algorithm_ = algorithm;
+  MLOG_INFO("gop:" << (enable_gop_?"enable":"disable") <<
+            ", algorithm:" << jitter_algorithm_);
   return true;
 }
 
 void MediaLiveSource::OnPublish() {
+  RTC_DCHECK_RUN_ON(&thread_check_);
   if (active_) {
     MLOG_CERROR("wrong publish status, active");
     return;
@@ -52,6 +57,7 @@ void MediaLiveSource::OnPublish() {
 }
 
 void MediaLiveSource::OnUnpublish() {
+  RTC_DCHECK_RUN_ON(&thread_check_);
   if (!active_) {
     MLOG_CERROR("wrong publish status, unactive");
     return;
@@ -96,26 +102,14 @@ void MediaLiveSource::on_audio_async(
 
   // whether consumer should drop for the duplicated sequence header.
   bool drop_for_reduce = false;
-  if (is_sequence_header && meta_->previous_ash()) {
-    drop_for_reduce = 
-            *(meta_->previous_vsh()->payload_)==*(shared_audio->payload_);
+  if (is_sequence_header && meta_->ash()) {
+    drop_for_reduce = (*(meta_->ash()->payload_)==*(shared_audio->payload_));
   }
 
   // cache the sequence header of aac, or first packet of mp3.
-  // for example, the mp3 is used for hls to write the "right" audio codec.
-  // TODO: FIXME: to refine the stream info system.
   if (is_sequence_header || !meta_->ash()) {
-    std::shared_ptr<MediaMessage> sh_update;
-    if (atc_) {
-      auto cp = std::make_shared<MediaMessage>(*shared_audio.get());
-      sh_update = std::move(cp);
-    } else {
-      sh_update = shared_audio;
-    }
-  
-    if ((err = meta_->update_ash(sh_update)) != srs_success) {
-      MLOG_CERROR("meta consume audio, code:%d desc:%s", 
-          srs_error_code(err), srs_error_desc(err).c_str());
+    if ((err = meta_->update_ash(shared_audio)) != srs_success) {
+      MLOG_CERROR("meta consume audio, desc:%s", srs_error_desc(err).c_str());
       delete err;
       return ;
     }
@@ -128,27 +122,29 @@ void MediaLiveSource::on_audio_async(
   if (!drop_for_reduce) {
     for (auto i = consumers_.begin(); i != consumers_.end();) {
       if (auto c_ptr = i->lock()) {
-        c_ptr->enqueue(shared_audio, atc_, jitter_algorithm_);
+        c_ptr->enqueue(shared_audio, jitter_algorithm_);
         ++i;
       } else {
         consumers_.erase(i++);
+        if (consumers_.empty()) {
+          signal_live_no_consumer_();
+        }
       }
     }
   }
   
   // when sequence header, donot push to gop cache and adjust the timestamp.
-  if (!is_sequence_header) {
+  if (is_sequence_header) {
     return ;
   }
 
-  if ((err = gop_cache_->cache(shared_audio)) != srs_success) {
+  if (gop_cache_ && (err = gop_cache_->cache(shared_audio)) != srs_success) {
     MLOG_CERROR("gop cache consume audio, desc:%s",srs_error_desc(err).c_str());
     delete err;
     return;
   }
 
-  // if atc, update the sequence header to abs time.
-  if (atc_ && !gop_cache_->enabled()) {
+  if (gop_cache_ && !gop_cache_->enabled()) {
     if (meta_->ash()) {
       meta_->ash()->timestamp_ = shared_audio->timestamp_;
     }
@@ -168,7 +164,7 @@ srs_error_t MediaLiveSource::OnAudio(
   // monotically increase detect.
   if (is_monotonically_increase_) {
     if (last_packet_time_ > 0 && shared_audio->timestamp_ < last_packet_time_) {
-      is_monotonically_increase_ = false;
+      //is_monotonically_increase_ = false;
       MLOG_WARN("AUDIO: stream not monotonically increase, TODO(mix_correct).");
     }
   }
@@ -193,49 +189,38 @@ void MediaLiveSource::on_video_async(
 
   // whether consumer should drop for the duplicated sequence header.
   bool drop_for_reduce = false;
-  if (is_sequence_header && meta_->previous_vsh()) {
-    drop_for_reduce = 
-          *(meta_->previous_vsh()->payload_) == *(shared_video->payload_);
+  if (is_sequence_header && meta_->vsh()) {
+    drop_for_reduce = (*(meta_->vsh()->payload_) == *(shared_video->payload_));
   }
 
   // cache the sequence header if h264
   // donot cache the sequence header to gop_cache, return here.
-  if(is_sequence_header) {
-    std::shared_ptr<MediaMessage> sh_update;
-    if (atc_) {
-      auto cp = std::make_shared<MediaMessage>(*shared_video.get());
-      sh_update = std::move(cp);
-    } else {
-      sh_update = shared_video;
+  if(is_sequence_header && !drop_for_reduce) {
+    if ((err = meta_->update_vsh(shared_video)) != srs_success) {
+      MLOG_CERROR("meta update video, code:%d desc:%s", 
+          srs_error_code(err), srs_error_desc(err).c_str());
+      delete err;
+      return ;
     }
+  
+    if (meta_->vsh_format()->is_avc_sequence_header()) {
+      SrsVideoCodecConfig* c = meta_->vsh_format()->vcodec;
+      srs_assert(c);
 
-    if (!drop_for_reduce) {
-      if ((err = meta_->update_vsh(sh_update)) != srs_success) {
-        MLOG_CERROR("meta update video, code:%d desc:%s", 
-            srs_error_code(err), srs_error_desc(err).c_str());
-        delete err;
-        return ;
-      }
-    
-      if (meta_->vsh_format()->is_avc_sequence_header()) {
-        SrsVideoCodecConfig* c = meta_->vsh_format()->vcodec;
-        srs_assert(c);
-
-        if (last_width_ != c->width || last_height_ != c->height) {
-          MLOG_CINFO("%dB video sh, "
-              "codec[%d, profile=%s, level=%s, %dx%d, %dkbps, %.1ffps, %.1fs]",
-              shared_video->size_, 
-              c->id, 
-              srs_avc_profile2str(c->avc_profile).c_str(),
-              srs_avc_level2str(c->avc_level).c_str(), 
-              c->width, 
-              c->height,
-              c->video_data_rate / 1000, 
-              c->frame_rate, 
-              c->duration);
-          last_width_ = c->width;
-          last_height_ = c->height;
-        }
+      if (last_width_ != c->width || last_height_ != c->height) {
+        MLOG_CINFO("%dB video sh, "
+            "codec[%d, profile=%s, level=%s, %dx%d, %dkbps, %.1ffps, %.1fs]",
+            shared_video->size_, 
+            c->id, 
+            srs_avc_profile2str(c->avc_profile).c_str(),
+            srs_avc_level2str(c->avc_level).c_str(), 
+            c->width, 
+            c->height,
+            c->video_data_rate / 1000, 
+            c->frame_rate, 
+            c->duration);
+        last_width_ = c->width;
+        last_height_ = c->height;
       }
     }
   }
@@ -244,10 +229,13 @@ void MediaLiveSource::on_video_async(
   if (!drop_for_reduce) {
     for (auto i = consumers_.begin(); i != consumers_.end();) {
       if (auto c_ptr = i->lock()) {
-        c_ptr->enqueue(shared_video, atc_, jitter_algorithm_);
+        c_ptr->enqueue(shared_video, jitter_algorithm_);
         ++i;
       } else {
         consumers_.erase(i++);
+        if (consumers_.empty()) {
+          signal_live_no_consumer_();
+        }
       }
     }
   }
@@ -258,14 +246,13 @@ void MediaLiveSource::on_video_async(
   }
 
   // cache the last gop packets
-  if ((err = gop_cache_->cache(shared_video)) != srs_success) {
+  if (gop_cache_ && (err = gop_cache_->cache(shared_video)) != srs_success) {
     MLOG_CERROR("gop cache consume vdieo, desc:%s",srs_error_desc(err).c_str());
     delete err;
     return ;
   }
 
-  // if atc, update the sequence header to abs time.
-  if (atc_ && !gop_cache_->enabled()) {
+  if (gop_cache_ && !gop_cache_->enabled()) {
     if (meta_->vsh()) {
       meta_->vsh()->timestamp_ = shared_video->timestamp_;
     }
@@ -324,7 +311,7 @@ srs_error_t MediaLiveSource::consumer_dumps(MediaConsumer* consumer,
   consumer->set_queue_size(queue_size);
  
   // if atc, update the sequence header to gop cache time.
-  if (/*atc_ && */!gop_cache_->empty()) {
+  if (!gop_cache_->empty()) {
     if (meta_->data()) {
       meta_->data()->timestamp_ = srsu2ms(gop_cache_->start_time());
     }
@@ -341,7 +328,6 @@ srs_error_t MediaLiveSource::consumer_dumps(MediaConsumer* consumer,
     // Copy metadata and sequence header to consumer.
     if ((err = meta_->dumps(
           consumer, 
-          atc_, 
           jitter_algorithm_, 
           dump_meta, 
           dump_seq_header)) != srs_success) {
@@ -351,7 +337,6 @@ srs_error_t MediaLiveSource::consumer_dumps(MediaConsumer* consumer,
     // copy gop cache to client.
     if (dump_gop && 
         (err = gop_cache_->dump(consumer, 
-                                atc_, 
                                 jitter_algorithm_)) != srs_success) {
       return srs_error_wrap(err, "gop cache dumps");
     }
@@ -359,10 +344,10 @@ srs_error_t MediaLiveSource::consumer_dumps(MediaConsumer* consumer,
 
   // print status.
   if (dump_gop) {
-    MLOG_CTRACE("consumer_dumps, active=%d, queue_size=%" PRId64 ", jitter=%d", 
+    MLOG_CTRACE("consumer_dumps, active=%d, queue_size=%" PRId64 ", algo=%d", 
         (active_?1:0), queue_size, jitter_algorithm_);
   } else {
-    MLOG_CTRACE("consumer_dumps, active=%d, ignore gop cache, jitter=%d", 
+    MLOG_CTRACE("consumer_dumps, active=%d, ignore gop cache, algo=%d", 
        (active_?1:0), jitter_algorithm_);
   }
 

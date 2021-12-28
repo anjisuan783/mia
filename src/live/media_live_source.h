@@ -11,6 +11,7 @@
 #include <mutex>
 #include <list>
 
+#include "utils/sigslot.h"
 #include "rtc_base/sequence_checker.h"
 #include "utils/Worker.h"
 #include "h/media_server_api.h"
@@ -36,7 +37,7 @@ class MediaLiveSource final :
   ~MediaLiveSource();
 
   //called by MediaSourceMgr
-  bool Initialize(wa::Worker*, bool gop, bool atc, JitterAlgorithm);
+  bool Initialize(wa::Worker*, bool gop, JitterAlgorithm);
 
   void OnPublish();
   
@@ -57,6 +58,8 @@ class MediaLiveSource final :
     return jitter_algorithm_;
   }
 
+  sigslot::signal0<> signal_live_no_consumer_;
+
  private:
   void on_av_i(std::shared_ptr<MediaMessage> msg);
   void async_task(std::function<void(std::shared_ptr<MediaLiveSource>)> f);
@@ -66,15 +69,12 @@ class MediaLiveSource final :
  private:
   std::mutex consumer_lock_;
   
-  //TODO need optimize
   std::list<std::weak_ptr<MediaConsumer>> consumers_; 
 
   // whether stream is monotonically increase.
   bool is_monotonically_increase_{false};
   // The time of the packet we just got.
   int64_t last_packet_time_{0};
-
-  bool atc_{false};
 
   bool active_{false};
 

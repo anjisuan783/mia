@@ -138,7 +138,6 @@ srs_error_t MediaHttpPlayHandler::serve_http(
   
   MediaSource::Config cfg{std::move(g_source_mgr_.GetWorker()), 
                           g_server_.config_.enable_gop_,
-                          g_server_.config_.enable_atc_,
                           JitterAlgorithmZERO};
 
   auto rtc_source = g_source_mgr_.FetchOrCreateSource(cfg, req);
@@ -269,7 +268,6 @@ srs_error_t MediaHttpPublishHandler::serve_http(
   
   MediaSource::Config cfg{std::move(g_source_mgr_.GetWorker()), 
                           g_server_.config_.enable_gop_,
-                          g_server_.config_.enable_atc_,
                           JitterAlgorithmZERO};
   auto ms = g_source_mgr_.FetchOrCreateSource(cfg, req);
 

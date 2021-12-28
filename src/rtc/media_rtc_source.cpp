@@ -28,9 +28,13 @@ std::string_view GetPcId(std::string_view sdp) {
 MDEFINE_LOGGER(MediaRtcSource, "MediaRtcSource");
 
 //MediaRtcSource
-MediaRtcSource::MediaRtcSource() = default;
+MediaRtcSource::MediaRtcSource() {
+  MLOG_TRACE_THIS("");
+}
 
-MediaRtcSource::~MediaRtcSource() = default;
+MediaRtcSource::~MediaRtcSource() {
+  MLOG_TRACE_THIS("");
+}
 
 void MediaRtcSource::Open(wa::rtc_api* rtc, wa::Worker* worker) {
   rtc_ = rtc;

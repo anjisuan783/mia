@@ -26,7 +26,6 @@ void SrsGopCache::set(bool v) {
   
   if (!v) {
     clear();
-    return;
   }
 }
 
@@ -95,11 +94,14 @@ void SrsGopCache::clear() {
 }
 
 srs_error_t SrsGopCache::dump(MediaConsumer* consumer, 
-    bool atc, JitterAlgorithm jitter_algorithm) {
+                              JitterAlgorithm jitter_algorithm) {
   srs_error_t err = srs_success;
-  
+  if (empty()) {
+    return err;
+  }
+
   for (auto msg : gop_cache) {
-    consumer->enqueue(std::move(msg), atc, jitter_algorithm);
+    consumer->enqueue(std::move(msg), jitter_algorithm);
   }
   MLOG_TRACE("dispatch cached gop success. count=" << (int)gop_cache.size() << 
              " duration=" << consumer->get_time());
@@ -107,13 +109,13 @@ srs_error_t SrsGopCache::dump(MediaConsumer* consumer,
   return err;
 }
 
-bool SrsGopCache::empty() {
+inline bool SrsGopCache::empty() {
   return gop_cache.empty();
 }
 
 srs_utime_t SrsGopCache::start_time() {
   if (empty()) {
-      return 0;
+    return 0;
   }
   
   MediaMessage* msg = gop_cache[0].get();
@@ -122,7 +124,7 @@ srs_utime_t SrsGopCache::start_time() {
   return srs_utime_t(msg->timestamp_ * SRS_UTIME_MILLISECONDS);
 }
 
-bool SrsGopCache::pure_audio() {
+inline bool SrsGopCache::pure_audio() {
   return cached_video_count == 0;
 }
 

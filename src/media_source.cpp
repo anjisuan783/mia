@@ -32,7 +32,7 @@ void MediaSource::Initialize(Config& c) {
 }
 
 std::shared_ptr<MediaConsumer> MediaSource::create_consumer() {
-  CheckLiveSource();
+  ActiveLiveSource();
   return live_source_->create_consumer();
 }
 
@@ -41,21 +41,40 @@ srs_error_t MediaSource::consumer_dumps(
     bool dump_seq_header, 
     bool dump_meta, 
     bool dump_gop) {
-  CheckLiveSource();
+  ActiveLiveSource();
 
   return live_source_->consumer_dumps(
       consumer, dump_seq_header, dump_meta, dump_gop);
 }
 
-void MediaSource::CheckLiveSource() {
+void MediaSource::ActiveLiveSource() {
+  std::lock_guard<std::mutex> guard(live_source_lock_);
+  
   if (live_source_) {
     return;
   }
   live_source_ = std::make_shared<MediaLiveSource>();
   live_source_->Initialize(config_.worker.get(), 
                            config_.gop,
-                           config_.atc,
                            config_.jitter_algorithm);
+  live_source_->OnPublish();
+ 
+  live_source_->signal_live_no_consumer_.connect(
+                    this, &MediaSource::UnactiveLiveSource);
+
+  ActiveAdapter();                  
+}
+
+void MediaSource::UnactiveLiveSource() {
+  std::lock_guard<std::mutex> guard(live_source_lock_);
+  
+  if (!live_source_) {
+    return;
+  }
+
+  live_source_->OnUnpublish();
+  live_source_ = nullptr;
+  UnactiveAdapter();
 }
 
 void MediaSource::CheckRtcSource() {
@@ -90,26 +109,22 @@ srs_error_t MediaSource::Subscribe(const std::string& s,
 }
 
 JitterAlgorithm MediaSource::jitter() {
+  ActiveLiveSource();
   return live_source_->jitter();
 }
 
 void MediaSource::OnRtcFirstPacket() {
-  CheckLiveSource();
+  rtc_active_ = true;
   g_server_.OnPublish(shared_from_this(), req_);
-  live_source_->OnPublish();
   rtc_source_->SetMediaSink(this);
-
-  assert(nullptr == live_adapter_.get());
-
-  live_adapter_.reset(new MediaRtcLiveAdaptor(req_->stream));
-  live_adapter_->SetSink(live_source_.get());
+  ActiveAdapter();
 }
 
 void MediaSource::OnRtcPublisherLeft() {
+  rtc_active_ = false;
   publisher_in_.clear();
   g_server_.OnUnpublish(shared_from_this(), req_);
-  live_source_->OnUnpublish();
-  live_adapter_.reset(nullptr);
+  UnactiveAdapter();
 }
 
 void MediaSource::OnRtcFirstSubscriber() {
@@ -125,6 +140,23 @@ void MediaSource::OnMediaFrame(const owt_base::Frame& frm) {
   if (live_adapter_ ) {
     live_adapter_->onFrame(frm);
   }
+}
+
+void MediaSource::ActiveAdapter() {
+  if (!live_source_ || !rtc_active_) {
+    return;
+  }
+
+  assert(live_adapter_.get() == nullptr);
+  live_adapter_.reset(new MediaRtcLiveAdaptor(req_->stream));
+  live_adapter_->SetSink(live_source_.get());
+}
+
+void MediaSource::UnactiveAdapter() {
+  if (!live_adapter_) {
+    return;
+  }
+  live_adapter_.reset(nullptr);
 }
 
 } //namespace ma

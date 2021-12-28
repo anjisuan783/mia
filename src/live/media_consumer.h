@@ -44,7 +44,7 @@ public:
   void fetch_packets(int max_count, std::vector<std::shared_ptr<MediaMessage>>& pmsgs, int& count);
   // Dumps packets to consumer, use specified args.
   // @remark the atc/tba/tbv/ag are same to SrsConsumer.enqueue().
-  void fetch_packets(MediaConsumer* consumer, bool atc, JitterAlgorithm ag);
+  void fetch_packets(MediaConsumer* consumer, JitterAlgorithm ag);
   
   // clear all messages in queue.
   void clear();
@@ -78,9 +78,8 @@ public:
   int64_t get_time();
   // Enqueue an shared ptr message.
   // @param shared_msg, directly ptr, copy it if need to save it.
-  // @param whether atc, donot use jitter correct if true.
   // @param ag the algorithm of time jitter.
-  void enqueue(std::shared_ptr<MediaMessage> shared_msg, bool atc, JitterAlgorithm ag);
+  void enqueue(std::shared_ptr<MediaMessage> shared_msg, JitterAlgorithm ag);
 
   // Get packets in consumer queue.
   // @param msgs the msgs array to dump packets to send.
@@ -97,7 +96,6 @@ public:
    public:
     MediaJitter();
 
-   public:
     // detect the time jitter and correct it.
     // @param ag the algorithm to use for time jitter.
     void correct(std::shared_ptr<MediaMessage> msg, JitterAlgorithm ag);
