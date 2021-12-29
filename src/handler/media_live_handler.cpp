@@ -94,7 +94,6 @@ class StreamEntry final
   webrtc::SequenceChecker thread_check_;
 };
 
-
 MDEFINE_LOGGER(StreamEntry, "StreamEntry");
 
 StreamEntry::StreamEntry(std::shared_ptr<MediaSource> s, 

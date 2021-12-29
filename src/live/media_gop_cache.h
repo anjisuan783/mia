@@ -43,7 +43,7 @@ class SrsGopCache final {
   // clear the gop cache.
   void clear();
   // dump the cached gop to consumer.
-  srs_error_t dump(MediaConsumer* consumer, bool atc, JitterAlgorithm jitter_algorithm);
+  srs_error_t dump(MediaConsumer* consumer, JitterAlgorithm jitter_algorithm);
   // used for atc to get the time of gop cache,
   // The atc will adjust the sequence header timestamp to gop cache.
   bool empty();

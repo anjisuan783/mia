@@ -48,20 +48,13 @@ public:
   // @param dm Whether dumps the metadata.
   // @param ds Whether dumps the sequence header.
   srs_error_t dumps(MediaConsumer* consumer, 
-                    bool atc, 
                     JitterAlgorithm jitter_algo, 
                     bool dump_meta, 
                     bool dump_seq_header);
 
-  // Previous exists sequence header.
-  std::shared_ptr<MediaMessage> previous_vsh();
-  std::shared_ptr<MediaMessage> previous_ash();
-  // Update previous sequence header, drop old one, set to new sequence header.
-  void update_previous_vsh();
-  void update_previous_ash();
-
   // Update the cached metadata by packet.
-  srs_error_t update_data(MessageHeader* header, SrsOnMetaDataPacket* metadata, bool& updated);
+  srs_error_t update_data(MessageHeader* header, 
+      SrsOnMetaDataPacket* metadata, bool& updated);
   // Update the cached audio sequence header.
   srs_error_t update_ash(std::shared_ptr<MediaMessage> msg);
   // Update the cached video sequence header.
@@ -71,10 +64,8 @@ private:
   std::shared_ptr<MediaMessage> meta;
   // The cached video sequence header, for example, sps/pps for h.264.
   std::shared_ptr<MediaMessage> video;
-  std::shared_ptr<MediaMessage> previous_video;
   // The cached audio sequence header, for example, asc for aac.
   std::shared_ptr<MediaMessage> audio;
-  std::shared_ptr<MediaMessage> previous_audio;
   // The format for sequence header.
   std::unique_ptr<SrsRtmpFormat> vformat;
   std::unique_ptr<SrsRtmpFormat> aformat;

@@ -135,6 +135,11 @@ srs_error_t StapPackage::decode(SrsBuffer* buf) {
 //MediaRtcLiveAdaptor
 MediaRtcLiveAdaptor::MediaRtcLiveAdaptor(const std::string& stream_id) 
   : stream_id_{stream_id} {
+  MLOG_TRACE_THIS(stream_id_);
+}
+
+MediaRtcLiveAdaptor::~MediaRtcLiveAdaptor() {
+  MLOG_TRACE_THIS(stream_id_);
 }
 
 void MediaRtcLiveAdaptor::onFrame(const owt_base::Frame& frm) {

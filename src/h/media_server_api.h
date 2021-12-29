@@ -17,9 +17,9 @@ namespace ma {
 // 2. zero, only ensure sttream start at zero, ignore timestamp jitter.
 // 3. off, disable the time jitter algorithm, like atc.
 enum JitterAlgorithm {
-  JitterAlgorithmFULL = 0x01, //TODO not implement
-  JitterAlgorithmZERO,
-  JitterAlgorithmOFF
+  JitterAlgorithmFULL = 1, //TODO not implement
+  JitterAlgorithmZERO = 2,
+  JitterAlgorithmOFF = 3
 };
 
 class MediaServerApi {
@@ -28,7 +28,6 @@ class MediaServerApi {
     uint32_t workers_{1};
     uint32_t ioworkers_{1};             // TODO multi-theads not implement
     bool enable_gop_{true};
-    bool enable_atc_{false};
     bool flv_record_{false};
     int consumer_queue_size_{30000};    // ms
     JitterAlgorithm jotter_algo_{JitterAlgorithmZERO};

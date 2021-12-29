@@ -9,6 +9,7 @@
 
 #include <memory>
 #include <atomic>
+#include <mutex>
 
 #include "utils/sigslot.h"
 #include "h/rtc_stack_api.h"
@@ -36,7 +37,6 @@ class MediaSource final : public sigslot::has_slots<>,
   struct Config {
     std::shared_ptr<wa::Worker> worker;
     bool gop{false};
-    bool atc{false};
     JitterAlgorithm jitter_algorithm{JitterAlgorithmZERO};
     wa::rtc_api* rtc_api{nullptr};
   };
@@ -83,18 +83,27 @@ class MediaSource final : public sigslot::has_slots<>,
   void OnRtcFirstSubscriber();
   void OnRtcNobody();
  private: 
-  void CheckLiveSource();
   void CheckRtcSource();
+  
+  void ActiveLiveSource();
+  void UnactiveLiveSource();
+
+  void ActiveAdapter();
+  void UnactiveAdapter();
 
   void OnMediaFrame(const owt_base::Frame& frm) override;
  private:
   Config config_;
+  std::mutex live_source_lock_;
   std::shared_ptr<MediaLiveSource> live_source_;
+  
   std::shared_ptr<MediaRtcSource> rtc_source_;
 
   std::shared_ptr<MediaRequest> req_;
   std::unique_ptr<MediaRtcLiveAdaptor> live_adapter_;
   std::atomic_flag publisher_in_{ATOMIC_FLAG_INIT};
+
+  std::atomic<bool> rtc_active_{false};
 };
 
 } //namespace ma

@@ -50,7 +50,6 @@ struct MessageHeader {
   bool is_video();
 
   void initialize_audio(int size, uint32_t time, int stream);
-
   void initialize_video(int size, uint32_t time, int stream);
 };
 
@@ -70,6 +69,7 @@ class MediaMessage final {
   static std::shared_ptr<MediaMessage> 
       create(MessageHeader* pheader, std::shared_ptr<DataBlock> payload);
 
+  std::shared_ptr<MediaMessage> Copy();
   bool is_av();
 
   bool is_video();
