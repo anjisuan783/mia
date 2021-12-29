@@ -120,7 +120,7 @@ void MediaLiveSource::on_audio_async(
   }
   
   if (!drop_for_reduce) {
-    for (auto i = consumers_.begin(); i != consumers_.end();) {
+    for (auto i = consumers_.begin(); i != consumers_.end();) {
       if (auto c_ptr = i->lock()) {
         c_ptr->enqueue(shared_audio, jitter_algorithm_);
         ++i;
@@ -227,7 +227,7 @@ void MediaLiveSource::on_video_async(
   
   // copy to all consumer asynchronously
   if (!drop_for_reduce) {
-    for (auto i = consumers_.begin(); i != consumers_.end();) {
+    for (auto i = consumers_.begin(); i != consumers_.end();) {
       if (auto c_ptr = i->lock()) {
         c_ptr->enqueue(shared_video, jitter_algorithm_);
         ++i;

@@ -96,7 +96,7 @@ void SrsGopCache::clear() {
 srs_error_t SrsGopCache::dump(MediaConsumer* consumer, 
                               JitterAlgorithm jitter_algorithm) {
   srs_error_t err = srs_success;
-  if (empty()) {
+  if (empty()) {
     return err;
   }
 
