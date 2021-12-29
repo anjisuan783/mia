@@ -34,7 +34,7 @@ bool MediaLiveSource::Initialize(wa::Worker* worker,
   worker_ = worker;
   enable_gop_ = gop;
   jitter_algorithm_ = algorithm;
-  MLOG_INFO("gop:" << (enable_gop_?"enable":"disable") <<
+  MLOG_INFO("gop:" << (enable_gop_?"enable":"disable") <<
             ", algorithm:" << jitter_algorithm_);
   return true;
 }
@@ -42,7 +42,7 @@ bool MediaLiveSource::Initialize(wa::Worker* worker,
 void MediaLiveSource::OnPublish() {
   RTC_DCHECK_RUN_ON(&thread_check_);
   if (active_) {
-    MLOG_CERROR("wrong publish status, active");
+    MLOG_CERROR("wrong publish status, active");
     return;
   }
   is_monotonically_increase_ = true;
@@ -59,7 +59,7 @@ void MediaLiveSource::OnPublish() {
 void MediaLiveSource::OnUnpublish() {
   RTC_DCHECK_RUN_ON(&thread_check_);
   if (!active_) {
-    MLOG_CERROR("wrong publish status, unactive");
+    MLOG_CERROR("wrong publish status, unactive");
     return;
   }
 

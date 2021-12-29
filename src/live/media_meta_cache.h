@@ -52,12 +52,9 @@ public:
                     bool dump_meta, 
                     bool dump_seq_header);
 
-  // Update previous sequence header, drop old one, set to new sequence header.
-  void update_previous_vsh();
-  void update_previous_ash();
-
   // Update the cached metadata by packet.
-  srs_error_t update_data(MessageHeader* header, SrsOnMetaDataPacket* metadata, bool& updated);
+  srs_error_t update_data(MessageHeader* header, 
+      SrsOnMetaDataPacket* metadata, bool& updated);
   // Update the cached audio sequence header.
   srs_error_t update_ash(std::shared_ptr<MediaMessage> msg);
   // Update the cached video sequence header.
