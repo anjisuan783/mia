@@ -11,7 +11,7 @@
 
 namespace ma {
 
-MDEFINE_LOGGER(MediaServerImp, "MediaServer");
+MDEFINE_LOGGER(MediaServerImp, "ma.server");
 
 int MediaServerImp::Init(const Config& _config) {
   if (inited_) {
@@ -59,7 +59,7 @@ void MediaServerImp::OnUnpublish(std::shared_ptr<MediaSource> s,
 }
 
 void MediaServerImp::OnLogMessage(const std::string& message) {
-  MLOG_INFO(message);
+  MLOG_TRACE(message);
 }
 
 MediaServerImp g_server_;

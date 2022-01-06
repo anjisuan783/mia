@@ -118,7 +118,7 @@ srs_error_t StapPackage::decode(SrsBuffer* buf) {
       buffer_length -= (nalu_start_offset + nalu_length);
     }
   }
-#if 1
+#if 0
   for(auto& x : nalus_) {
     SrsAvcNaluType nalu_type = (SrsAvcNaluType)(*(x.bytes) & kNalTypeMask);
     if (key_frame_) {

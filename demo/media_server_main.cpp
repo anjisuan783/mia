@@ -66,7 +66,9 @@ int main(int argc, char* argv[]) {
     {"udp://192.168.1.156:9000"},    //stun_addr_
     {"./mia.key"},
     {"./mia.crt"},
-    .request_keyframe_interval = 5  //rtmp request keyframe secode
+    5,                              //rtmp request keyframe secode
+    {""},
+    {"/home/build/mia"}
   };
 
   snprintf(log_buffer, MAX_BUFFER_SIZE, "mia start \n");

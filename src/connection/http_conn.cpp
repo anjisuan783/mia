@@ -1,5 +1,6 @@
 #include "connection/http_conn.h"
 
+#include "common/media_log.h"
 #include "h/media_return_code.h"
 #include "http/http_consts.h"
 #include "http/http_stack.h"
@@ -11,8 +12,7 @@ namespace ma {
 
 // The filter http mux, directly serve the http CORS requests,
 // while proxy to the worker mux for services.
-class MediaHttpCorsMux : public IMediaHttpHandler
-{
+class MediaHttpCorsMux : public IMediaHttpHandler {
 public:
   void initialize(IMediaHttpHandler* worker, bool cros_enabled);
 
@@ -72,7 +72,7 @@ srs_error_t MediaHttpCorsMux::serve_http(
   return next->serve_http(w, r);  
 }
 
-MDEFINE_LOGGER(MediaHttpConn, "MediaHttpConn");
+static log4cxx::LoggerPtr logger = log4cxx::Logger::getLogger("ma.connection");
 
 MediaHttpConn::MediaHttpConn(std::unique_ptr<IHttpProtocalFactory> fac, 
                        IMediaHttpHandler* mux)
@@ -81,12 +81,10 @@ MediaHttpConn::MediaHttpConn(std::unique_ptr<IHttpProtocalFactory> fac,
       http_mux_{mux},
       cors_{std::make_unique<MediaHttpCorsMux>()},
       factory_{std::move(fac)} {
-  MLOG_TRACE_THIS("");
   parser_->initialize(HTTP_REQUEST);
 }
 
 MediaHttpConn::~MediaHttpConn() {
-  MLOG_TRACE_THIS("");
 }
 
 void MediaHttpConn::Start() {
@@ -137,20 +135,14 @@ void MediaHttpConn::Disconnect() {
   g_conn_mgr_.RemoveConnection(shared_from_this());
 }
 
-MDEFINE_LOGGER(MediaResponseOnlyHttpConn, "MediaResponseOnlyHttpConn");
-
+//MediaResponseOnlyHttpConn
 MediaResponseOnlyHttpConn::MediaResponseOnlyHttpConn(
     std::unique_ptr<IHttpProtocalFactory> fac, IMediaHttpHandler* m)
     : MediaHttpConn(std::move(fac), m) {
-  MLOG_TRACE("");
-}
-
-MediaResponseOnlyHttpConn::~MediaResponseOnlyHttpConn() {
-  MLOG_TRACE("");
 }
 
 srs_error_t MediaResponseOnlyHttpConn::process_request(std::string_view req) {
-  MLOG_TRACE("");
+  MLOG_TRACE(req);
   srs_error_t err = srs_success;
   std::shared_ptr<ISrsHttpMessage> msg;
   if((err = parser_->parse_message(req, msg)) != srs_success) {
@@ -158,6 +150,7 @@ srs_error_t MediaResponseOnlyHttpConn::process_request(std::string_view req) {
   }
 
   auto writer = factory_->CreateResponseWriter(true);
+  writer->open();
   if (msg) {
     msg->connection(shared_from_this());
     if ((err = cors_->serve_http(writer, msg)) != srs_success) {

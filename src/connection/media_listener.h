@@ -12,6 +12,7 @@
 #include <string_view>
 #include <vector>
 
+#include "utils/sigslot.h"
 #include "rtc_base/thread.h"
 #include "api/packet_socket_factory.h"
 #include "rtc_base/async_packet_socket.h"

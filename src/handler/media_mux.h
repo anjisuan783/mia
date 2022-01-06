@@ -40,6 +40,7 @@ public:
 private:
   std::unique_ptr<IMediaHttpHandler> rtc_sevice_;
   std::unique_ptr<IMediaHttpHandler> flv_sevice_;
+  std::unique_ptr<IMediaHttpHandler> file_sevice_;
 };
 
 }

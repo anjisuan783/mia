@@ -82,7 +82,7 @@ class AsyncSokcetWrapper : public sigslot::has_slots<>,
   bool blocked_{false};
   webrtc::SequenceChecker thread_check_;
 
-  static constexpr int kMaxPacketSize = 64 * 1024 + 2;
+  static constexpr int kMaxPacketSize = MA_MAX_PACKET_SIZE;
 };
 
 /* Callbacks should return non-zero to indicate an error. The parser will
@@ -254,8 +254,10 @@ class HttpResponseWriterProxy : public IHttpResponseWriter,
   void OnWriteEvent();
  private:
   srs_error_t send_header();
+
+  srs_error_t write_i(MessageChain*, ssize_t*);
  
-  srs_error_t write_i(MessageChain*);
+  srs_error_t write2sock(MessageChain*);
   
   srs_error_t final_request_i();  
   

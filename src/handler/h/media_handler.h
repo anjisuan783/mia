@@ -13,10 +13,12 @@
 
 namespace ma {
 
-#define RTC_PALY_PREFIX      "/rtc/v1/play/"
-#define RTC_PUBLISH_PREFIX   "/rtc/v1/publish/"
-#define LIVE_PUBLISH_PREFIX  "/live/v1/publish/"
-#define LIVE_PLAY_PREFIX     "/live/v1/play/"
+#define RTC_PALY_PREFIX     "/rtc/v1/play/"
+#define RTC_PUBLISH_PREFIX  "/rtc/v1/publish/"
+#define LIVE_PUBLISH_PREFIX "/live/v1/publish/"
+#define LIVE_PLAY_PREFIX    "/live/v1/play/"
+
+#define HTTP_TEST           "/test/file.ex"
 
 class ISrsHttpMessage;
 class IHttpResponseWriter;

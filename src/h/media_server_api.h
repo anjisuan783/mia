@@ -47,6 +47,9 @@ class MediaServerApi {
 
     //for vhost
     std::string vhost;
+
+    //for http server
+    std::string path;
   };
  
   virtual ~MediaServerApi() { }

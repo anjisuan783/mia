@@ -32,7 +32,7 @@ public:
 public:
   // Add adds the key, value pair to the header.
   // It appends to any existing values associated with key.
-  void set(std::string key, std::string value);
+  void set(const std::string& key, const std::string& value);
   // Get gets the first value associated with the given key.
   // If there are no values associated with the key, Get returns "".
   // To access multiple values of a key, access the map directly
@@ -52,7 +52,7 @@ public:
   // Get the content type. empty string if not set.
   std::string content_type();
   // set the content type by header "Content-Type"
-  void set_content_type(std::string ct);
+  void set_content_type(const std::string& ct);
 public:
   // write all headers to string stream.
   void write(std::stringstream& ss);

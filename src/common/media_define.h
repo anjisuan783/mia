@@ -45,6 +45,7 @@ typedef int64_t srs_utime_t;
 # define UNLIKELY(X) (X)
 #endif
 
+#define MA_MAX_PACKET_SIZE 16*1024
 }
 #endif //!__MEDIA_COMMON_DEFINE_H__
 
