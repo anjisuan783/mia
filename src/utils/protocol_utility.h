@@ -68,6 +68,14 @@ std::string srs_string_remove(std::string str,
 std::string srs_string_trim_start(std::string str, std::string trim_chars);
 std::string srs_string_trim_end(std::string str, std::string trim_chars);
 
+bool srs_string_starts_with(const std::string& str, const std::string&);
+bool srs_string_ends_with(const std::string& str, const std::string& flag);
+
+bool srs_path_exists(const std::string& path);
+
+std::string srs_path_filext(const std::string& path);
+
+
 void srs_discovery_tc_url(const std::string& tcUrl, 
                           std::string& schema, 
                           std::string& host, 

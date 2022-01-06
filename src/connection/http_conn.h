@@ -9,7 +9,6 @@
 
 #include <memory>
 
-#include "common/media_log.h"
 #include "common/media_kernel_error.h"
 #include "http/h/http_protocal.h"
 #include "connection/h/conn_interface.h"
@@ -21,8 +20,6 @@ class MediaHttpCorsMux;
 
 class MediaHttpConn : public IMediaConnection,
                    public IHttpRequestReader::CallBack{
-  MDECLARE_LOGGER();
-                   
  public:
   MediaHttpConn(std::unique_ptr<IHttpProtocalFactory> fac, IMediaHttpHandler* m);
   MediaHttpConn() = default;
@@ -46,10 +43,9 @@ class MediaHttpConn : public IMediaConnection,
 };
 
 class MediaResponseOnlyHttpConn : public MediaHttpConn {
-  MDECLARE_LOGGER();
  public:
   MediaResponseOnlyHttpConn(std::unique_ptr<IHttpProtocalFactory> fac, IMediaHttpHandler* m);
-  ~MediaResponseOnlyHttpConn();
+  ~MediaResponseOnlyHttpConn() override = default;
  private:
   srs_error_t process_request(std::string_view) override;
 };

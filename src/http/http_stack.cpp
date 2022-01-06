@@ -1184,10 +1184,9 @@ srs_error_t SrsHttpUri::path_unescape(std::string s, std::string& value)
   return unescapse(s, value, encodePathSegment);
 }
 
-
 ///////////////////////////////
 //SrsHttpHeader
-void SrsHttpHeader::set(string key, string value) {
+void SrsHttpHeader::set(const string& key, const string& value) {
   // Convert to UpperCamelCase, for example:
   //      transfer-encoding
   // transform to:
@@ -1247,7 +1246,7 @@ std::string SrsHttpHeader::content_type() {
   return get("Content-Type");
 }
 
-void SrsHttpHeader::set_content_type(std::string ct) {
+void SrsHttpHeader::set_content_type(const std::string& ct) {
   set("Content-Type", ct);
 }
 
@@ -1661,16 +1660,6 @@ std::string srs_get_public_internet_address(bool ipv4_only) {
         ", ifname=" << ip->ifname.c_str());
       _public_internet_address = ip->ip;
       return ip->ip;
-  }
-  
-  return "";
-}
-
-std::string srs_path_filext(const std::string& path) {
-  size_t pos = std::string::npos;
-  
-  if ((pos = path.rfind(".")) != std::string::npos) {
-    return path.substr(pos);
   }
   
   return "";

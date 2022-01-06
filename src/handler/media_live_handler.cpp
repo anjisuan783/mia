@@ -219,8 +219,7 @@ void StreamEntry::consumer_push(
     // check send error code.
     if ((err = fast->write_tags(cache)) != srs_success) {
       if (srs_error_code(err) != ERROR_SOCKET_WOULD_BLOCK) {
-        MLOG_ERROR("write_tags failed, code:" << srs_error_code(err) << 
-                   " desc:" << srs_error_desc(err));
+        MLOG_ERROR("write_tags failed, desc:" << srs_error_desc(err));
       }
       delete err;      
       cache.swap(c.cache_);

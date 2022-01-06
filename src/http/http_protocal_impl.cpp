@@ -1,7 +1,6 @@
 #include "http/http_protocal_impl.h"
 
 #include "rtc_base/thread.h"
-
 #include "common/media_define.h"
 #include "common/media_log.h"
 #include "http/http_stack.h"
@@ -9,7 +8,7 @@
 
 namespace ma {
 
-static log4cxx::LoggerPtr logger = log4cxx::Logger::getLogger("http_protocal_impl");
+static log4cxx::LoggerPtr logger = log4cxx::Logger::getLogger("ma.http");
 
 #define CHECK_MSG_DUPLICATED(m) \
   do{ \
@@ -69,15 +68,17 @@ srs_error_t AsyncSokcetWrapper::Write(MessageChain* msg, int* sent) {
       uint32_t len = pnext->GetFirstMsgLength();
       if (len != 0) {
         const char* c_data = pnext->GetFirstMsgReadPtr();
-        if ((err = Write_i(c_data, len, &msg_sent)) != srs_success) {
+        MA_ASSERT(c_data + len == pnext->GetFirstMsgWritePtr());
+        err = Write_i(c_data, len, &msg_sent);
+        isent += msg_sent;
+        if (err != srs_success) {
           //error occur, mybe would block
-          isent += msg_sent;
+          MA_ASSERT(srs_error_code(err) == ERROR_SOCKET_WOULD_BLOCK);
           if (srs_error_code(err) == ERROR_SOCKET_WOULD_BLOCK) {
             blocked_ = true;
           }
           break;
         }
-        isent += msg_sent;
       }
       pnext = pnext->GetNext();
     }
@@ -100,24 +101,16 @@ srs_error_t AsyncSokcetWrapper::Write_i(const char* c_data, int c_size, int* sen
   const char* data;
   
   do {
-    size = left_size;
     data = c_data + c_size - left_size;
+    size = std::min(left_size, kMaxPacketSize);
     
-    if (size > kMaxPacketSize) {
-      size = kMaxPacketSize;
-    }
-
     if (size <= 0) {
       break;
     }
     
     rtc::PacketOptions option;
     int ret = conn_->Send(data, size, option);
-    if (LIKELY(ret > 0)) {
-      // must be total sent
-      MA_ASSERT(ret == size);
-      left_size -= size;
-    } else /*if ret <= 0*/ {
+    if (UNLIKELY(ret <= 0)) {
       MA_ASSERT(EMSGSIZE != conn_->GetError());
       if (conn_->GetError() == EWOULDBLOCK) {
         err = srs_error_new(ERROR_SOCKET_WOULD_BLOCK, 
@@ -128,6 +121,10 @@ srs_error_t AsyncSokcetWrapper::Write_i(const char* c_data, int c_size, int* sen
       }
       break;
     }
+
+    // must be total sent
+    MA_ASSERT(ret == size);
+    left_size -= ret;
   } while(true);
 
   if (sent) {
@@ -699,7 +696,7 @@ srs_error_t HttpResponseWriter::write(
   int nb_size = snprintf(header_cache_, SRS_HTTP_HEADER_CACHE_SIZE, 
       "%x" SRS_HTTP_CRLF, size);
 
-  assert(nb_size <= SRS_HTTP_HEADER_CACHE_SIZE);
+  MA_ASSERT(nb_size <= SRS_HTTP_HEADER_CACHE_SIZE);
 
   MessageChain pStart{(uint32_t)nb_size, header_cache_, MessageChain::DONT_DELETE, (uint32_t)nb_size};
   MessageChain pEnd{2, (char*)SRS_HTTP_CRLF, MessageChain::DONT_DELETE, 2};
@@ -787,7 +784,7 @@ MessageChain* HttpResponseWriter::send_header(const char* data, int) {
 
 //HttpResponseWriterProxy
 HttpResponseWriterProxy::HttpResponseWriterProxy(
-    std::shared_ptr<AsyncSokcetWrapper> s, bool)
+    std::shared_ptr<AsyncSokcetWrapper> s, bool /*TODO stream=true set nodelay*/)
   : writer_{std::move(std::make_unique<HttpResponseWriter>())},
     socket_{std::move(s)} {
   thread_ = socket_->GetThread();
@@ -813,9 +810,14 @@ srs_error_t HttpResponseWriterProxy::final_request_i() {
   MessageChain* result = nullptr;
   if ((err = writer_->final_request(result)) == srs_success) {
     // final ok
-    if (result && ((err = write_i(result)) != srs_success)) {
+    if (buffer_) {
+      buffer_->Append(result);
+      return err;
+    }
+    
+    if (result && ((err = write2sock(result)) != srs_success)) {
       if (srs_error_code(err) != ERROR_SOCKET_WOULD_BLOCK) {
-        MLOG_ERROR("proxy write_i failed, desc:" << srs_error_desc(err));
+        MLOG_ERROR("proxy write2sock failed, desc:" << srs_error_desc(err));
       }
 
       //Cached by buffer, so we thought it has been sent successfully
@@ -840,7 +842,7 @@ srs_error_t HttpResponseWriterProxy::final_request() {
   std::weak_ptr<HttpResponseWriterProxy> weak_ptr = weak_from_this();
   asyncTask([weak_ptr, this](auto) {
     auto this_ptr = weak_ptr.lock();
-    if (!this_ptr){
+    if (!this_ptr) {
       return;
     }
 
@@ -878,155 +880,29 @@ srs_error_t HttpResponseWriterProxy::write(const char* data, int size) {
     return srs_error_new(ERROR_SOCKET_WOULD_BLOCK, "need on send");
   }
 
-  srs_error_t err = srs_success;
-  if (IS_CURRENT_THREAD(thread_)) {
-    RTC_DCHECK_RUN_ON(&thread_check_);
-    if (buffer_) {
-      err = srs_error_new(ERROR_SOCKET_WOULD_BLOCK, "need on send");
-      MA_ASSERT_RETURN(false, err);
-    }
-
-    MessageChain* result = nullptr;
-    if (!data || size <= 0) {
-      // send header only
-      result = internal_write(nullptr);
-    } else {
-      MessageChain mb(size, data, MessageChain::DONT_DELETE, size);
-      result = internal_write(&mb);
-    }
-     
-    if (result && ((err = write_i(result)) != srs_success)) {
-      if (srs_error_code(err) != ERROR_SOCKET_WOULD_BLOCK) {
-        MLOG_ERROR("proxy write_i failed, desc:" << srs_error_desc(err));
-      }
-
-      //Cached by buffer, so we thought it has been sent successfully
-      delete err;
-      err = srs_success;
-      result = nullptr;
-    }
-
-    if (result) {
-      result->DestroyChained();
-    }
-    return err;
-  }
-
-  MessageChain* pmc = nullptr;
   if (!data || size <= 0) {
     // send header only
-  } else {
-    MessageChain mc(size, data, MessageChain::DONT_DELETE, size);
-    pmc = mc.DuplicateChained();
+    return write(nullptr, nullptr);
   }
-  std::weak_ptr<HttpResponseWriterProxy> weak_ptr = weak_from_this();
-  asyncTask([weak_ptr, pmc, this] (auto) {
-    auto this_ptr = weak_ptr.lock();
-    if (!this_ptr) {
-      if (pmc) {
-        pmc->DestroyChained();
-      }
-      return;
-    }
-
-    srs_error_t err = srs_success;
-    MessageChain* result = internal_write(pmc);
-    if (result && ((err = write_i(result)) != srs_success)) {
-      if (srs_error_code(err) != ERROR_SOCKET_WOULD_BLOCK) {
-        MLOG_ERROR("proxy write_i failed, desc:" << srs_error_desc(err));
-      }
-      
-      delete err;
-      // cached by buffer
-      result = nullptr;
-    }
-
-    if (result) {
-      result->DestroyChained();
-    }
-    if(pmc) {
-      pmc->DestroyChained();
-    }
-  });
-
-  return err;
+  
+  MessageChain mb(size, data, MessageChain::DONT_DELETE, size);
+  return write(&mb, nullptr);
 }
-
 
 srs_error_t HttpResponseWriterProxy::write(MessageChain* data, ssize_t* pnwrite) {
   if (pnwrite) {
     *pnwrite = 0;
+  }
+
+  if (data && data->GetChainedLength() == 0) {
+    return srs_error_new(ERROR_HTTP_PATTERN_EMPTY, "data length is 0");
   }
   
   if (buffer_full_) {
     return srs_error_new(ERROR_SOCKET_WOULD_BLOCK, "need on send");
   }
 
-  srs_error_t err = srs_success;
-
-  uint32_t data_len = data->GetChainedLength();
-
-  if (IS_CURRENT_THREAD(thread_)) {
-    RTC_DCHECK_RUN_ON(&thread_check_);
-    if (buffer_) {
-      err = srs_error_new(ERROR_SOCKET_WOULD_BLOCK, "need on send");
-      MA_ASSERT_RETURN(false, err);
-    }
-
-    MessageChain* result = internal_write(data);
-    if (result && (err = write_i(result)) != srs_success) {
-      if (srs_error_code(err) != ERROR_SOCKET_WOULD_BLOCK) {
-        MLOG_ERROR("proxy write_i failed, desc:" << srs_error_desc(err));
-      }
-      delete err;
-      err = srs_success;
-
-      //cached by buffer
-      result = nullptr;
-    }
-
-    if (result) {
-      result->DestroyChained();
-    }
-
-    if (pnwrite) {
-      *pnwrite = data_len;
-    }
-    return err;
-  }
-
-  std::weak_ptr<HttpResponseWriterProxy> weak_ptr = weak_from_this();
-  asyncTask([weak_ptr, pDuplcated = data->DuplicateChained(), this] (auto) {
-    CHECK_MSG_DUPLICATED(pDuplcated);
-    auto this_ptr = weak_ptr.lock();
-    if (!this_ptr){
-      pDuplcated->DestroyChained();
-      return;
-    }
-
-    MessageChain* result = internal_write(pDuplcated);
-    srs_error_t err = srs_success;
-
-    if (result && (err = write_i(result)) != srs_success) {
-      if (srs_error_code(err) != ERROR_SOCKET_WOULD_BLOCK) {
-        MLOG_ERROR("proxy write failed, desc:" << srs_error_desc(err)); 
-      }
-      delete err;
-      
-      //cached by buffer
-      result = nullptr;
-    }
-    if (result) {
-      result->DestroyChained();
-    }
-    pDuplcated->DestroyChained();
-  });
-
-  if (pnwrite) {
-    *pnwrite = data_len;
-  }
-
-  return err;
+  return write_i(data, pnwrite);
 }
 
 srs_error_t HttpResponseWriterProxy::writev(
@@ -1057,21 +933,26 @@ srs_error_t HttpResponseWriterProxy::writev(
       *pnwrite += iov[i].iov_len;
     }
   }
-   
+
+  srs_error_t err = write_i(data, pnwrite);
+  data->DestroyChained();
+  return err;
+}
+
+srs_error_t HttpResponseWriterProxy::write_i(
+    MessageChain* data, ssize_t* pnwrite) {
   srs_error_t err = srs_success;
+  uint32_t data_len = data ? data->GetChainedLength() : 0;
 
   if (IS_CURRENT_THREAD(thread_)) {
     RTC_DCHECK_RUN_ON(&thread_check_);
-    if (buffer_) {
-      err = srs_error_new(ERROR_SOCKET_WOULD_BLOCK, "need on send");
-      data->DestroyChained();
-      MA_ASSERT_RETURN(false, err);
-    }
+    MA_ASSERT(!buffer_);
 
     MessageChain* result = internal_write(data);
-    if (result && (err = write_i(result)) != srs_success) {
+
+    if (result && (err = write2sock(result)) != srs_success) {
       if (srs_error_code(err) != ERROR_SOCKET_WOULD_BLOCK) {
-        MLOG_ERROR("proxy write_i failed, desc:" << srs_error_desc(err));
+        MLOG_ERROR("proxy write2sock failed, desc:" << srs_error_desc(err));
       }
       delete err;
       err = srs_success;
@@ -1083,63 +964,87 @@ srs_error_t HttpResponseWriterProxy::writev(
     if (result) {
       result->DestroyChained();
     }
-    
-    data->DestroyChained();
+
+    if (pnwrite) {
+      *pnwrite = data_len;
+    }
     return err;
   }
 
+  MessageChain* pDuplcated = nullptr;
+  if (!data || data_len <= 0) {
+    // send header only
+  } else {
+    pDuplcated = data->DuplicateChained();
+  }
+
   std::weak_ptr<HttpResponseWriterProxy> weak_ptr = weak_from_this();
-  asyncTask([weak_ptr, pDuplcated = data, this] (auto) {
+  asyncTask([weak_ptr, pDuplcated, this] (auto) {
     CHECK_MSG_DUPLICATED(pDuplcated);
     auto this_ptr = weak_ptr.lock();
-    if (!this_ptr){
-      pDuplcated->DestroyChained();
+    if (!this_ptr) {
+      if (pDuplcated)
+        pDuplcated->DestroyChained();
       return;
     }
 
     MessageChain* result = internal_write(pDuplcated);
     srs_error_t err = srs_success;
 
-    if (result && (err = write_i(result)) != srs_success) {
-      if (srs_error_code(err) != ERROR_SOCKET_WOULD_BLOCK) {
-        MLOG_ERROR("proxy write failed, desc:" << srs_error_desc(err)); 
-      }
-      delete err;
-      
-      //cached by buffer
-      result = nullptr;
-    }
     if (result) {
-      result->DestroyChained();
+      // push it into buffer, wait for on send
+      if (buffer_) {
+        buffer_->Append(result);
+        return;
+      }
+
+      //buffer empty, send immediatly
+      if ((err = write2sock(result)) != srs_success) {
+        if (srs_error_code(err) != ERROR_SOCKET_WOULD_BLOCK) {
+          MLOG_ERROR("proxy write failed, desc:" << srs_error_desc(err)); 
+        }
+        delete err;
+        
+        //cached by buffer
+        result = nullptr;
+      }
+
+      if (result) {
+        result->DestroyChained();
+      }
     }
-    pDuplcated->DestroyChained();
+
+    if (pDuplcated) {
+      pDuplcated->DestroyChained();
+    }
   });
+
+  if (pnwrite) {
+    *pnwrite = data_len;
+  }
 
   return err;
 }
 
-srs_error_t HttpResponseWriterProxy::write_i(MessageChain* data) {
+srs_error_t HttpResponseWriterProxy::write2sock(MessageChain* data) {
   RTC_DCHECK_RUN_ON(&thread_check_);
   CHECK_MSG_DUPLICATED(data);
+  MA_ASSERT(!buffer_);
   
-  if (buffer_) {
-    buffer_->Append(data);
-    return srs_error_new(ERROR_SOCKET_WOULD_BLOCK, "need on write");
-  }
-  
-  // send 
   int sent = 0;
   srs_error_t err = socket_->Write(data, &sent);
   if (err != srs_success) {
     if (srs_error_code(err) == ERROR_SOCKET_WOULD_BLOCK) {
       //need on write
-      buffer_full_ = true;
     } else {
       // unexpect low level error, save data?
     }
     buffer_ = data;
+    buffer_full_ = true;
   }
-  data->AdvanceChainedReadPtr(sent);
+
+  if (sent > 0)
+    data->AdvanceChainedReadPtr(sent);
   return err;
 }
 
@@ -1152,7 +1057,7 @@ void HttpResponseWriterProxy::write_header(int code) {
   std::weak_ptr<HttpResponseWriterProxy> weak_ptr = weak_from_this();
   asyncTask([weak_ptr, code, this] (auto){
     auto this_ptr = weak_ptr.lock();
-    if (!this_ptr){
+    if (!this_ptr) {
       return;
     }
     
@@ -1162,31 +1067,23 @@ void HttpResponseWriterProxy::write_header(int code) {
 
 void HttpResponseWriterProxy::OnWriteEvent() {
   RTC_DCHECK_RUN_ON(&thread_check_);
-  
-  //MLOG_DEBUG((buffer_full_?"full":"empty"));
+  if (buffer_) {
+    MessageChain* send = buffer_;
+    buffer_ = nullptr;
+    srs_error_t err = write2sock(send);
+    if (err != srs_success) {
+      if (srs_error_code(err) != ERROR_SOCKET_WOULD_BLOCK) {
+        MLOG_ERROR("OnWriteEvent write error, desc:" << srs_error_desc(err));
+      }
 
-  if (!buffer_) {
-    MA_ASSERT(!buffer_full_);
-    return;
-  }
-  
-  MessageChain* send = buffer_;
-  buffer_ = nullptr;
-  srs_error_t err = write_i(send);
-  if (err != srs_success) {
-    if (srs_error_code(err) == ERROR_SOCKET_WOULD_BLOCK) {
-    } else {
-      MLOG_ERROR("OnWriteEvent write error, desc:" << srs_error_desc(err));
-      buffer_full_ = false;
+      //send cached by buffer
+      delete err;
+      return;
     }
 
-    //send cached by buffer
-    delete err;
-    return;
+    // sent ok
+    send->DestroyChained();
   }
-
-  // sent ok
-  send->DestroyChained();
 
   buffer_full_ = false;
   SignalOnWrite_(this);

@@ -15,13 +15,14 @@
 #include "rtmp/media_req.h"
 #include "handler/media_live_handler.h"
 #include "handler/media_rtc_handler.h"
+#include "handler/media_file_handler.h"
 
 namespace ma {
 
 MediaHttpServeMux::MediaHttpServeMux() 
-    : rtc_sevice_{std::move(std::make_unique<MediaHttpRtcServeMux>())},
-      flv_sevice_{std::move(std::make_unique<MediaFlvPlayHandler>())} {
-
+    : rtc_sevice_{new MediaHttpRtcServeMux},
+      flv_sevice_{new MediaFlvPlayHandler},
+      file_sevice_{new MediaFileHandler} {
   g_conn_mgr_.signal_destroy_conn_.connect(this, &MediaHttpServeMux::conn_destroy);
 }
 
@@ -39,6 +40,10 @@ srs_error_t MediaHttpServeMux::serve_http(
 
    if (path == RTC_PUBLISH_PREFIX || path == RTC_PALY_PREFIX) {
     return rtc_sevice_->serve_http(std::move(writer), std::move(msg));
+  }
+
+  if (path == HTTP_TEST) {
+    return file_sevice_->serve_http(std::move(writer), std::move(msg));
   }
 
   return flv_sevice_->serve_http(std::move(writer), std::move(msg));
@@ -61,7 +66,8 @@ void MediaHttpServeMux::unmount_service(
 }
 
 void MediaHttpServeMux::conn_destroy(std::shared_ptr<IMediaConnection> conn) {
-  flv_sevice_->conn_destroy(std::move(conn));
+  flv_sevice_->conn_destroy(conn);
+  file_sevice_->conn_destroy(conn);
 }
 
 std::unique_ptr<IMediaHttpHandler> ServerHandlerFactor::Create() {

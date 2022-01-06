@@ -7,11 +7,8 @@
 #include "utils/protocol_utility.h"
 
 #include <inttypes.h>
-
-// for srs-librtmp, @see https://github.com/ossrs/srs/issues/213
-#ifndef _WIN32
+#include <sys/stat.h>
 #include <unistd.h>
-#endif
 #include <stdlib.h>
 #include <sstream>
 #include <string_view>
@@ -274,11 +271,6 @@ string srs_string_remove(string str, string remove_chars) {
   return ret;
 }
 
-bool srs_string_ends_with(string str, string flag) {
-  const size_t pos = str.rfind(flag);
-  return (pos != string::npos) && (pos == str.length() - flag.length());
-}
-
 string srs_erase_last_substr(string str, string erase_string) {
 	std::string ret = str;
 
@@ -324,6 +316,39 @@ string srs_string_trim_start(string str, string trim_chars) {
     
     return ret;
 }
+
+bool srs_string_starts_with(
+    const std::string& str, const std::string& flag) {
+  return str.find(flag) == 0;
+}
+
+bool srs_string_ends_with(
+    const std::string& str, const std::string& flag) {
+  const size_t pos = str.rfind(flag);
+  return (pos != string::npos) && (pos == str.length() - flag.length());
+}
+
+bool srs_path_exists(const std::string& path) {
+  struct stat st;
+  
+  // stat current dir, if exists, return error.
+  if (stat(path.c_str(), &st) == 0) {
+      return true;
+  }
+  
+  return false;
+}
+
+std::string srs_path_filext(const std::string& path) {
+  size_t pos = std::string::npos;
+  
+  if ((pos = path.rfind(".")) != std::string::npos) {
+    return path.substr(pos);
+  }
+  
+  return "";
+}
+
 
 /**
  * resolve the vhost in query string

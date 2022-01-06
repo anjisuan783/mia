@@ -16,7 +16,7 @@
 
 namespace ma {
 
-MDEFINE_LOGGER(MediaSource, "MediaSource");
+MDEFINE_LOGGER(MediaSource, "ma.source");
 
 MediaSource::MediaSource(std::shared_ptr<MediaRequest> r)
   : req_{std::move(r)} {
