@@ -3,7 +3,7 @@
 SCRIPT=`pwd`/$0
 FILENAME=`basename $SCRIPT`
 PATHNAME=`dirname $SCRIPT`
-ROOT_DIR=$PATHNAME/..
+ROOT_DIR=$PATHNAME/../
 BUILD_DIR=$ROOT_DIR/build
 CURRENT_DIR=`pwd`
 
@@ -73,13 +73,22 @@ install_opus(){
 }
 
 install_rtc_stack(){
-  cd $ROOT_DIR/3rd/
-  git clone https://github.com/anjisuan783/rtc_stack.git
+  git clone git://github.com/anjisuan783/rtc_stack.git
+  if [[ ! -d "rtc_stack" ]]; then
+    echo "checkout rtc_stack failed. Check if current network is aviable."
+    exit 1
+  fi
+
   cd rtc_stack/scripts && chmod +x *.sh && ./buildProject.sh && cd $CUR_DIR
 }
 
 export PKG_CONFIG_PATH
 
+if [[ ! -d "$THIRD_PARTY_DEPTH" ]];then
+  mkdir -p $THIRD_PARTY_DEPTH
+fi
+
+cd $THIRD_PARTY_DEPTH
 install_rtc_stack
 install_opus
 install_ffmpeg
