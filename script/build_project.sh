@@ -40,9 +40,7 @@ then
   exit 1
 fi
 
-pushd $PATHNAME
-./build_3rd.sh
-popd
+source ./script/build_3rd.sh
 
 cmake ./src -Bbuild && cd build && make -j4 && cd $CUR_DIR
 
