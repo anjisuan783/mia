@@ -42,7 +42,7 @@ class MediaRtcLiveAdaptor {
   srs_error_t PacketVideo(const owt_base::Frame& frm);
   srs_error_t Trancode_audio(const owt_base::Frame& frm);
   std::shared_ptr<MediaMessage> 
-      PacketAudio(char* data, int len, uint32_t pts, bool is_header);
+      PacketAudio(char* data, int len, int64_t pts, bool is_header);
  
   //for debug
   void open_dump();
@@ -53,15 +53,16 @@ class MediaRtcLiveAdaptor {
   std::unique_ptr<SrsAudioTranscoder> codec_;
   bool is_first_audio_{true};
 
-  uint32_t video_begin_ts_{(uint32_t)-1};
-  uint32_t audio_begin_ts_{(uint32_t)-1};
+  int64_t video_begin_ts_{-1};
+  int64_t audio_begin_ts_{-1};
 
   std::unique_ptr<SrsFileWriter> video_writer_;
   bool debug_{false};
 
   std::unique_ptr<SrsSample> sps_;
 
-  uint32_t last_timestamp_{0};
+  //audio timestamp check
+  int64_t last_timestamp_{0}; 
 };
 
 }
