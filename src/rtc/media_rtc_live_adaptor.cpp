@@ -163,8 +163,8 @@ void MediaRtcLiveAdaptor::onFrame(const owt_base::Frame& frm) {
       to.bitrate = 48000; // The output audio bitrate in bps.
 
       if ((err = codec_->initialize(from, to)) != srs_success) {
-        assert(false);
         MLOG_CERROR("transcoder initialize failed, desc:%s", srs_error_desc(err));
+        assert(false);
         delete err;
       }
     }
@@ -211,7 +211,6 @@ void MediaRtcLiveAdaptor::open_dump() {
      video_writer_.reset(nullptr);
      return;
    }
-
 }
 
 srs_error_t MediaRtcLiveAdaptor::PacketVideoKeyFrame(StapPackage& pkg) {
@@ -278,7 +277,6 @@ srs_error_t MediaRtcLiveAdaptor::PacketVideoRtmp(StapPackage& pkg) {
   srs_error_t err = srs_success;
   //type_codec1 + avc_type + composition time + nalu size + nalu
   int nb_payload = 1 + 1 + 3 + pkg.nb_bytes();
-  //MLOG_DEBUG("PacketVideoRtmp, size:" << nb_payload);
   MessageChain mc(nb_payload);
   SrsBuffer payload(mc);
   if (pkg.key_frame_) {
@@ -298,21 +296,21 @@ srs_error_t MediaRtcLiveAdaptor::PacketVideoRtmp(StapPackage& pkg) {
   auto rtmp = std::make_shared<MediaMessage>();
   rtmp->create(&header, &mc);
   if (sink_ && (err = sink_->OnVideo(rtmp)) != srs_success) {
-     MLOG_WARN("rtc on video")
+     MLOG_WARN("rtc on video");
   }
   return err;
 }
 
 srs_error_t MediaRtcLiveAdaptor::PacketVideo(const owt_base::Frame& frm) {
-  static constexpr int kVideoSamplerate  = 90000/SRS_UTIME_MILLISECONDS;
   srs_error_t err = srs_success;
 
-  uint32_t ts = frm.timeStamp/kVideoSamplerate;
-  if (video_begin_ts_ == (uint32_t)-1) {
-    video_begin_ts_ = ts;
+  if (video_begin_ts_ == -1) {
+    video_begin_ts_ = frm.ntpTimeMs;
   }
+  
   SrsBuffer buffer((char*)frm.payload, frm.length);
-  StapPackage pkg{frm.additionalInfo.video.isKeyFrame, ts - video_begin_ts_};
+  StapPackage pkg{frm.additionalInfo.video.isKeyFrame, 
+                  (uint32_t)(frm.ntpTimeMs - video_begin_ts_)};
   if ((err = pkg.decode(&buffer)) != srs_success) {
     return err;
   }
@@ -325,8 +323,8 @@ srs_error_t MediaRtcLiveAdaptor::PacketVideo(const owt_base::Frame& frm) {
 }
 
 std::shared_ptr<MediaMessage> MediaRtcLiveAdaptor::PacketAudio( 
-    char* data, int len, uint32_t pts, bool is_header) {
-  if (audio_begin_ts_ == (uint32_t)-1) {
+    char* data, int len, int64_t pts, bool is_header) {
+  if (audio_begin_ts_ == -1) {
     audio_begin_ts_ = pts;
   }
   
@@ -346,7 +344,7 @@ std::shared_ptr<MediaMessage> MediaRtcLiveAdaptor::PacketAudio(
   stream.write_bytes(data, len);
 
   MessageHeader header;
-  header.initialize_audio(rtmp_len, pts - audio_begin_ts_, 1);
+  header.initialize_audio(rtmp_len, (uint32_t)(pts - audio_begin_ts_), 1);
   auto audio = std::make_shared<MediaMessage>();
   audio->create(&header, &mc);
 
@@ -354,12 +352,10 @@ std::shared_ptr<MediaMessage> MediaRtcLiveAdaptor::PacketAudio(
 }
 
 srs_error_t MediaRtcLiveAdaptor::Trancode_audio(const owt_base::Frame& frm) {
-  static const int kAudioSamplerate  = 
-        frm.additionalInfo.audio.sampleRate/SRS_UTIME_MILLISECONDS;
   MA_ASSERT(frm.additionalInfo.audio.isRtpPacket);
   srs_error_t err = srs_success;
 
-  uint32_t ts = frm.timeStamp/kAudioSamplerate;
+  int64_t ts = frm.ntpTimeMs;
 
   if (is_first_audio_) {
     //audio sequence header
@@ -382,15 +378,14 @@ srs_error_t MediaRtcLiveAdaptor::Trancode_audio(const owt_base::Frame& frm) {
   bool ret = rtp.Parse(frm.payload, frm.length);
   MA_ASSERT_RETURN(ret, srs_error_new(ERROR_RTC_FRAME_MUXER, "rtp parse failed"));
 
-  uint32_t timestamp = rtp.Timestamp();
   if (!last_timestamp_) {
-    last_timestamp_ = timestamp;
+    last_timestamp_ = ts;
   }
 
-  if (last_timestamp_ > timestamp) {
+  if (last_timestamp_ > ts) {
     MLOG_WARN("audio ts not mono increse.");
   } else {
-    last_timestamp_ = timestamp;
+    last_timestamp_ = ts;
   }
 
   auto payload = rtp.payload();

@@ -61,7 +61,7 @@ int main(int argc, char* argv[]) {
     },
     (uint32_t)1,
     {                               //candidates_
-      {"192.168.1.156"}             
+      {"192.168.50.164"}             
     },
     {"udp://192.168.1.156:9000"},    //stun_addr_
     {"./mia.key"},

@@ -52,7 +52,7 @@ class MediaFileHandler : public IMediaHttpHandler {
                      public std::enable_shared_from_this<doing_job> {
     doing_job() = default;
     std::unique_ptr<SrsFileReader> fs_;
-    std::unique_ptr<char> buf_;
+    std::unique_ptr<char[]> buf_;
     std::shared_ptr<IHttpResponseWriter> w_;
     int buf_left_{0};
     int file_left_{0};

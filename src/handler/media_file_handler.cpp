@@ -174,7 +174,7 @@ srs_error_t MediaFileHandler::copy(
   
   int file_left = size;
 
-  std::unique_ptr<char> buf(new char[MEDIA_HTTP_SEND_BUFFER_SIZE]);
+  std::unique_ptr<char[]> buf(new char[MEDIA_HTTP_SEND_BUFFER_SIZE]);
   while (file_left > 0) {
     ssize_t nread = -1;
     int max_read = std::min(file_left, MEDIA_HTTP_SEND_BUFFER_SIZE);
