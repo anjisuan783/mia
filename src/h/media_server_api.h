@@ -25,31 +25,32 @@ enum JitterAlgorithm {
 class MediaServerApi {
  public:
   struct Config {
-    uint32_t workers_{1};
+    uint32_t workers_{1};               // live workers
     uint32_t ioworkers_{1};             // TODO multi-theads not implement
     bool enable_gop_{true};
     bool flv_record_{false};
     int consumer_queue_size_{30000};    // ms
-    JitterAlgorithm jotter_algo_{JitterAlgorithmZERO};
-    std::vector<std::string> listen_addr_;   // [schema://ip:port]
-
+    JitterAlgorithm jitter_algo_{JitterAlgorithmZERO};
+ 
     //for rtc
     uint32_t rtc_workers_{1};
     std::vector<std::string> candidates_;  //local candidates [ip]
-    std::string stun_addr_;            //[ip:port]
+    uint16_t stun_port{9000}; //not use
 
     //for https
-    std::string https_key;             // pem fromat private key file path
-    std::string https_crt;             // pem fromat certificate file path
+    std::string https_key{"./conf/mia.key"};  // pem fromat private key file path
+    std::string https_crt{"./conf/mia.crt"};  // pem fromat certificate file path
 
-    //for rtmp
-    int32_t request_keyframe_interval{-1}; // second
+    //for rtmp2rtc
+    int32_t request_keyframe_interval{5}; // second
 
     //for vhost
-    std::string vhost;
+    std::string vhost{""};
 
-    //for http server
-    std::string path;
+    //for http server static file path
+    std::string path{"."};
+
+    std::vector<std::string> listen_addr_;   // [schema://ip:port]
   };
  
   virtual ~MediaServerApi() { }

@@ -109,10 +109,6 @@ srs_error_t SrsGopCache::dump(MediaConsumer* consumer,
   return err;
 }
 
-inline bool SrsGopCache::empty() {
-  return gop_cache.empty();
-}
-
 srs_utime_t SrsGopCache::start_time() {
   if (empty()) {
     return 0;

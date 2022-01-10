@@ -1,0 +1,5 @@
+﻿v=0
+o=- 1701150822055760335 2 IN IP4 127.0.0.1
+s=-\r\nt=0 0\r\na=group:BUNDLE 0 1
+a=extmap-allow-mixed
+a=msid-semantic: WMS

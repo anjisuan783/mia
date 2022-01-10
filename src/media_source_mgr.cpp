@@ -12,7 +12,7 @@ int MediaSourceMgr::Init(unsigned int num) {
   rtc_api_ = std::move(wa::AgentFactory().create_agent());
   return rtc_api_->initiate(g_server_.config_.rtc_workers_,
                             g_server_.config_.candidates_,
-                            g_server_.config_.stun_addr_);
+                            "");
 }
 
 std::shared_ptr<MediaSource>

@@ -5,8 +5,6 @@ project(media_server)
 set(CMAKE_C_COMPILER "/opt/rh/devtoolset-7/root/usr/bin/gcc")
 set(CMAKE_CXX_COMPILER "/opt/rh/devtoolset-7/root/usr/bin/g++")
 
-set(MA_BUILD_TYPE "debug")
-
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
   execute_process(COMMAND ${CMAKE_C_COMPILER} -dumpversion
     OUTPUT_VARIABLE GCC_VERSION)
@@ -35,13 +33,17 @@ message("Generating ma ${MA_BUILD_TYPE} project with ${CMAKE_CXX_FLAGS}")
 
 set(MA_SOURCE_PATH "${CMAKE_CURRENT_SOURCE_DIR}")
 
+set(WA_SOURCE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../rtc_stack")
+
+message("wa path ${WA_SOURCE_PATH}")
+
 include_directories(
 	${CMAKE_CURRENT_SOURCE_DIR}
+	${WA_SOURCE_PATH}/
+	${WA_SOURCE_PATH}/myrtc
+	${WA_SOURCE_PATH}/owt
+	${WA_SOURCE_PATH}/3rd/abseil-cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/../build/libdeps/build/include
-	${CMAKE_CURRENT_SOURCE_DIR}/../3rd/rtc_stack/src
-	${CMAKE_CURRENT_SOURCE_DIR}/../3rd/rtc_stack/src/myrtc
-	${CMAKE_CURRENT_SOURCE_DIR}/../3rd/rtc_stack/src/owt
-	${CMAKE_CURRENT_SOURCE_DIR}/../3rd/rtc_stack/src/3rd/abseil-cpp
 )
 
 set(
