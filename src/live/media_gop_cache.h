@@ -46,7 +46,9 @@ class SrsGopCache final {
   srs_error_t dump(MediaConsumer* consumer, JitterAlgorithm jitter_algorithm);
   // used for atc to get the time of gop cache,
   // The atc will adjust the sequence header timestamp to gop cache.
-  bool empty();
+  inline bool empty() {
+    return gop_cache.empty();
+  }
   // Get the start time of gop cache, in srs_utime_t.
   // @return 0 if no packets.
   srs_utime_t start_time();
