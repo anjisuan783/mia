@@ -17,8 +17,6 @@ namespace ma {
 
 MDEFINE_LOGGER(MediaRtcLiveAdaptor, "MediaRtcLiveAdaptor");
 
-#define __OPTIMIZE__
-
 // 00 00 00 01
 const uint32_t kNaluLongStartSequence = 0x1000000;
 // 00 00 01

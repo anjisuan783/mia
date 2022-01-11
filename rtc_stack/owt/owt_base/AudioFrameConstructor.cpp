@@ -110,18 +110,15 @@ int AudioFrameConstructor::deliverAudioData_(
   assert(packetType != RTCP_Receiver_PT && 
          packetType != RTCP_PS_Feedback_PT && 
          packetType != RTCP_RTP_Feedback_PT);
-  
-  if (audioReceive_ && 
-      (packetType == RTCP_SDES_PT || 
-       packetType == RTCP_Sender_PT || 
-       packetType == RTCP_XR_PT) ) {
-    onSr((erizo::RtcpHeader*)chead);
-    audioReceive_->onRtpData(audio_packet->data, audio_packet->length);
-    return audio_packet->length;
-  }
 
+  if (packetType == RTCP_Sender_PT) {
+    onSr((erizo::RtcpHeader*)chead);
+  }
+ 
   if (packetType >= RTCP_MIN_PT && packetType <= RTCP_MAX_PT) {
-    return 0;
+    if (audioReceive_)
+      audioReceive_->onRtpData(audio_packet->data, audio_packet->length);
+    return audio_packet->length;
   }
 
   RTPHeader* head = reinterpret_cast<RTPHeader*>(audio_packet->data);
@@ -148,8 +145,7 @@ int AudioFrameConstructor::deliverAudioData_(
   frame.format = frameFormat;
   frame.payload = reinterpret_cast<uint8_t*>(audio_packet->data);
   frame.length = audio_packet->length;
-  frame.timeStamp = head->getTimestamp();
-  
+  frame.timeStamp = head->getTimestamp();  
   frame.ntpTimeMs = getNtpTimestamp(frame.timeStamp);
   frame.additionalInfo.audio.isRtpPacket = 1;
 
@@ -215,9 +211,6 @@ void AudioFrameConstructor::createAudioReceiver() {
 }
 
 void AudioFrameConstructor::onSr(erizo::RtcpHeader *chead) {
-  if(chead->getPacketType() != RTCP_Sender_PT)
-    return;
-
   const uint8_t* const payload = reinterpret_cast<const uint8_t*>(&(chead->ssrc));
   uint32_t ntp_secs = webrtc::ByteReader<uint32_t>::ReadBigEndian(&payload[4]);
   uint32_t ntp_frac = webrtc::ByteReader<uint32_t>::ReadBigEndian(&payload[8]);
