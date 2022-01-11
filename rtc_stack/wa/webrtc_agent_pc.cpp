@@ -247,19 +247,9 @@ int WrtcAgentPc::init(std::shared_ptr<Worker>& worker,
 }
 
 void WrtcAgentPc::init_i(const std::vector<std::string>& ipAddresses, 
-                         const std::string& stun_addr) {
+                         const std::string&) {
   erizo::IceConfig ice_config;
   ice_config.ip_addresses = ipAddresses;
-
-  size_t pos1 = stun_addr.find("://");
-  size_t pos2 = stun_addr.rfind(":");
-  assert(pos1 != stun_addr.npos && pos2 != stun_addr.npos);
-
-  pos1 += 3;
-  ice_config.stun_server = stun_addr.substr(pos1, pos2-pos1);
-
-  std::istringstream iss(stun_addr.substr(pos2+1));
-  iss >> ice_config.stun_port;
   
   std::vector<erizo::RtpMap> rtp_mappings{rtpH264, rtpRed, rtpOpus};
   

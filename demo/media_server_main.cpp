@@ -166,10 +166,12 @@ int main(int argc, char* argv[]) {
             if (config_setting_lookup_string(sub_item, "cert", &s1)) {
             _config.https_crt = s1;
           }
-
-          MIA_LOG("http:%s https:%s key:%s cert:%s", 
-                  _config.listen_addr_[0].c_str(), 
-                  _config.listen_addr_[1].c_str(), 
+          std::string addrs;
+          for(x :  _config.listen_addr_) {
+            addrs.append(x);
+          }
+          MIA_LOG("addrs:%s key:%s cert:%s", 
+                  addrs.c_str(), 
                   _config.https_key.c_str(),
                   _config.https_crt.c_str());
           continue;
