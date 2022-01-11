@@ -4,27 +4,29 @@ stream server library written with c++
 
 ## Build:
 
-git clone https://github.com/anjisuan783/media_lib.git
+git clone https://github.com/anjisuan783/mia.git
 
-cd media_lib
+cd mia
 
-chmod +x ./script/*.sh
+./script/buildAll.sh
 
-./script/build_project.sh
+Edit conf/mia.cfg, correct candidates.
+
+nohup ./mia -l conf/log4cxx.properties -c conf/mia.cfg &
 
 CentOS 7 supported only now!
 
 ## Features
+- [x] Support H264 OPUS AAC.
+- [x] Webrtc publishing, playing with Chrome、Edge、Firefox.
+- [x] http(s)-flv pull.
+- [ ] Support H264 simulcast.
+- [ ] Single udp port for deployment.
+- [ ] More codec.
 
-1.Browser publisher (send side BWE)
+## Rtc API
 
-2.Browser subscriber (without BWE)
-
-3.http-flv subscriber
-
-4.codecs : opus、aac、H264
-
-5.Supported browsers: firefox、chrome、Edge 
+Compating with SRS.
 
 ## AUTHORS
 
@@ -32,6 +34,4 @@ anjisuan783@sina.com
 
 ## Releases
 
-## Reference
-
-OWT、SRS、WebRTC
+developing
