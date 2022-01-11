@@ -2,8 +2,7 @@
 
 installYumDeps(){
   ${SUDO} yum groupinstall " Development Tools" "Development Libraries " -y
-  ${SUDO} yum install zlib-devel pkgconfig git log4cxx-devel gcc gcc-c++ bzip2 bzip2-devel bzip2-libs python-devel nasm yasm cmake meson ninja-build libconfig-devel -y
-  ${SUDO} yum install h libtool -y
+  ${SUDO} yum install libtool zlib-devel pkgconfig log4cxx-devel gcc gcc-c++ cmake meson ninja-build libconfig-devel -y
   ${SUDO} yum install glib2-devel -y
   ${SUDO} yum install centos-release-scl -y
   ${SUDO} yum install devtoolset-7-gcc* -y
