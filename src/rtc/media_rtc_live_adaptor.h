@@ -52,9 +52,7 @@ class MediaRtcLiveAdaptor {
   RtcLiveAdapterSink* sink_{nullptr};
   std::unique_ptr<SrsAudioTranscoder> codec_;
   bool is_first_audio_{true};
-
-  int64_t video_begin_ts_{-1};
-  int64_t audio_begin_ts_{-1};
+  bool is_first_keyframe_{false};
 
   std::unique_ptr<SrsFileWriter> video_writer_;
   bool debug_{false};

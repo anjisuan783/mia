@@ -17,7 +17,7 @@ struct MessageHeader {
   // 3bytes.
   // Three-byte field that contains a timestamp delta of the message.
   // @remark, only used for decoding message from chunk stream.
-  int32_t timestamp_delta{0};
+  //int32_t timestamp_delta{0};
 
   // 3bytes.
   // Three-byte field that represents the size of the payload in bytes.
@@ -49,8 +49,8 @@ struct MessageHeader {
   bool is_audio();
   bool is_video();
 
-  void initialize_audio(int size, uint32_t time, int stream);
-  void initialize_video(int size, uint32_t time, int stream);
+  void initialize_audio(int size, int64_t time, int stream);
+  void initialize_video(int size, int64_t time, int stream);
 };
 
 class MediaMessage final {

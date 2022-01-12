@@ -132,27 +132,27 @@ struct Frame {
 };
 
 inline bool isAudioFrame(const Frame& frame) {
-  return frame.format == FRAME_FORMAT_PCM_48000_2
+  return frame.format == FRAME_FORMAT_OPUS
+      || frame.format == FRAME_FORMAT_AAC
+      || frame.format == FRAME_FORMAT_AAC_48000_2
+      || frame.format == FRAME_FORMAT_PCM_48000_2
       || frame.format == FRAME_FORMAT_PCMU
       || frame.format == FRAME_FORMAT_PCMA
-      || frame.format == FRAME_FORMAT_OPUS
       || frame.format == FRAME_FORMAT_ISAC16
       || frame.format == FRAME_FORMAT_ISAC32
       || frame.format == FRAME_FORMAT_ILBC
       || frame.format == FRAME_FORMAT_G722_16000_1
       || frame.format == FRAME_FORMAT_G722_16000_2
-      || frame.format == FRAME_FORMAT_AAC
-      || frame.format == FRAME_FORMAT_AAC_48000_2
       || frame.format == FRAME_FORMAT_AC3
       || frame.format == FRAME_FORMAT_NELLYMOSER;
 }
 
 inline bool isVideoFrame(const Frame& frame) {
-  return frame.format == FRAME_FORMAT_I420
+  return frame.format == FRAME_FORMAT_H264
+      || frame.format == FRAME_FORMAT_I420
       || frame.format == FRAME_FORMAT_MSDK
       || frame.format == FRAME_FORMAT_VP8
       || frame.format == FRAME_FORMAT_VP9
-      || frame.format == FRAME_FORMAT_H264
       || frame.format == FRAME_FORMAT_H265;
 }
 

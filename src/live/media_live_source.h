@@ -25,6 +25,7 @@ namespace ma {
 class MediaMessage;
 class SrsGopCache;
 class MediaMetaCache;
+class SrsMixQueue;
 
 // live streaming source.
 class MediaLiveSource final : 
@@ -67,12 +68,11 @@ class MediaLiveSource final :
   void on_video_async(std::shared_ptr<MediaMessage> shared_video);
   
  private:
-  std::mutex consumer_lock_;
+  wa::Worker* worker_;
   
+  std::mutex consumer_lock_;
   std::list<std::weak_ptr<MediaConsumer>> consumers_; 
 
-  // whether stream is monotonically increase.
-  bool is_monotonically_increase_{false};
   // The time of the packet we just got.
   int64_t last_packet_time_{0};
 
@@ -87,10 +87,14 @@ class MediaLiveSource final :
   // The metadata cache.
   std::unique_ptr<MediaMetaCache> meta_;
 
-  wa::Worker* worker_;
-
   int last_width_{0};
   int last_height_{0};
+
+  // whether stream is monotonically increase.
+  bool is_monotonically_increase_{false};
+  bool mix_correct_{false};
+  // The mix queue to implements the mix correct algorithm.
+  std::unique_ptr<SrsMixQueue> mix_queue_;
   
   webrtc::SequenceChecker thread_check_;
 };
