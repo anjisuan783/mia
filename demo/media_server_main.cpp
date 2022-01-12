@@ -121,13 +121,18 @@ int main(int argc, char* argv[]) {
           if (config_setting_lookup_int(sub_item, "algo", &i1)) {
             _config.jitter_algo_ = (ma::JitterAlgorithm)i1;
           }
+
+          if (config_setting_lookup_string(sub_item, "mix_correct", &s1)) {
+            _config.mix_correct_ = (std::string(s1) == "on");
+          }
           
-          MIA_LOG("gop:%s flv:%s worker:%d ioworker:%d len:%d al:%d", 
+          MIA_LOG("gop:%s flv:%s worker:%d ioworker:%d len:%d al:%d correct:%s", 
                   _config.enable_gop_?"on":"off", 
                   _config.flv_record_?"on":"off",
                   _config.workers_, _config.ioworkers_, 
-                  _config.consumer_queue_size_, 
-                  (int)_config.jitter_algo_);
+                  _config.consumer_queue_size_,
+                  (int)_config.jitter_algo_,
+                  _config.mix_correct_?"on":"off");
           continue;
         } 
 

@@ -18,9 +18,88 @@
 
 namespace ma {
 
+//
+// Copyright (c) 2013-2021 Winlin
+//
+// SPDX-License-Identifier: MIT
+//
+// The mix queue to correct the timestamp for mix_correct algorithm.
+class SrsMixQueue {
+ public:
+  ~SrsMixQueue();
+
+  void clear();
+  void push(std::shared_ptr<MediaMessage> msg);
+  std::optional<std::shared_ptr<MediaMessage>> pop();
+ private:
+  int nb_videos_{0};
+  int nb_audios_{0};
+  std::multimap<int64_t, std::shared_ptr<MediaMessage>> msgs_;
+};
+
+constexpr int SRS_MIX_CORRECT_PURE_AV = 10;
+
+SrsMixQueue::~SrsMixQueue() {
+  clear();
+}
+
+void SrsMixQueue::clear() {
+  msgs_.clear();
+  nb_videos_ = 0;
+  nb_audios_ = 0;
+}
+
+void SrsMixQueue::push(std::shared_ptr<MediaMessage> msg) {
+  if (msg->is_video()) {
+    nb_videos_++;
+  } else {
+    nb_audios_++;
+  }
+  msgs_.emplace(msg->timestamp_, std::move(msg));
+}
+
+std::optional<std::shared_ptr<MediaMessage>> SrsMixQueue::pop() {
+  bool mix_ok = false;
+  
+  // pure video
+  if (nb_videos_ >= SRS_MIX_CORRECT_PURE_AV && nb_audios_ == 0) {
+    mix_ok = true;
+  }
+  
+  // pure audio
+  if (nb_audios_ >= SRS_MIX_CORRECT_PURE_AV && nb_videos_ == 0) {
+    mix_ok = true;
+  }
+  
+  // got 1 video and 1 audio, mix ok.
+  if (nb_videos_ >= 1 && nb_audios_ >= 1) {
+    mix_ok = true;
+  }
+  
+  if (!mix_ok) {
+    return std::nullopt;
+  }
+  
+  // pop the first msg.
+  auto msg = std::move(msgs_.begin()->second);
+  msgs_.erase(msgs_.begin());
+  
+  if (msg->is_video()) {
+    nb_videos_--;
+  } else {
+    nb_audios_--;
+  }
+  
+  return std::move(msg);
+}
+
+///////////////////////////////////////////////////////////////////////////
+//MediaLiveSource
+///////////////////////////////////////////////////////////////////////////
 MDEFINE_LOGGER(MediaLiveSource, "MediaLiveSource");
 
-MediaLiveSource::MediaLiveSource() {
+MediaLiveSource::MediaLiveSource()
+    : mix_queue_{new SrsMixQueue} {
   thread_check_.Detach();
   MLOG_TRACE_THIS("");
 }
@@ -34,6 +113,7 @@ bool MediaLiveSource::Initialize(wa::Worker* worker,
   worker_ = worker;
   enable_gop_ = gop;
   jitter_algorithm_ = algorithm;
+  mix_correct_ = g_server_.config_.mix_correct_;
   MLOG_INFO("gop:" << (enable_gop_?"enable":"disable") <<
             ", algorithm:" << jitter_algorithm_);
   return true;
@@ -45,6 +125,8 @@ void MediaLiveSource::OnPublish() {
     MLOG_CERROR("wrong publish status, active");
     return;
   }
+  mix_queue_->clear();
+  
   is_monotonically_increase_ = true;
   active_ = true;
 
@@ -162,17 +244,33 @@ srs_error_t MediaLiveSource::OnAudio(
   }
 
   // monotically increase detect.
-  if (is_monotonically_increase_) {
+  if (!mix_correct_ && is_monotonically_increase_) {
     if (last_packet_time_ > 0 && shared_audio->timestamp_ < last_packet_time_) {
-      //is_monotonically_increase_ = false;
-      MLOG_WARN("AUDIO: stream not monotonically increase, TODO(mix_correct).");
+      is_monotonically_increase_ = false;
+      MLOG_WARN("audio: stream not monotonically increase diff:" <<
+          last_packet_time_ - shared_audio->timestamp_);
     }
   }
   last_packet_time_ = shared_audio->timestamp_;
 
-  async_task([shared_audio, this](std::shared_ptr<MediaLiveSource> p) {
-    p->on_audio_async(shared_audio);
-  });
+  std::optional<std::shared_ptr<MediaMessage>> fix_msg;
+  if (mix_correct_) {
+    // insert msg to the queue.
+    mix_queue_->push(std::move(shared_audio));
+
+    // fetch someone from mix queue.
+    fix_msg = mix_queue_->pop();
+    if (!fix_msg) {
+      return err;
+    }
+  } else {
+    fix_msg = std::move(shared_audio);
+  }
+  
+  async_task([audio_msg = std::move(*fix_msg), this] (
+      std::shared_ptr<MediaLiveSource> p) {
+        p->on_audio_async(audio_msg);
+      });
 
   return err;
 }
@@ -270,10 +368,11 @@ srs_error_t MediaLiveSource::OnVideo(
   }
 
   // monotically increase detect.
-  if (is_monotonically_increase_) {
+  if (!mix_correct_ && is_monotonically_increase_) {
     if (last_packet_time_ > 0 && shared_video->timestamp_ < last_packet_time_) {
       is_monotonically_increase_ = false;
-      MLOG_WARN("VIDEO: stream not monotonically increase, TODO(mix_correct)");
+      MLOG_WARN("VIDEO: stream not monotonically increase. idff:" <<
+          last_packet_time_ - shared_video->timestamp_);
     }
   }
   last_packet_time_ = shared_video->timestamp_;
@@ -291,9 +390,25 @@ srs_error_t MediaLiveSource::OnVideo(
     return err;
   }
 
-  async_task([shared_video, this](std::shared_ptr<MediaLiveSource> p) {
-    p->on_video_async(shared_video);
-  });
+  std::optional<std::shared_ptr<MediaMessage>> fix_msg;
+
+  if (mix_correct_) {
+    // insert msg to the queue.
+    mix_queue_->push(std::move(shared_video));
+
+    // fetch someone from mix queue.
+    fix_msg = mix_queue_->pop();
+    if (!fix_msg) {
+      return err;
+    }
+  } else {
+    fix_msg = std::move(shared_video);
+  }
+
+  async_task([video_msg = std::move(*fix_msg), this] (
+      std::shared_ptr<MediaLiveSource> p) {
+         p->on_video_async(video_msg);
+      });
 
   return err;
 }

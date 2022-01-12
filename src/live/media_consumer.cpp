@@ -180,7 +180,6 @@ void MediaConsumer::MediaJitter::correct(
     return ;
   }
 
-  assert(false);
   // full jitter algorithm, do jitter correct.
   // set to 0 for metadata.
   if (!msg->is_av()) {

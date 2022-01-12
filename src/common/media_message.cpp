@@ -6,22 +6,22 @@ namespace ma {
 
 MDEFINE_LOGGER(MediaMessage, "MediaMessage");
 
-void MessageHeader::initialize_audio(int size, uint32_t time, int stream) {
+void MessageHeader::initialize_audio(int size, int64_t time, int stream) {
   message_type = RTMP_MSG_AudioMessage;
   payload_length = (int32_t)size;
-  timestamp_delta = (int32_t)time;
-  timestamp = (int64_t)time;
+  //timestamp_delta = (int32_t)time;
+  timestamp = time;
   stream_id = (int32_t)stream;
   
   // audio chunk-id
   perfer_cid = RTMP_CID_Audio;
 }
 
-void MessageHeader::initialize_video(int size, uint32_t time, int stream) {
+void MessageHeader::initialize_video(int size, int64_t time, int stream) {
   message_type = RTMP_MSG_VideoMessage;
   payload_length = (int32_t)size;
-  timestamp_delta = (int32_t)time;
-  timestamp = (int64_t)time;
+  //timestamp_delta = (int32_t)time;
+  timestamp = time;
   stream_id = (int32_t)stream;
   
   // video chunk-id
