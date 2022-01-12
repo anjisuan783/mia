@@ -167,8 +167,9 @@ int main(int argc, char* argv[]) {
             _config.https_crt = s1;
           }
           std::string addrs;
-          for(x :  _config.listen_addr_) {
+          for(const auto& x :  _config.listen_addr_) {
             addrs.append(x);
+            addrs.append(" ");
           }
           MIA_LOG("addrs:%s key:%s cert:%s", 
                   addrs.c_str(), 

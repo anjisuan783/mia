@@ -90,7 +90,6 @@ int32_t VideoReceiveAdapterImpl::AdapterDecoder::Decode(
   frame.additionalInfo.video.height = height_;
   frame.additionalInfo.video.isKeyFrame = 
       (encodedImage._frameType == webrtc::VideoFrameType::kVideoFrameKey);
-
   if (parent_) {
     if (parent_->frameListener_) {
       parent_->frameListener_->onAdapterFrame(frame);
