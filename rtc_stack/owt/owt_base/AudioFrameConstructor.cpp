@@ -102,20 +102,13 @@ int AudioFrameConstructor::deliverAudioData_(
     return 0;
   }
 
-  // support audio transport-cc, 
-  // see @https://github.com/anjisuan783/media_lib/issues/8
+  erizo::RtcpHeader* chead = 
+      reinterpret_cast<erizo::RtcpHeader*>(audio_packet->data);
 
-  RTCPHeader* chead = reinterpret_cast<RTCPHeader*>(audio_packet->data);
-  uint8_t packetType = chead->getPacketType();
-  assert(packetType != RTCP_Receiver_PT && 
-         packetType != RTCP_PS_Feedback_PT && 
-         packetType != RTCP_RTP_Feedback_PT);
+  if (chead->isRtcp()) {
+    if (chead->getPacketType() == RTCP_Sender_PT)
+      onSr(chead);
 
-  if (packetType == RTCP_Sender_PT) {
-    onSr((erizo::RtcpHeader*)chead);
-  }
- 
-  if (packetType >= RTCP_MIN_PT && packetType <= RTCP_MAX_PT) {
     if (audioReceive_)
       audioReceive_->onRtpData(audio_packet->data, audio_packet->length);
     return audio_packet->length;
@@ -126,6 +119,8 @@ int AudioFrameConstructor::deliverAudioData_(
     createAudioReceiver();
   }
 
+  // support audio twcc, 
+  // see @https://github.com/anjisuan783/mia/issues/8
   if (audioReceive_)
     audioReceive_->onRtpData(audio_packet->data, audio_packet->length);
 
