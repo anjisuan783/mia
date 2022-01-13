@@ -13,10 +13,10 @@
 #include "wa/sdp_processor.h"
 #include "wa/helper.h"
 
-static std::string chrome_sdp{"../../../src/test/data/chrome_91.sdp"};
-static std::string chrome_sdp88{"../../../src/test/data/chrome_88.sdp"};
-static std::string chrome_answer{"../../../src/test/data/answer.sdp"};
-static std::string firefox_sdp{"../../../src/test/data/Firefox.sdp"};
+static std::string chrome_sdp{"../../../rtc_stack/test/data/chrome_91.sdp"};
+static std::string chrome_sdp88{"../../../rtc_stack/test/data/chrome_88.sdp"};
+static std::string chrome_answer{"../../../rtc_stack/test/data/answer.sdp"};
+static std::string firefox_sdp{"../../../rtc_stack/test/data/Firefox.sdp"};
 
 //common
 TEST(WaSdpInfo, init_failed) {
@@ -39,7 +39,6 @@ TEST(WaSdpInfo, chrome_init_88) {
     sdp = wa::wa_string_replace(sdp, "\\r\\n", "\r\n");
     try{
       result = sdpinfo.init(sdp);
-      std::cout << "sdpinfo.init_88 succeed." << std::endl;
     }catch(std::exception& ex){
       result = wa::wa_e_parse_offer_failed;
       std::cout << "exception catched :" << ex.what() << std::endl;
@@ -1072,7 +1071,7 @@ void filterVideoPayload_firefox(wa::WaSdpInfo& sdpinfo) {
   
   pre.profile_ = "42e01f";
   int result = sdpinfo.filterMediaPayload("1", pre);
-  ASSERT_EQ(result, 127);
+  ASSERT_EQ(result, 126);
 
   sdpinfo.filterByPayload("1", result, true, true, true);
 
@@ -1092,7 +1091,7 @@ void filterPayload_firefox_audio_crash(wa::WaSdpInfo& sdpinfo) {
 
   int32_t pt = sdpinfo.filterMediaPayload("0", pre);
 
-  EXPECT_TRUE(pt == 120);
+  EXPECT_EQ(pt, 109);
   bool ret = sdpinfo.filterByPayload("0", pt, true, false, true);
   EXPECT_TRUE(ret);
   //for (auto& i : sdpinfo.media_descs_[1].rtp_maps_) {
@@ -1124,6 +1123,7 @@ TEST(WaSdpInfo, firefox_answer) {
   ASSERT_EQ(result, wa::wa_ok);
 
   std::unique_ptr<wa::WaSdpInfo> answer(sdpinfo.answer());
+  EXPECT_EQ(answer->session_name_, "mia/0.1");
   EXPECT_EQ(answer->session_info_.setup_, "passive");
 
   filterVideoPayload_firefox(*answer.get());

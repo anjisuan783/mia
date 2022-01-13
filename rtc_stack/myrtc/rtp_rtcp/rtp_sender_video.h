@@ -16,6 +16,7 @@
 #include <vector>
 #include <string_view>
 #include <optional>
+
 #include "rtc_base/array_view.h"
 #include "api/video_codec_type.h"
 #include "api/video_frame_type.h"
@@ -28,9 +29,7 @@
 #include "rtp_rtcp/rtp_sequence_number_map.h"
 #include "rtp_rtcp/rtp_video_header.h"
 #include "rtp_rtcp/ulpfec_generator.h"
-#include "rtc_base/critical_section.h"
 #include "rtc_base/one_time_event.h"
-#include "rtc_base/race_checker.h"
 #include "rtc_base/rate_statistics.h"
 #include "rtc_base/sequence_checker.h"
 #include "rtc_base/thread_annotations.h"
@@ -144,13 +143,12 @@ class RTPSenderVideo {
     int64_t last_frame_time_ms;
   };
 
-  size_t FecPacketOverhead() const RTC_EXCLUSIVE_LOCKS_REQUIRED(send_checker_);
+  size_t FecPacketOverhead() const;
 
   void AppendAsRedMaybeWithUlpfec(
       std::unique_ptr<RtpPacketToSend> media_packet,
       bool protect_media_packet,
-      std::vector<std::unique_ptr<RtpPacketToSend>>* packets)
-      RTC_EXCLUSIVE_LOCKS_REQUIRED(send_checker_);
+      std::vector<std::unique_ptr<RtpPacketToSend>>* packets);
 
   // TODO(brandtr): Remove the FlexFEC functions when FlexfecSender has been
   // moved to PacedSender.
@@ -168,58 +166,48 @@ class RTPSenderVideo {
   bool flexfec_enabled() const { return flexfec_sender_ != nullptr; }
 
   bool UpdateConditionalRetransmit(uint8_t temporal_id,
-                                   int64_t expected_retransmission_time_ms)
-      RTC_EXCLUSIVE_LOCKS_REQUIRED(stats_crit_);
+                                   int64_t expected_retransmission_time_ms);
 
   RTPSender* const rtp_sender_;
   Clock* const clock_;
 
   const int32_t retransmission_settings_;
 
-  // These members should only be accessed from within SendVideo() to avoid
-  // potential race conditions.
-  rtc::RaceChecker send_checker_;
-  VideoRotation last_rotation_ RTC_GUARDED_BY(send_checker_);
-  std::optional<ColorSpace> last_color_space_ RTC_GUARDED_BY(send_checker_);
-  bool transmit_color_space_next_frame_ RTC_GUARDED_BY(send_checker_);
+  VideoRotation last_rotation_;
+  std::optional<ColorSpace> last_color_space_;
+  bool transmit_color_space_next_frame_;
 
   // Tracks the current request for playout delay limits from application
   // and decides whether the current RTP frame should include the playout
   // delay extension on header.
   PlayoutDelayOracle* const playout_delay_oracle_;
 
-  // Should never be held when calling out of this class.
-  rtc::CriticalSection crit_;
-
   // Maps sent packets' sequence numbers to a tuple consisting of:
   // 1. The timestamp, without the randomizing offset mandated by the RFC.
   // 2. Whether the packet was the first in its frame.
   // 3. Whether the packet was the last in its frame.
-  const std::unique_ptr<RtpSequenceNumberMap> rtp_sequence_number_map_
-      RTC_PT_GUARDED_BY(crit_);
+  const std::unique_ptr<RtpSequenceNumberMap> rtp_sequence_number_map_;
 
   // RED/ULPFEC.
   const std::optional<int> red_payload_type_;
   const std::optional<int> ulpfec_payload_type_;
-  UlpfecGenerator ulpfec_generator_ RTC_GUARDED_BY(send_checker_);
+  UlpfecGenerator ulpfec_generator_;
 
   // FlexFEC.
   FlexfecSender* const flexfec_sender_;
 
   // FEC parameters, applicable to either ULPFEC or FlexFEC.
-  FecProtectionParams delta_fec_params_ RTC_GUARDED_BY(crit_);
-  FecProtectionParams key_fec_params_ RTC_GUARDED_BY(crit_);
+  FecProtectionParams delta_fec_params_;
+  FecProtectionParams key_fec_params_;
 
-  rtc::CriticalSection stats_crit_;
   // Bitrate used for FEC payload, RED headers, RTP headers for FEC packets
   // and any padding overhead.
-  RateStatistics fec_bitrate_ RTC_GUARDED_BY(stats_crit_);
+  RateStatistics fec_bitrate_;
   // Bitrate used for video payload and RTP headers.
-  RateStatistics video_bitrate_ RTC_GUARDED_BY(stats_crit_);
-  RateStatistics packetization_overhead_bitrate_ RTC_GUARDED_BY(stats_crit_);
+  RateStatistics video_bitrate_;
+  RateStatistics packetization_overhead_bitrate_;
 
-  std::map<int, TemporalLayerStats> frame_stats_by_temporal_layer_
-      RTC_GUARDED_BY(stats_crit_);
+  std::map<int, TemporalLayerStats> frame_stats_by_temporal_layer_;
 
   OneTimeEvent first_frame_sent_;
 

@@ -616,7 +616,7 @@ void WebRtcConnection::maybeNotifyWebRtcConnectionEvent(
   conn_event_listener_->notifyEvent(event, message, stream_id);
 }
 
-void WebRtcConnection::updateState(TransportState state, Transport * transport)  {
+void WebRtcConnection::updateState(TransportState state, Transport* transport)  {
   WebRTCEvent temp = global_state_;
   std::string msg = "";
   ELOG_TRACE("%s transportName: %s, new_state: %d", toLog(), transport->transport_name.c_str(), state);
@@ -694,9 +694,14 @@ void WebRtcConnection::updateState(TransportState state, Transport * transport) 
     case TRANSPORT_FAILED:
       temp = CONN_FAILED;
       sending_ = false;
-      msg = remote_sdp_->getSdp();
-      ELOG_ERROR("%s message: Transport Failed, transportType: %s", 
-          toLog(), transport->transport_name.c_str() );
+      // TODO error description
+      char buf[256];
+      snprintf(buf, 256, 
+          "%s message: Transport Failed, transportType:%s, code:%d", 
+          toLog().c_str(), 
+          transport->transport_name.c_str(), 
+          transport->getErrorCode());
+      msg = buf;
       break;
     default:
       ELOG_WARN("%s message: Doing nothing on state, state %d", toLog(), state);

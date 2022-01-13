@@ -8,7 +8,7 @@
 
 #include <atomic>
 
-#include "./wa_log.h"
+#include "wa_log.h"
 #include "media_config.h"
 #include "h/rtc_return_value.h"
 #include "sdp_processor.h"
@@ -21,7 +21,7 @@ static log4cxx::LoggerPtr logger = log4cxx::Logger::getLogger("wa.pc");
 WrtcAgentPc::WebrtcTrack::WebrtcTrack(const std::string& mid, 
                                       WrtcAgentPc* pc, 
                                       bool isPublish, 
-                                      const media_setting& setting,
+                                      const MediaSetting& setting,
                                       erizo::MediaStream* ms,
                                       int32_t request_kframe_s)
   : pc_(pc), mid_(mid), request_kframe_period_(request_kframe_s) {
@@ -384,7 +384,6 @@ void WrtcAgentPc::processSendAnswer(const std::string& streamId,
       WaSdpInfo tempSdp(sdpMsg);
 
       if (!tempSdp.empty()) {
-        local_sdp_->session_name_ = "wa/0.1(anjisuan783@sina.com)";
         local_sdp_->setCredentials(tempSdp);
         local_sdp_->setCandidates(tempSdp); 
         local_sdp_->ice_lite_ = true;
@@ -489,18 +488,24 @@ srs_error_t WrtcAgentPc::processOfferMedia(MediaDesc& media) {
   auto found = operation_map_.find(media.mid_);
   if (found == operation_map_.end()) {
     media.port_ = 0;
-    return srs_error_new(wa_e_found, "%s has mapped operation %s", 
-        media.mid_.c_str(), found->second.operation_id_.c_str());
+    return srs_error_new(wa_e_found, "mid[%s]:%s has mapped operation", 
+        media.mid_.c_str(), media.type_.c_str());
   }
 
   const std::string& mid = media.mid_;
   operation& op = found->second;
+
+  // process ambiguous direction
+  if (media.direction_ == "sendrecv") {
+    media.direction_ = op.sdp_direction_;
+  }
   
   if (op.sdp_direction_ != media.direction_) {
-    return srs_error_new(wa_failed, 
-        "mid[%s] in offer has conflict direction with opid[%s],opd[%s]!=md[%s]", 
-        mid.c_str(), op.operation_id_.c_str(), op.sdp_direction_.c_str(), 
-        media.direction_.c_str());
+    return srs_error_new(wa_failed,
+        "mid[%s]:%s in offer has conflict direction with "
+        "opid[%s],opd[%s]!=md[%s]", 
+        mid.c_str(), media.type_.c_str(), 
+        op.operation_id_.c_str(), op.sdp_direction_.c_str(), media.direction_.c_str());
   }
 
   std::string media_type{"unknow"};
@@ -539,23 +544,19 @@ srs_error_t WrtcAgentPc::setupTransport(MediaDesc& media) {
   auto& rids = media.rids_;
   std::string direction = 
       (opSettings.sdp_direction_ == "sendonly") ? "in" : "out";
-  media_setting trackSetting = media.get_media_settings();
-  
-  //if (opSettings.final_format_) {
-  //  trackSetting.format = opSettings.final_format_;
-  //}
+  MediaSetting trackSetting = media.getMediaSettings();
 
-  if(rids.empty()) {
+  if (rids.empty()) {
     // No simulcast    
     auto track_found = track_map_.find(media.mid_);
-    if(track_found == track_map_.end()){
+    if (track_found == track_map_.end()) {
       WebrtcTrack* track = addTrack(media.mid_, 
                                     trackSetting, 
                                     (direction=="in"?true:false), 
                                     opSettings.request_keyframe_second_);
      
       uint32_t ssrc = track->ssrc(trackSetting.is_audio);
-      if(ssrc){
+      if (ssrc) {
         ELOG_INFO("%s, Add ssrc %u to %s in SDP for %s", 
                   id_.c_str(), ssrc, media.mid_.c_str(), id_.c_str());
         
@@ -582,31 +583,7 @@ srs_error_t WrtcAgentPc::setupTransport(MediaDesc& media) {
                              media.mid_.c_str(), id_.c_str());
     }
   } else {
-#if 0
-    // Simulcast
-    rids.forEach((rid, index) => {
-      const trackId = composeId(mid, rid);        
-      if (simSsrcs) {
-        // Assign ssrcs for legacy simulcast
-        trackSettings[mediaType].ssrc = simSsrcs[index];
-      }
-
-      if (!trackMap.has(trackId)) {
-        trackMap.set(trackId, new WrtcStream(trackId, wrtc, direction, trackSettings));
-        wrtc.setRemoteSdp(remoteSdp.singleMediaSdp(mid).toString(), trackId);
-        // Notify new track
-        on_track({
-          type: 'track-added',
-          track: trackMap.get(trackId),
-          operationId: opSettings.operationId,
-          mid: mid,
-          rid: rid
-        });
-      } else {
-        log.warn(`Conflict trackId ${trackId} for ${wrtcId}`);
-      }
-    });
-#endif
+    // TODO implement Simulcast
   }
 
   return result;
@@ -679,9 +656,9 @@ void WrtcAgentPc::subscribe_i(
 }
 
 WrtcAgentPc::WebrtcTrack* WrtcAgentPc::addTrack(
-    const std::string& mid, const media_setting& trackSetting, 
+    const std::string& mid, const MediaSetting& trackSetting, 
     bool isPublish, int32_t kframe_s) {
-  OLOG_TRACE_THIS(id_ << "," << (isPublish?"push": "sub") << 
+  OLOG_TRACE_THIS(id_ << "," << (isPublish?"push": "play") << 
                   ", mediaStreamId:" << mid);
   WebrtcTrack* result = nullptr;
 

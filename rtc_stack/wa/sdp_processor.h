@@ -22,7 +22,7 @@ namespace wa {
 
 struct FormatPreference;
 
-struct media_setting {
+struct MediaSetting {
   bool is_audio{false};
   int32_t format;
   std::vector<uint32_t> ssrcs;
@@ -118,11 +118,11 @@ class MediaDesc {
   
   void encode(JSON_TYPE&);
   
-  inline bool is_audio() const { return type_ == "audio"; }
+  inline bool isAudio() const { return type_ == "audio"; }
   
-  inline bool is_video() const { return type_ == "video"; }
+  inline bool isVideo() const { return type_ == "video"; }
   
-  media_setting get_media_settings();
+  MediaSetting getMediaSettings();
   
   int32_t filterMediaPayload(const FormatPreference& option);
   
@@ -133,19 +133,21 @@ class MediaDesc {
   
   void filterExtmap();
  private:
-  void parse_candidates(const JSON_TYPE& media);
+  void parseCandidates(const JSON_TYPE& media);
 
-  void parse_rtcp_fb(const JSON_TYPE& media);
+  void parseRtcpfb(const JSON_TYPE& media);
   
-  void parse_fmtp(const JSON_TYPE& media);
+  void parseFmtp(const JSON_TYPE& media);
 
-  void parse_ssrc_info(const JSON_TYPE& media);
+  void parseSsrcInfo(const JSON_TYPE& media);
 
-  SSRCInfo& fetch_or_create_ssrc_info(uint32_t ssrc);
+  SSRCInfo& fetchOrCreateSsrcInfo(uint32_t ssrc);
   
-  rtpmap* find_rtpmap_with_payload_type(int payload_type);
+  rtpmap* findRtpmapWithPayloadType(int payload_type);
 
-  void parse_ssrc_group(const JSON_TYPE& media);
+  void parseSsrcGroup(const JSON_TYPE& media);
+
+  void buildSettingFromExtmap(MediaSetting& settings);
 
  public:
   std::string type_;
@@ -199,6 +201,9 @@ class MediaDesc {
   bool disable_audio_gcc_{false};
 };
 
+/*
+ *  Unified plan only
+ */
 class WaSdpInfo {
  public:
   WaSdpInfo();
@@ -207,7 +212,9 @@ class WaSdpInfo {
 
   int init(const std::string& sdp);
 
-  bool empty() { return media_descs_.empty(); }
+  inline bool empty() { 
+    return media_descs_.empty(); 
+  }
 
   void media() {}
 
@@ -240,7 +247,7 @@ class WaSdpInfo {
 
   void setCandidates(const WaSdpInfo&);
   
-  media_setting get_media_settings(const std::string& mid);
+  MediaSetting getMediaSettings(const std::string& mid);
 
   void mergeMedia() {}
   

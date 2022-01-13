@@ -234,7 +234,7 @@ void VideoSendAdapterImpl::onFrame(const Frame& frame) {
     }
     
     // Recalculate timestamp offset
-    const uint32_t kMsToRtpTimestamp = 90;
+    static constexpr uint32_t kMsToRtpTimestamp = 90;
     timeStampOffset_ = 
         kMsToRtpTimestamp * m_clock->TimeInMilliseconds() - frame.timeStamp;
     keyFrameArrived_ = true;
@@ -265,12 +265,7 @@ void VideoSendAdapterImpl::onFrame(const Frame& frame) {
     dump(this, frame.format, frame.payload, frame_length);
   }
 
-  /*FIXME: temporarily filter out AUD because chrome M59 could NOT handle it correctly.
-    FIXME: temporarily filter out SEI because safari could NOT handle it correctly.
-  if (frame.format == FRAME_FORMAT_H264) {
-    frame_length = dropAUDandSEI(frame.payload, frame_length);
-  }
-  */
+  h.codec = webrtc::VideoCodecType::kVideoCodecH264;
   
   int nalu_found_length = 0;
   uint8_t* buffer_start = frame.payload;
@@ -279,26 +274,26 @@ void VideoSendAdapterImpl::onFrame(const Frame& frame) {
   int nalu_end_offset = 0;
   int sc_len = 0;
   RTPFragmentationHeader frag_info;
-
-  h.codec = webrtc::VideoCodecType::kVideoCodecH264;
+  
   while (buffer_length > 0) {
     nalu_found_length = findNALU(buffer_start,
                                  buffer_length,
                                  &nalu_start_offset,
                                  &nalu_end_offset,
                                  &sc_len);
-    if (nalu_found_length < 0) {
-      /* Error, should never happen */
-      assert(false);
-      break;
-    } else {
+    if (nalu_found_length >= 0) {
       /* SPS, PPS, I, P*/
       uint16_t last = frag_info.fragmentationVectorSize;
       frag_info.VerifyAndAllocateFragmentationHeader(last + 1);
-      frag_info.fragmentationOffset[last] = nalu_start_offset + (buffer_start - frame.payload);
+      frag_info.fragmentationOffset[last] = 
+          nalu_start_offset + (buffer_start - frame.payload);
       frag_info.fragmentationLength[last] = nalu_found_length;
       buffer_start += (nalu_start_offset + nalu_found_length);
       buffer_length -= (nalu_start_offset + nalu_found_length);
+    } else {
+      /* Error, should never happen */
+      assert(false);
+      break;
     }
   }
 
@@ -335,20 +330,15 @@ bool VideoSendAdapterImpl::SendRtp(
 }
 
 bool VideoSendAdapterImpl::SendRtcp(const uint8_t* data, size_t length) {
-  //const RTCPHeader* chead = reinterpret_cast<const RTCPHeader*>(data);
-  //uint8_t packetType = chead->getPacketType();
-  //if (packetType == RTCP_Sender_PT) {
-    if (dataListener_) {
-      dataListener_->onAdapterData(
-          reinterpret_cast<char*>(const_cast<uint8_t*>(data)), length);
-      return true;
-    }
-  //}
+  if (dataListener_) {
+    dataListener_->onAdapterData(
+        reinterpret_cast<char*>(const_cast<uint8_t*>(data)), length);
+    return true;
+  }
   return false;
 }
 
 void VideoSendAdapterImpl::OnReceivedIntraFrameRequest(uint32_t ssrc) {
-  RTC_DLOG(LS_INFO) << "onReceivedIntraFrameRequest.";
   if (feedbackListener_) {
     FeedbackMsg feedback = {.type = VIDEO_FEEDBACK, .cmd = REQUEST_KEY_FRAME };
     feedbackListener_->onFeedback(feedback);

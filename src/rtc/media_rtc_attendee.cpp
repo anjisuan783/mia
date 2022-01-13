@@ -20,40 +20,43 @@
 namespace ma {
 
 namespace {
+
+// one m=audio, one m=video sdp 
+// unified plan only
 void FillTrack(const std::string& sdp, std::vector<wa::TTrackInfo>& tracks) {
   size_t found = 0;
-  do {
-    found = sdp.find("m=audio", found);
-    if (found != std::string::npos) {
-      found = sdp.find("a=mid:", found);
-      if (found != std::string::npos) {
-        wa::TTrackInfo track;
-        found += 6;
-        size_t found_end = sdp.find("\r\n", found);
-        track.mid_ = sdp.substr(found, found_end-found);
-        track.type_ = wa::media_audio;
-        track.preference_.format_ = wa::EFormatPreference::p_opus;
-        tracks.emplace_back(track);
-      }
-    }
 
-    found = sdp.find("m=video", found);
+  found = sdp.find("m=audio", found);
+  if (found != std::string::npos) {
+    found = sdp.find("a=mid:", found);
     if (found != std::string::npos) {
-      found = sdp.find("a=mid:", found);
-      if (found != std::string::npos) {
-        found += 6;
-        size_t found_end = sdp.find("\r\n", found);
-        wa::TTrackInfo track;
-        track.mid_ = sdp.substr(found, found_end-found);
-        track.type_ = wa::media_video;
-        track.preference_.format_ = wa::EFormatPreference::p_h264;
-        track.preference_.profile_ = "42e01f";
-        track.request_keyframe_period_ = 
-            g_server_.config_.request_keyframe_interval;
-        tracks.emplace_back(track);
-      }
+      wa::TTrackInfo track;
+      found += 6;
+      size_t found_end = sdp.find("\r\n", found);
+      track.mid_ = sdp.substr(found, found_end-found);
+      track.type_ = wa::media_audio;
+      track.preference_.format_ = wa::EFormatPreference::p_opus;
+      tracks.emplace_back(track);
     }
-  } while(found != std::string::npos);
+  }
+
+  found = 0;
+  found = sdp.find("m=video", found);
+  if (found != std::string::npos) {
+    found = sdp.find("a=mid:", found);
+    if (found != std::string::npos) {
+      found += 6;
+      size_t found_end = sdp.find("\r\n", found);
+      wa::TTrackInfo track;
+      track.mid_ = sdp.substr(found, found_end-found);
+      track.type_ = wa::media_video;
+      track.preference_.format_ = wa::EFormatPreference::p_h264;
+      track.preference_.profile_ = "42e01f";
+      track.request_keyframe_period_ = 
+          g_server_.config_.request_keyframe_interval;
+      tracks.emplace_back(track);
+    }
+  }
 }
 
 } //namespace
@@ -64,8 +67,6 @@ static log4cxx::LoggerPtr logger =
 //MediaRtcAttendeeBase
 srs_error_t MediaRtcAttendeeBase::Responese(int code, const std::string& sdp) {
   srs_error_t err = srs_success;
-
-  MLOG_DEBUG(sdp);
   writer_->header()->set("Connection", "Close");
 
   json::Object jroot;
@@ -119,6 +120,7 @@ srs_error_t MediaRtcPublisher::Open(
   t.connectId_ = pc_id_;
   t.stream_name_ = stream_id;
 
+  // TODO parse sdp here
   FillTrack(sdp, t.tracks_);
 
   t.call_back_ = shared_from_this();

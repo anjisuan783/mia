@@ -1,3 +1,9 @@
+//
+// Copyright (c) 2021- anjisuan783
+//
+// SPDX-License-Identifier: MIT
+//
+
 #ifndef __RTC_ADAPTER_AUDIO_RECEIVE_ADAPTER_H__
 #define __RTC_ADAPTER_AUDIO_RECEIVE_ADAPTER_H__
 
@@ -16,6 +22,8 @@ namespace rtc_adapter {
 class AdapterDataListener;
 class CallOwner;
 
+
+// This class is designed for audio twcc.
 class AudioReceiveAdapterImpl : public AudioReceiveAdapter,
                                 public webrtc::Transport {
   DECLARE_LOGGER();

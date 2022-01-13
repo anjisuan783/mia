@@ -360,6 +360,7 @@ void DtlsTransport::onHandshakeCompleted(
     if (srtp_->setRtpParams(clientKey, serverKey)) {
       readyRtp = true;
     } else {
+      error_code_ = TRANSPORT_ERROR_SRTP_HANDSHARK_KEY;
       updateTransportState(TRANSPORT_FAILED);
     }
     
@@ -374,6 +375,7 @@ void DtlsTransport::onHandshakeCompleted(
     if (srtcp_->setRtpParams(clientKey, serverKey)) {
       readyRtcp = true;
     } else {
+      error_code_ = TRANSPORT_ERROR_SRTP_HANDSHARK_KEY;
       updateTransportState(TRANSPORT_FAILED);
     }
   }
@@ -390,6 +392,7 @@ void DtlsTransport::onHandshakeFailed(DtlsSocketContext *ctx, const std::string&
   ELOG_WARN("%s message: Handshake failed, transportName:%s, openSSLerror: %s",
             toLog(), transport_name.c_str(), error.c_str());
   running_ = false;
+  error_code_ = TRANSPORT_ERROR_SRTP_HANDSHARK_FAILED;
   updateTransportState(TRANSPORT_FAILED);
 }
 
@@ -417,6 +420,7 @@ void DtlsTransport::updateIceStateSync(IceState state, IceConnection *conn) {
   if (state == IceState::FAILED) {
     ELOG_INFO("%s message: Ice Failed", toLog());
     running_ = false;
+    error_code_ = TRANSPORT_ERROR_ICE_FAILED;
     updateTransportState(TRANSPORT_FAILED);
     return;
   }

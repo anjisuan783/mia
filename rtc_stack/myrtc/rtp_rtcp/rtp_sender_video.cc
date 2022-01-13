@@ -342,7 +342,6 @@ void RTPSenderVideo::LogAndSendToNetwork(
 #endif
 
   {
-    rtc::CritScope cs(&stats_crit_);
     size_t packetized_payload_size = 0;
     for (const auto& packet : packets) {
       switch (*packet->packet_type()) {
@@ -393,7 +392,6 @@ size_t RTPSenderVideo::FecPacketOverhead() const {
 
 void RTPSenderVideo::SetFecParameters(const FecProtectionParams& delta_params,
                                       const FecProtectionParams& key_params) {
-  rtc::CritScope cs(&crit_);
   delta_fec_params_ = delta_params;
   key_fec_params_ = key_params;
 }
@@ -416,7 +414,6 @@ bool RTPSenderVideo::SendVideo(
     std::optional<int64_t> expected_retransmission_time_ms) {
   TRACE_EVENT_ASYNC_STEP1("webrtc", "Video", capture_time_ms, "Send", "type",
                           FrameTypeToString(video_header.frame_type));
-  RTC_CHECK_RUNS_SERIALIZED(&send_checker_);
 
   if (video_header.frame_type == VideoFrameType::kEmptyFrame)
     return true;
@@ -472,7 +469,6 @@ bool RTPSenderVideo::SendVideo(
   }
 
   if (flexfec_enabled() || ulpfec_enabled()) {
-    rtc::CritScope cs(&crit_);
     // FEC settings.
     const FecProtectionParams& fec_params =
         video_header.frame_type == VideoFrameType::kVideoFrameKey
@@ -698,7 +694,6 @@ bool RTPSenderVideo::SendVideo(
 
   if (rtp_sequence_number_map_) {
     const uint32_t timestamp = rtp_timestamp - rtp_sender_->TimestampOffset();
-    rtc::CritScope cs(&crit_);
     rtp_sequence_number_map_->InsertFrame(first_sequence_number, num_packets,
                                           timestamp);
   }
@@ -711,17 +706,14 @@ bool RTPSenderVideo::SendVideo(
 }
 
 uint32_t RTPSenderVideo::VideoBitrateSent() const {
-  rtc::CritScope cs(&stats_crit_);
   return video_bitrate_.Rate(clock_->TimeInMilliseconds()).value_or(0);
 }
 
 uint32_t RTPSenderVideo::FecOverheadRate() const {
-  rtc::CritScope cs(&stats_crit_);
   return fec_bitrate_.Rate(clock_->TimeInMilliseconds()).value_or(0);
 }
 
 uint32_t RTPSenderVideo::PacketizationOverheadBps() const {
-  rtc::CritScope cs(&stats_crit_);
   return packetization_overhead_bitrate_.Rate(clock_->TimeInMilliseconds())
       .value_or(0);
 }
@@ -737,7 +729,6 @@ std::vector<RtpSequenceNumberMap::Info> RTPSenderVideo::GetSentRtpPacketInfos(
   results.reserve(sequence_numbers.size());
 
   {
-    rtc::CritScope cs(&crit_);
     for (uint16_t sequence_number : sequence_numbers) {
       const std::optional<RtpSequenceNumberMap::Info> info =
           rtp_sequence_number_map_->Get(sequence_number);
@@ -764,7 +755,6 @@ bool RTPSenderVideo::AllowRetransmission(
   if (retransmission_settings == kRetransmitOff)
     return false;
 
-  rtc::CritScope cs(&stats_crit_);
   // Media packet storage.
   if ((retransmission_settings & kConditionallyRetransmitHigherLayers) &&
       UpdateConditionalRetransmit(temporal_id,

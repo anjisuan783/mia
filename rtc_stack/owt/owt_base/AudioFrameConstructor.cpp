@@ -148,8 +148,9 @@ int AudioFrameConstructor::deliverAudioData_(
   if (audioLevel) {
     frame.additionalInfo.audio.audioLevel = audioLevel->getLevel();
     frame.additionalInfo.audio.voice = audioLevel->getVoice();
-  } else {
+  } else if (!no_audio_level_) {
     ELOG_TRACE("No audio level extension");
+    no_audio_level_ = true;
   }
   
   if (enabled_) {

@@ -64,6 +64,7 @@ class AudioFrameConstructor final : public erizo::MediaSink,
   std::shared_ptr<rtc_adapter::RtcAdapter> rtcAdapter_;
   rtc_adapter::AudioReceiveAdapter* audioReceive_{nullptr};
   webrtc::RtpToNtpEstimator ntp_estimator_;
+  bool no_audio_level_{false};
 };
 
 }

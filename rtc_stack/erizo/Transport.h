@@ -16,6 +16,8 @@
 #include "utils/IOWorker.h"
 #include "erizo/logger.h"
 
+namespace erizo {
+
 /**
  * States of Transport
  */
@@ -28,7 +30,13 @@ enum TransportState {
   TRANSPORT_FAILED
 };
 
-namespace erizo {
+enum {
+  TRANSPORT_ERROR_OK,
+  TRANSPORT_ERROR_SRTP_HANDSHARK_FAILED,
+  TRANSPORT_ERROR_SRTP_HANDSHARK_KEY,
+  TRANSPORT_ERROR_ICE_FAILED,
+};
+
 class Transport;
 
 class TransportListener {
@@ -125,6 +133,10 @@ class Transport : public std::enable_shared_from_this<Transport>,
     return worker_;
   }
 
+  inline int getErrorCode() {
+    return error_code_;
+  }
+
 public:
   std::unique_ptr<IceConnection> ice_;
   MediaType mediaType;
@@ -140,6 +152,8 @@ protected:
   bool bundle_;
   bool running_;
   wa::Worker* worker_;
+
+  int error_code_{TRANSPORT_ERROR_OK};
 };
 
 }  // namespace erizo
