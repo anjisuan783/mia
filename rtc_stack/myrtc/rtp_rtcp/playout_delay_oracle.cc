@@ -24,7 +24,6 @@ PlayoutDelayOracle::~PlayoutDelayOracle() = default;
 
 std::optional<PlayoutDelay> PlayoutDelayOracle::PlayoutDelayToSend(
     PlayoutDelay requested_delay) const {
-  rtc::CritScope lock(&crit_sect_);
   if (requested_delay.min_ms > PlayoutDelayLimits::kMaxMs ||
       requested_delay.max_ms > PlayoutDelayLimits::kMaxMs) {
     RTC_DLOG(LS_ERROR)
@@ -58,7 +57,6 @@ std::optional<PlayoutDelay> PlayoutDelayOracle::PlayoutDelayToSend(
 
 void PlayoutDelayOracle::OnSentPacket(uint16_t sequence_number,
                                       std::optional<PlayoutDelay> delay) {
-  rtc::CritScope lock(&crit_sect_);
   int64_t unwrapped_sequence_number = unwrapper_.Unwrap(sequence_number);
 
   if (!delay) {
@@ -80,7 +78,6 @@ void PlayoutDelayOracle::OnSentPacket(uint16_t sequence_number,
 // we stop sending the extension on future packets.
 void PlayoutDelayOracle::OnReceivedAck(
     int64_t extended_highest_sequence_number) {
-  rtc::CritScope lock(&crit_sect_);
   if (unacked_sequence_number_ &&
       extended_highest_sequence_number > *unacked_sequence_number_) {
     unacked_sequence_number_ = std::nullopt;

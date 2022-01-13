@@ -18,7 +18,6 @@
 #include "module/module_common_types_public.h"
 #include "rtp_rtcp/rtp_rtcp_defines.h"
 #include "rtc_base/constructor_magic.h"
-#include "rtc_base/critical_section.h"
 #include "rtc_base/thread_annotations.h"
 
 namespace webrtc {
@@ -53,20 +52,16 @@ class PlayoutDelayOracle : public RtcpAckObserver {
   void OnReceivedAck(int64_t extended_highest_sequence_number) override;
 
  private:
-  // The playout delay information is updated from the encoder thread(s).
-  // The sequence number feedback is updated from the worker thread.
-  // Guards access to data across multiple threads.
-  rtc::CriticalSection crit_sect_;
   // The oldest sequence number on which the current playout delay values have
   // been sent. When set, it means we need to attach extension to sent packets.
-  std::optional<int64_t> unacked_sequence_number_ RTC_GUARDED_BY(crit_sect_);
+  std::optional<int64_t> unacked_sequence_number_;
   // Sequence number unwrapper for sent packets.
 
   // TODO(nisse): Could potentially get out of sync with the unwrapper used by
   // the caller of OnReceivedAck.
-  SequenceNumberUnwrapper unwrapper_ RTC_GUARDED_BY(crit_sect_);
+  SequenceNumberUnwrapper unwrapper_;
   // Playout delay values on the next frame if |send_playout_delay_| is set.
-  PlayoutDelay latest_delay_ RTC_GUARDED_BY(crit_sect_) = {-1, -1};
+  PlayoutDelay latest_delay_ = {-1, -1};
 
   RTC_DISALLOW_COPY_AND_ASSIGN(PlayoutDelayOracle);
 };

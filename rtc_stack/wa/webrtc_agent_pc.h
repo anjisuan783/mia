@@ -10,28 +10,24 @@
 #include <memory>
 #include <unordered_map>
 
+#include "h/rtc_stack_api.h"
+#include "srs_kernel_error.h"
 #include "erizo/WebRtcConnection.h"
 #include "erizo/MediaStream.h"
 #include "owt/owt_base/AudioFramePacketizer.h"
 #include "owt/owt_base/AudioFrameConstructor.h"
 #include "owt/owt_base/VideoFramePacketizer.h"
 #include "owt/owt_base/VideoFrameConstructor.h"
-
-#include "utils/IOWorker.h"
-#include "utils/Worker.h"
-#include "erizo/MediaStream.h"
-#include "srs_kernel_error.h"
-
-#include "h/rtc_stack_api.h"
-#include "erizo/WebRtcConnection.h"
 #include "owt/owt_base/MediaFramePipeline.h"
 #include "owt/rtc_adapter/RtcAdapter.h"
+#include "utils/IOWorker.h"
+#include "utils/Worker.h"
 
 namespace wa {
 
 class WebrtcAgentSink;
 class WebrtcAgent;
-struct media_setting;
+struct MediaSetting;
 class MediaDesc;
 class WaSdpInfo;
 
@@ -63,7 +59,7 @@ class WrtcAgentPc final : public erizo::WebRtcConnectionEventListener,
     WebrtcTrack(const std::string& mid,
                 WrtcAgentPc*,
                 bool isPublish,
-                const media_setting&,
+                const MediaSetting&,
                 erizo::MediaStream* mediaStream,
                 int32_t request_kframe_s);
     ~WebrtcTrack();
@@ -159,7 +155,7 @@ public:
   void onVideoInfo(const std::string& videoInfoJSON) override;
 
   WebrtcTrack* addTrack(const std::string& mid, 
-                        const media_setting&, 
+                        const MediaSetting&, 
                         bool isPublish,
                         int32_t kframe_s);
 

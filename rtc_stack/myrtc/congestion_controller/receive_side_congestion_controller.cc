@@ -135,9 +135,6 @@ void ReceiveSideCongestionController::OnReceivedPacket(
   remote_estimator_proxy_.IncomingPacket(arrival_time_ms, payload_size, header);
   if (!header.extension.hasTransportSequenceNumber) {
     // Receive-side BWE.
-    assert(false);
-    //remote_bitrate_estimator_.IncomingPacket(arrival_time_ms, payload_size,
-    //                                         header);
   }
 }
 
@@ -161,7 +158,7 @@ ReceiveSideCongestionController::GetRemoteBitrateEstimator(
   if (send_side_bwe) {
     return &remote_estimator_proxy_;
   } else {
-    return nullptr; //&remote_bitrate_estimator_;
+    return nullptr;
   }
 }
 

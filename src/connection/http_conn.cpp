@@ -38,7 +38,8 @@ void MediaHttpCorsMux::initialize(IMediaHttpHandler* mux, bool cros_enabled) {
 }
 
 srs_error_t MediaHttpCorsMux::serve_http(
-    std::shared_ptr<IHttpResponseWriter> w, std::shared_ptr<ISrsHttpMessage> r) {
+    std::shared_ptr<IHttpResponseWriter> w, 
+    std::shared_ptr<ISrsHttpMessage> r) {
   
   // If CORS enabled, and there is a "Origin" header, it's CORS.
   if (enabled) {
@@ -68,7 +69,6 @@ srs_error_t MediaHttpCorsMux::serve_http(
     return w->final_request();
   }
   
-  assert(next);
   return next->serve_http(w, r);  
 }
 

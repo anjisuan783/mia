@@ -562,8 +562,10 @@ void Call::DestroyVideoReceiveStream(
   }
   video_receive_streams_.erase(receive_stream_impl);
 
-  receive_side_cc_.GetRemoteBitrateEstimator(UseSendSideBwe(config))
-      ->RemoveStream(config.rtp.remote_ssrc);
+  RemoteBitrateEstimator* estimator = 
+    receive_side_cc_.GetRemoteBitrateEstimator(UseSendSideBwe(config));
+  if (estimator)
+      estimator->RemoveStream(config.rtp.remote_ssrc);
 
   UpdateAggregateNetworkState();
   delete receive_stream_impl;
