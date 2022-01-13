@@ -92,7 +92,7 @@ RtpPacketHistory::~RtpPacketHistory() {}
 void RtpPacketHistory::SetStorePacketsStatus(StorageMode mode,
                                              size_t number_to_store) {
   RTC_DCHECK_LE(number_to_store, kMaxCapacity);
-  rtc::CritScope cs(&lock_);
+  
   if (mode != StorageMode::kDisabled && mode_ != StorageMode::kDisabled) {
     RTC_LOG(LS_WARNING) << "Purging packet history in order to re-set status.";
   }
@@ -102,12 +102,12 @@ void RtpPacketHistory::SetStorePacketsStatus(StorageMode mode,
 }
 
 RtpPacketHistory::StorageMode RtpPacketHistory::GetStorageMode() const {
-  rtc::CritScope cs(&lock_);
+  
   return mode_;
 }
 
 void RtpPacketHistory::SetRtt(int64_t rtt_ms) {
-  rtc::CritScope cs(&lock_);
+  
   RTC_DCHECK_GE(rtt_ms, 0);
   rtt_ms_ = rtt_ms;
   // If storage is not disabled,  packets will be removed after a timeout
@@ -121,7 +121,7 @@ void RtpPacketHistory::SetRtt(int64_t rtt_ms) {
 void RtpPacketHistory::PutRtpPacket(std::unique_ptr<RtpPacketToSend> packet,
                                     std::optional<int64_t> send_time_ms) {
   RTC_DCHECK(packet);
-  rtc::CritScope cs(&lock_);
+  
   int64_t now_ms = clock_->TimeInMilliseconds();
   if (mode_ == StorageMode::kDisabled) {
     return;
@@ -167,7 +167,7 @@ void RtpPacketHistory::PutRtpPacket(std::unique_ptr<RtpPacketToSend> packet,
 
 std::unique_ptr<RtpPacketToSend> RtpPacketHistory::GetPacketAndSetSendTime(
     uint16_t sequence_number) {
-  rtc::CritScope cs(&lock_);
+  
   if (mode_ == StorageMode::kDisabled) {
     return nullptr;
   }
@@ -206,7 +206,7 @@ std::unique_ptr<RtpPacketToSend> RtpPacketHistory::GetPacketAndMarkAsPending(
     uint16_t sequence_number,
     rtc::FunctionView<std::unique_ptr<RtpPacketToSend>(const RtpPacketToSend&)>
         encapsulate) {
-  rtc::CritScope cs(&lock_);
+  
   if (mode_ == StorageMode::kDisabled) {
     return nullptr;
   }
@@ -237,7 +237,7 @@ std::unique_ptr<RtpPacketToSend> RtpPacketHistory::GetPacketAndMarkAsPending(
 }
 
 void RtpPacketHistory::MarkPacketAsSent(uint16_t sequence_number) {
-  rtc::CritScope cs(&lock_);
+  
   if (mode_ == StorageMode::kDisabled) {
     return;
   }
@@ -258,7 +258,7 @@ void RtpPacketHistory::MarkPacketAsSent(uint16_t sequence_number) {
 
 std::optional<RtpPacketHistory::PacketState> RtpPacketHistory::GetPacketState(
     uint16_t sequence_number) const {
-  rtc::CritScope cs(&lock_);
+  
   if (mode_ == StorageMode::kDisabled) {
     return std::nullopt;
   }
@@ -306,7 +306,7 @@ std::unique_ptr<RtpPacketToSend> RtpPacketHistory::GetPayloadPaddingPacket() {
 std::unique_ptr<RtpPacketToSend> RtpPacketHistory::GetPayloadPaddingPacket(
     rtc::FunctionView<std::unique_ptr<RtpPacketToSend>(const RtpPacketToSend&)>
         encapsulate) {
-  rtc::CritScope cs(&lock_);
+  
   if (mode_ == StorageMode::kDisabled || padding_priority_.empty()) {
     return nullptr;
   }
@@ -335,7 +335,7 @@ std::unique_ptr<RtpPacketToSend> RtpPacketHistory::GetPayloadPaddingPacket(
 
 void RtpPacketHistory::CullAcknowledgedPackets(
     rtc::ArrayView<const uint16_t> sequence_numbers) {
-  rtc::CritScope cs(&lock_);
+  
   for (uint16_t sequence_number : sequence_numbers) {
     int packet_index = GetPacketIndex(sequence_number);
     if (packet_index < 0 ||
@@ -347,7 +347,7 @@ void RtpPacketHistory::CullAcknowledgedPackets(
 }
 
 bool RtpPacketHistory::SetPendingTransmission(uint16_t sequence_number) {
-  rtc::CritScope cs(&lock_);
+  
   if (mode_ == StorageMode::kDisabled) {
     return false;
   }
@@ -362,7 +362,7 @@ bool RtpPacketHistory::SetPendingTransmission(uint16_t sequence_number) {
 }
 
 void RtpPacketHistory::Clear() {
-  rtc::CritScope cs(&lock_);
+  
   Reset();
 }
 

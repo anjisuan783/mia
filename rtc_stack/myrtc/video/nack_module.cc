@@ -79,7 +79,7 @@ int NackModule::OnReceivedPacket(uint16_t seq_num, bool is_keyframe) {
 int NackModule::OnReceivedPacket(uint16_t seq_num,
                                  bool is_keyframe,
                                  bool is_recovered) {
-  rtc::CritScope lock(&crit_);
+  
   // TODO(philipel): When the packet includes information whether it is
   //                 retransmitted or not, use that value instead. For
   //                 now set it to true, which will cause the reordering
@@ -148,7 +148,7 @@ int NackModule::OnReceivedPacket(uint16_t seq_num,
 }
 
 void NackModule::ClearUpTo(uint16_t seq_num) {
-  rtc::CritScope lock(&crit_);
+  
   nack_list_.erase(nack_list_.begin(), nack_list_.lower_bound(seq_num));
   keyframe_list_.erase(keyframe_list_.begin(),
                        keyframe_list_.lower_bound(seq_num));
@@ -157,12 +157,12 @@ void NackModule::ClearUpTo(uint16_t seq_num) {
 }
 
 void NackModule::UpdateRtt(int64_t rtt_ms) {
-  rtc::CritScope lock(&crit_);
+  
   rtt_ms_ = rtt_ms;
 }
 
 void NackModule::Clear() {
-  rtc::CritScope lock(&crit_);
+  
   nack_list_.clear();
   keyframe_list_.clear();
   recovered_list_.clear();
@@ -177,7 +177,7 @@ void NackModule::Process() {
   if (nack_sender_) {
     std::vector<uint16_t> nack_batch;
     {
-      rtc::CritScope lock(&crit_);
+      
       nack_batch = GetNackBatch(kTimeOnly);
     }
 

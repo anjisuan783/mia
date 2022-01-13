@@ -18,7 +18,6 @@
 
 #include "api/encoded_image.h"
 #include "video/packet.h"
-#include "rtc_base/critical_section.h"
 #include "rtc_base/sequence_number_util.h"
 #include "rtc_base/thread_annotations.h"
 

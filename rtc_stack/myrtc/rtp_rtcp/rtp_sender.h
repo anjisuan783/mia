@@ -30,7 +30,6 @@
 #include "rtp_rtcp/rtp_packet_history.h"
 #include "rtp_rtcp/rtp_rtcp_config.h"
 #include "rtc_base/constructor_magic.h"
-#include "rtc_base/critical_section.h"
 #include "rtc_base/deprecation.h"
 #include "rtc_base/random.h"
 #include "rtc_base/rate_statistics.h"
@@ -195,7 +194,7 @@ class RTPSender {
                            const PacketOptions& options,
                            const PacedPacketInfo& pacing_info);
 
-  void RecomputeMaxSendDelay() RTC_EXCLUSIVE_LOCKS_REQUIRED(statistics_crit_);
+  void RecomputeMaxSendDelay();
   void UpdateDelayStatistics(int64_t capture_time_ms,
                              int64_t now_ms,
                              uint32_t ssrc);
@@ -215,7 +214,7 @@ class RTPSender {
   void UpdateRtpOverhead(const RtpPacketToSend& packet);
 
   Clock* const clock_;
-  Random random_ RTC_GUARDED_BY(send_critsect_);
+  Random random_;
 
   const bool audio_configured_;
 
@@ -226,62 +225,58 @@ class RTPSender {
   const std::unique_ptr<NonPacedPacketSender> non_paced_packet_sender_;
   RtpPacketSender* const paced_sender_;
   TransportFeedbackObserver* const transport_feedback_observer_;
-  rtc::CriticalSection send_critsect_;
 
   Transport* transport_;
-  bool sending_media_ RTC_GUARDED_BY(send_critsect_);
-  bool force_part_of_allocation_ RTC_GUARDED_BY(send_critsect_);
+  bool sending_media_;
+  bool force_part_of_allocation_;
   size_t max_packet_size_;
 
-  int8_t last_payload_type_ RTC_GUARDED_BY(send_critsect_);
+  int8_t last_payload_type_;
 
-  RtpHeaderExtensionMap rtp_header_extension_map_
-      RTC_GUARDED_BY(send_critsect_);
+  RtpHeaderExtensionMap rtp_header_extension_map_;
 
   RtpPacketHistory packet_history_;
 
-  // Statistics
-  rtc::CriticalSection statistics_crit_;
-  SendDelayMap send_delays_ RTC_GUARDED_BY(statistics_crit_);
-  SendDelayMap::const_iterator max_delay_it_ RTC_GUARDED_BY(statistics_crit_);
+  SendDelayMap send_delays_;
+  SendDelayMap::const_iterator max_delay_it_;
   // The sum of delays over a kSendSideDelayWindowMs sliding window.
-  int64_t sum_delays_ms_ RTC_GUARDED_BY(statistics_crit_);
+  int64_t sum_delays_ms_;
   // The sum of delays of all packets sent.
-  uint64_t total_packet_send_delay_ms_ RTC_GUARDED_BY(statistics_crit_);
-  StreamDataCounters rtp_stats_ RTC_GUARDED_BY(statistics_crit_);
-  StreamDataCounters rtx_rtp_stats_ RTC_GUARDED_BY(statistics_crit_);
+  uint64_t total_packet_send_delay_ms_;
+  StreamDataCounters rtp_stats_;
+  StreamDataCounters rtx_rtp_stats_;
   StreamDataCountersCallback* const rtp_stats_callback_;
-  RateStatistics total_bitrate_sent_ RTC_GUARDED_BY(statistics_crit_);
-  RateStatistics nack_bitrate_sent_ RTC_GUARDED_BY(statistics_crit_);
+  RateStatistics total_bitrate_sent_;
+  RateStatistics nack_bitrate_sent_;
   SendSideDelayObserver* const send_side_delay_observer_;
   RtcEventLog* const event_log_;
   SendPacketObserver* const send_packet_observer_;
   BitrateStatisticsObserver* const bitrate_callback_;
 
   // RTP variables
-  uint32_t timestamp_offset_ RTC_GUARDED_BY(send_critsect_);
-  bool sequence_number_forced_ RTC_GUARDED_BY(send_critsect_);
-  uint16_t sequence_number_ RTC_GUARDED_BY(send_critsect_);
-  uint16_t sequence_number_rtx_ RTC_GUARDED_BY(send_critsect_);
+  uint32_t timestamp_offset_;
+  bool sequence_number_forced_;
+  uint16_t sequence_number_;
+  uint16_t sequence_number_rtx_;
   // RID value to send in the RID or RepairedRID header extension.
-  std::string rid_ RTC_GUARDED_BY(send_critsect_);
+  std::string rid_;
   // MID value to send in the MID header extension.
-  std::string mid_ RTC_GUARDED_BY(send_critsect_);
+  std::string mid_;
   // Track if any ACK has been received on the SSRC and RTX SSRC to indicate
   // when to stop sending the MID and RID header extensions.
-  bool ssrc_has_acked_ RTC_GUARDED_BY(send_critsect_);
-  bool rtx_ssrc_has_acked_ RTC_GUARDED_BY(send_critsect_);
-  uint32_t last_rtp_timestamp_ RTC_GUARDED_BY(send_critsect_);
-  int64_t capture_time_ms_ RTC_GUARDED_BY(send_critsect_);
-  int64_t last_timestamp_time_ms_ RTC_GUARDED_BY(send_critsect_);
-  bool media_has_been_sent_ RTC_GUARDED_BY(send_critsect_);
-  bool last_packet_marker_bit_ RTC_GUARDED_BY(send_critsect_);
-  std::vector<uint32_t> csrcs_ RTC_GUARDED_BY(send_critsect_);
-  int rtx_ RTC_GUARDED_BY(send_critsect_);
+  bool ssrc_has_acked_;
+  bool rtx_ssrc_has_acked_;
+  uint32_t last_rtp_timestamp_;
+  int64_t capture_time_ms_;
+  int64_t last_timestamp_time_ms_;
+  bool media_has_been_sent_;
+  bool last_packet_marker_bit_;
+  std::vector<uint32_t> csrcs_;
+  int rtx_;
   // Mapping rtx_payload_type_map_[associated] = rtx.
-  std::map<int8_t, int8_t> rtx_payload_type_map_ RTC_GUARDED_BY(send_critsect_);
-  size_t rtp_overhead_bytes_per_packet_ RTC_GUARDED_BY(send_critsect_);
-  bool supports_bwe_extension_ RTC_GUARDED_BY(send_critsect_);
+  std::map<int8_t, int8_t> rtx_payload_type_map_;
+  size_t rtp_overhead_bytes_per_packet_;
+  bool supports_bwe_extension_;
 
   RateLimiter* const retransmission_rate_limiter_;
   OverheadObserver* overhead_observer_;

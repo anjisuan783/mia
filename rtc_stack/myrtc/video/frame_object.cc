@@ -17,7 +17,6 @@
 #include "api/encoded_image.h"
 #include "api/video_timing.h"
 #include "rtc_base/checks.h"
-#include "rtc_base/critical_section.h"
 
 namespace webrtc {
 namespace video_coding {
