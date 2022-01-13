@@ -84,6 +84,8 @@ class OpenSSLAdapter final : public SSLAdapter, public MessageHandler {
   void OnWriteEvent(AsyncSocket* socket) override;
   void OnCloseEvent(AsyncSocket* socket, int err) override;
 
+  void SetHostName(const char* hostname) override;
+
  private:
   enum SSLState {
     SSL_NONE,

@@ -106,6 +106,8 @@ AsyncPacketSocket* BasicPacketSocketFactory::CreateServerTcpSocket(
     ssl_adapter->SetMode(SSL_MODE_TLS);
     
     ssl_adapter->SetRole(rtc::SSL_SERVER);
+
+    ssl_adapter->SetHostName(option.https_hostname.c_str());
     
     ssl_adapter->SetIdentity(
         rtc::SSLIdentity::FromPEMStrings(option.https_private_key, 

@@ -155,6 +155,7 @@ rtc::PacketSocketServerOptions MediaHttpsListener::GetSocketType() {
   rtc::PacketSocketServerOptions op;
   op.https_certificate = g_server_.config_.https_crt;
   op.https_private_key = g_server_.config_.https_key;
+  op.https_hostname = g_server_.config_.https_hostname;
   
   op.opts = rtc::PacketSocketFactory::OPT_RAW |
             rtc::PacketSocketFactory::OPT_TLS_INSECURE |

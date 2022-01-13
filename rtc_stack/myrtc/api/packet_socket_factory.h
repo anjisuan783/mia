@@ -40,6 +40,7 @@ struct PacketSocketServerOptions {
   int opts = 0;
   std::string https_private_key;  // server.key path
   std::string https_certificate;  //server.crt path
+  std::string https_hostname;
 };
 
 

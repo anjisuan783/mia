@@ -87,6 +87,8 @@ class SSLAdapter : public AsyncSocketAdapter {
   // indicates whether the current session is a resumption of a previous
   // session.
   virtual bool IsResumedSession() = 0;
+
+  virtual void SetHostName(const char* hostname) = 0;
 
   // Create the default SSL adapter for this platform. On failure, returns null
   // and deletes |socket|. Otherwise, the returned SSLAdapter takes ownership

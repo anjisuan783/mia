@@ -41,6 +41,7 @@ class MediaServerApi {
     //for https
     std::string https_key{"./conf/mia.key"};  // pem fromat private key file path
     std::string https_crt{"./conf/mia.crt"};  // pem fromat certificate file path
+    std::string https_hostname;
 
     //for rtmp2rtc
     int32_t request_keyframe_interval{5}; // second
