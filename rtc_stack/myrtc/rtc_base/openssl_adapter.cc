@@ -249,6 +249,10 @@ void OpenSSLAdapter::SetRole(SSLRole role) {
   role_ = role;
 }
 
+void OpenSSLAdapter::SetHostName(const char* hostname) {
+  ssl_host_name_ = hostname;
+}
+
 AsyncSocket* OpenSSLAdapter::Accept(SocketAddress* paddr) {
   RTC_DCHECK(role_ == SSL_SERVER);
   AsyncSocket* socket = SSLAdapter::Accept(paddr);
@@ -260,7 +264,7 @@ AsyncSocket* OpenSSLAdapter::Accept(SocketAddress* paddr) {
   adapter->SetIdentity(identity_->GetReference());
   adapter->SetRole(rtc::SSL_SERVER);
   adapter->SetIgnoreBadCert(ignore_bad_cert_);
-  adapter->StartSSL("", false);
+  adapter->StartSSL(ssl_host_name_.c_str(), false);
   return adapter;
 }
 

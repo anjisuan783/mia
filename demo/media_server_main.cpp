@@ -165,21 +165,25 @@ int main(int argc, char* argv[]) {
             addr.append(s1);
             _config.listen_addr_.emplace_back(std::move(addr));
           }
-            if (config_setting_lookup_string(sub_item, "key", &s1)) {
+          if (config_setting_lookup_string(sub_item, "key", &s1)) {
             _config.https_key = s1;
           }
-            if (config_setting_lookup_string(sub_item, "cert", &s1)) {
+          if (config_setting_lookup_string(sub_item, "cert", &s1)) {
             _config.https_crt = s1;
+          }
+          if (config_setting_lookup_string(sub_item, "hostname", &s1)) {
+            _config.https_hostname = s1;
           }
           std::string addrs;
           for(const auto& x :  _config.listen_addr_) {
             addrs.append(x);
             addrs.append(" ");
           }
-          MIA_LOG("addrs:%s key:%s cert:%s", 
+          MIA_LOG("addrs:%s key:%s cert:%s host:%s", 
                   addrs.c_str(), 
                   _config.https_key.c_str(),
-                  _config.https_crt.c_str());
+                  _config.https_crt.c_str(),
+                  _config.https_hostname.c_str());
           continue;
         }
 
