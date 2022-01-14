@@ -23,7 +23,7 @@
 #include "api/rtp_headers.h"
 #include "api/video_bitrate_allocation.h"
 #include "module/module_fec_types.h"
-#include "remote_bitrate_estimator/remote_bitrate_estimator.h"
+#include "rbe/remote_bitrate_estimator.h"
 #include "rtp_rtcp/rtp_rtcp.h"
 #include "rtp_rtcp/rtp_rtcp_defines.h"  // RTCPPacketType
 #include "rtp_rtcp/tmmb_item.h"

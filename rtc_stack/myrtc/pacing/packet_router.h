@@ -20,7 +20,7 @@
 #include <vector>
 
 #include "api/network_types.h"
-#include "remote_bitrate_estimator/remote_bitrate_estimator.h"
+#include "rbe/remote_bitrate_estimator.h"
 #include "rtp_rtcp/rtp_rtcp_defines.h"
 #include "rtp_rtcp/rtcp_packet.h"
 #include "rtp_rtcp/rtp_packet_to_send.h"

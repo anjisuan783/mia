@@ -15,7 +15,7 @@
 #include <memory>
 #include <vector>
 
-#include "remote_bitrate_estimator/test/bwe_test_logging.h"
+#include "rbe/test/bwe_test_logging.h"
 #include "rtp_rtcp/rtp_packet_received.h"
 #include "rtp_rtcp/rtp_rtcp_config.h"
 #include "rtp_rtcp/time_util.h"

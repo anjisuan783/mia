@@ -18,7 +18,7 @@
 
 #include "rtc_base/scoped_refptr.h"
 #include "api/video_sink_interface.h"
-#include "remote_bitrate_estimator/remote_bitrate_estimator.h"
+#include "rbe/remote_bitrate_estimator.h"
 #include "video/video_coding_defines.h"
 #include "rtc_base/platform_thread.h"
 

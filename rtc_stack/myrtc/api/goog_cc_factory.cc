@@ -14,7 +14,7 @@
 #include <memory>
 #include <utility>
 
-#include "congestion_controller/goog_cc_network_control.h"
+#include "cc/goog_cc_network_control.h"
 
 namespace webrtc {
 GoogCcNetworkControllerFactory::GoogCcNetworkControllerFactory(
