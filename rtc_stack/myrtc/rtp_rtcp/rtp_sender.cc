@@ -203,51 +203,51 @@ rtc::ArrayView<const RtpExtensionSize> RTPSender::VideoExtensionSizes() {
 }
 
 uint16_t RTPSender::ActualSendBitrateKbit() const {
-  rtc::CritScope cs(&statistics_crit_);
+  
   return static_cast<uint16_t>(
       total_bitrate_sent_.Rate(clock_->TimeInMilliseconds()).value_or(0) /
       1000);
 }
 
 uint32_t RTPSender::NackOverheadRate() const {
-  rtc::CritScope cs(&statistics_crit_);
+  
   return nack_bitrate_sent_.Rate(clock_->TimeInMilliseconds()).value_or(0);
 }
 
 void RTPSender::SetExtmapAllowMixed(bool extmap_allow_mixed) {
-  rtc::CritScope lock(&send_critsect_);
+  
   rtp_header_extension_map_.SetExtmapAllowMixed(extmap_allow_mixed);
 }
 
 int32_t RTPSender::RegisterRtpHeaderExtension(RTPExtensionType type,
                                               uint8_t id) {
-  rtc::CritScope lock(&send_critsect_);
+  
   bool registered = rtp_header_extension_map_.RegisterByType(id, type);
   supports_bwe_extension_ = HasBweExtension(rtp_header_extension_map_);
   return registered ? 0 : -1;
 }
 
 bool RTPSender::RegisterRtpHeaderExtension(std::string_view uri, int id) {
-  rtc::CritScope lock(&send_critsect_);
+  
   bool registered = rtp_header_extension_map_.RegisterByUri(id, uri);
   supports_bwe_extension_ = HasBweExtension(rtp_header_extension_map_);
   return registered;
 }
 
 bool RTPSender::IsRtpHeaderExtensionRegistered(RTPExtensionType type) const {
-  rtc::CritScope lock(&send_critsect_);
+  
   return rtp_header_extension_map_.IsRegistered(type);
 }
 
 int32_t RTPSender::DeregisterRtpHeaderExtension(RTPExtensionType type) {
-  rtc::CritScope lock(&send_critsect_);
+  
   int32_t deregistered = rtp_header_extension_map_.Deregister(type);
   supports_bwe_extension_ = HasBweExtension(rtp_header_extension_map_);
   return deregistered;
 }
 
 void RTPSender::DeregisterRtpHeaderExtension(std::string_view uri) {
-  rtc::CritScope lock(&send_critsect_);
+  
   rtp_header_extension_map_.Deregister(uri);
   supports_bwe_extension_ = HasBweExtension(rtp_header_extension_map_);
 }
@@ -255,7 +255,7 @@ void RTPSender::DeregisterRtpHeaderExtension(std::string_view uri) {
 void RTPSender::SetMaxRtpPacketSize(size_t max_packet_size) {
   RTC_DCHECK_GE(max_packet_size, 100);
   RTC_DCHECK_LE(max_packet_size, IP_PACKET_SIZE);
-  rtc::CritScope lock(&send_critsect_);
+  
   max_packet_size_ = max_packet_size;
 }
 
@@ -264,18 +264,18 @@ size_t RTPSender::MaxRtpPacketSize() const {
 }
 
 void RTPSender::SetRtxStatus(int mode) {
-  rtc::CritScope lock(&send_critsect_);
+  
   rtx_ = mode;
 }
 
 int RTPSender::RtxStatus() const {
-  rtc::CritScope lock(&send_critsect_);
+  
   return rtx_;
 }
 
 void RTPSender::SetRtxPayloadType(int payload_type,
                                   int associated_payload_type) {
-  rtc::CritScope lock(&send_critsect_);
+  
   RTC_DCHECK_LE(payload_type, 127);
   RTC_DCHECK_LE(associated_payload_type, 127);
   if (payload_type < 0) {
@@ -346,13 +346,13 @@ int32_t RTPSender::ReSendPacket(uint16_t packet_id) {
 }
 
 void RTPSender::OnReceivedAckOnSsrc(int64_t extended_highest_sequence_number) {
-  rtc::CritScope lock(&send_critsect_);
+  
   ssrc_has_acked_ = true;
 }
 
 void RTPSender::OnReceivedAckOnRtxSsrc(
     int64_t extended_highest_sequence_number) {
-  rtc::CritScope lock(&send_critsect_);
+  
   rtx_ssrc_has_acked_ = true;
 }
 
@@ -406,7 +406,7 @@ bool RTPSender::TrySendPacket(RtpPacketToSend* packet,
   bool is_media = false;
   bool is_rtx = false;
   {
-    rtc::CritScope lock(&send_critsect_);
+    
     if (!sending_media_) {
       return false;
     }
@@ -501,7 +501,7 @@ bool RTPSender::TrySendPacket(RtpPacketToSend* packet,
     UpdateRtpStats(*packet, is_rtx,
                    packet_type == RtpPacketToSend::Type::kRetransmission);
 
-    rtc::CritScope lock(&send_critsect_);
+    
     media_has_been_sent_ = true;
   }
 
@@ -512,12 +512,12 @@ bool RTPSender::TrySendPacket(RtpPacketToSend* packet,
 }
 
 bool RTPSender::SupportsPadding() const {
-  rtc::CritScope lock(&send_critsect_);
+  
   return sending_media_ && supports_bwe_extension_;
 }
 
 bool RTPSender::SupportsRtxPayloadPadding() const {
-  rtc::CritScope lock(&send_critsect_);
+  
   return sending_media_ && supports_bwe_extension_ &&
          (rtx_ & kRtxRedundantPayloads);
 }
@@ -527,7 +527,7 @@ void RTPSender::UpdateRtpStats(const RtpPacketToSend& packet,
                                bool is_retransmit) {
   int64_t now_ms = clock_->TimeInMilliseconds();
 
-  rtc::CritScope lock(&statistics_crit_);
+  
   StreamDataCounters* counters = is_rtx ? &rtx_rtp_stats_ : &rtp_stats_;
 
   total_bitrate_sent_.Update(packet.size(), now_ms);
@@ -576,7 +576,7 @@ std::vector<std::unique_ptr<RtpPacketToSend>> RTPSender::GeneratePadding(
     }
   }
 
-  rtc::CritScope lock(&send_critsect_);
+  
   if (!sending_media_) {
     return {};
   }
@@ -716,7 +716,7 @@ void RTPSender::UpdateDelayStatistics(int64_t capture_time_ms,
   int max_delay_ms = 0;
   uint64_t total_packet_send_delay_ms = 0;
   {
-    rtc::CritScope cs(&statistics_crit_);
+    
     // Compute the max and average of the recent capture-to-send delays.
     // The time complexity of the current approach depends on the distribution
     // of the delay values. This could be done more efficiently.
@@ -797,13 +797,13 @@ void RTPSender::ProcessBitrate() {
     return;
   int64_t now_ms = clock_->TimeInMilliseconds();
 
-  rtc::CritScope lock(&statistics_crit_);
+  
   bitrate_callback_->Notify(total_bitrate_sent_.Rate(now_ms).value_or(0),
                             nack_bitrate_sent_.Rate(now_ms).value_or(0), ssrc_);
 }
 
 size_t RTPSender::RtpHeaderLength() const {
-  rtc::CritScope lock(&send_critsect_);
+  
   size_t rtp_header_length = kRtpHeaderLength;
   rtp_header_length += sizeof(uint32_t) * csrcs_.size();
   rtp_header_length += RtpHeaderExtensionSize(kFecOrPaddingExtensionSizes,
@@ -812,21 +812,20 @@ size_t RTPSender::RtpHeaderLength() const {
 }
 
 uint16_t RTPSender::AllocateSequenceNumber(uint16_t packets_to_send) {
-  rtc::CritScope lock(&send_critsect_);
+  
   uint16_t first_allocated_sequence_number = sequence_number_;
   sequence_number_ += packets_to_send;
   return first_allocated_sequence_number;
 }
 
 void RTPSender::GetDataCounters(StreamDataCounters* rtp_stats,
-                                StreamDataCounters* rtx_stats) const {
-  rtc::CritScope lock(&statistics_crit_);
+                                StreamDataCounters* rtx_stats) const {  
   *rtp_stats = rtp_stats_;
   *rtx_stats = rtx_rtp_stats_;
 }
 
 std::unique_ptr<RtpPacketToSend> RTPSender::AllocatePacket() const {
-  rtc::CritScope lock(&send_critsect_);
+  
   // TODO(danilchap): Find better motivator and value for extra capacity.
   // RtpPacketizer might slightly miscalulate needed size,
   // SRTP may benefit from extra space in the buffer and do encryption in place
@@ -866,7 +865,6 @@ std::unique_ptr<RtpPacketToSend> RTPSender::AllocatePacket() const {
 }
 
 bool RTPSender::AssignSequenceNumber(RtpPacketToSend* packet) {
-  rtc::CritScope lock(&send_critsect_);
   if (!sending_media_)
     return false;
   RTC_DCHECK(packet->Ssrc() == ssrc_);
@@ -885,54 +883,47 @@ bool RTPSender::AssignSequenceNumber(RtpPacketToSend* packet) {
 }
 
 void RTPSender::SetSendingMediaStatus(bool enabled) {
-  rtc::CritScope lock(&send_critsect_);
   sending_media_ = enabled;
 }
 
 bool RTPSender::SendingMedia() const {
-  rtc::CritScope lock(&send_critsect_);
   return sending_media_;
 }
 
 void RTPSender::SetAsPartOfAllocation(bool part_of_allocation) {
-  rtc::CritScope lock(&send_critsect_);
   force_part_of_allocation_ = part_of_allocation;
 }
 
 void RTPSender::SetTimestampOffset(uint32_t timestamp) {
-  rtc::CritScope lock(&send_critsect_);
   timestamp_offset_ = timestamp;
 }
 
 uint32_t RTPSender::TimestampOffset() const {
-  rtc::CritScope lock(&send_critsect_);
+  
   return timestamp_offset_;
 }
 
 void RTPSender::SetRid(const std::string& rid) {
   // RID is used in simulcast scenario when multiple layers share the same mid.
-  rtc::CritScope lock(&send_critsect_);
   RTC_DCHECK_LE(rid.length(), RtpStreamId::kMaxValueSizeBytes);
   rid_ = rid;
 }
 
 void RTPSender::SetMid(const std::string& mid) {
   // This is configured via the API.
-  rtc::CritScope lock(&send_critsect_);
+  
   RTC_DCHECK_LE(mid.length(), RtpMid::kMaxValueSizeBytes);
   mid_ = mid;
 }
 
 void RTPSender::SetCsrcs(const std::vector<uint32_t>& csrcs) {
   RTC_DCHECK_LE(csrcs.size(), kRtpCsrcSize);
-  rtc::CritScope lock(&send_critsect_);
   csrcs_ = csrcs;
 }
 
 void RTPSender::SetSequenceNumber(uint16_t seq) {
   bool updated_sequence_number = false;
   {
-    rtc::CritScope lock(&send_critsect_);
     sequence_number_forced_ = true;
     if (sequence_number_ != seq) {
       updated_sequence_number = true;
@@ -948,7 +939,7 @@ void RTPSender::SetSequenceNumber(uint16_t seq) {
 }
 
 uint16_t RTPSender::SequenceNumber() const {
-  rtc::CritScope lock(&send_critsect_);
+  
   return sequence_number_;
 }
 
@@ -1006,7 +997,6 @@ std::unique_ptr<RtpPacketToSend> RTPSender::BuildRtxPacket(
 
   // Add original RTP header.
   {
-    rtc::CritScope lock(&send_critsect_);
     if (!sending_media_)
       return nullptr;
 
@@ -1072,12 +1062,11 @@ std::unique_ptr<RtpPacketToSend> RTPSender::BuildRtxPacket(
 }
 
 uint32_t RTPSender::BitrateSent() const {
-  rtc::CritScope cs(&statistics_crit_);
   return total_bitrate_sent_.Rate(clock_->TimeInMilliseconds()).value_or(0);
 }
 
 void RTPSender::SetRtpState(const RtpState& rtp_state) {
-  rtc::CritScope lock(&send_critsect_);
+  
   sequence_number_ = rtp_state.sequence_number;
   sequence_number_forced_ = true;
   timestamp_offset_ = rtp_state.start_timestamp;
@@ -1089,8 +1078,6 @@ void RTPSender::SetRtpState(const RtpState& rtp_state) {
 }
 
 RtpState RTPSender::GetRtpState() const {
-  rtc::CritScope lock(&send_critsect_);
-
   RtpState state;
   state.sequence_number = sequence_number_;
   state.start_timestamp = timestamp_offset_;
@@ -1104,14 +1091,11 @@ RtpState RTPSender::GetRtpState() const {
 }
 
 void RTPSender::SetRtxRtpState(const RtpState& rtp_state) {
-  rtc::CritScope lock(&send_critsect_);
   sequence_number_rtx_ = rtp_state.sequence_number;
   rtx_ssrc_has_acked_ = rtp_state.ssrc_has_acked;
 }
 
 RtpState RTPSender::GetRtxRtpState() const {
-  rtc::CritScope lock(&send_critsect_);
-
   RtpState state;
   state.sequence_number = sequence_number_rtx_;
   state.start_timestamp = timestamp_offset_;
@@ -1146,7 +1130,6 @@ void RTPSender::UpdateRtpOverhead(const RtpPacketToSend& packet) {
     return;
   size_t overhead_bytes_per_packet;
   {
-    rtc::CritScope lock(&send_critsect_);
     if (rtp_overhead_bytes_per_packet_ == packet.headers_size()) {
       return;
     }
@@ -1157,7 +1140,7 @@ void RTPSender::UpdateRtpOverhead(const RtpPacketToSend& packet) {
 }
 
 int64_t RTPSender::LastTimestampTimeMs() const {
-  rtc::CritScope lock(&send_critsect_);
+  
   return last_timestamp_time_ms_;
 }
 

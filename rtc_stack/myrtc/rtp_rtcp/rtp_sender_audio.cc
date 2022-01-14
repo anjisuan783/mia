@@ -59,7 +59,6 @@ int32_t RTPSenderAudio::RegisterAudioPayload(std::string_view payload_name,
                                              const size_t channels,
                                              const uint32_t rate) {
   if (absl::EqualsIgnoreCase(payload_name, "cn")) {
-    rtc::CritScope cs(&send_audio_critsect_);
     //  we can have multiple CNG payload types
     switch (frequency) {
       case 8000:
@@ -78,7 +77,6 @@ int32_t RTPSenderAudio::RegisterAudioPayload(std::string_view payload_name,
         return -1;
     }
   } else if (absl::EqualsIgnoreCase(payload_name, "telephone-event")) {
-    rtc::CritScope cs(&send_audio_critsect_);
     // Don't add it to the list
     // we dont want to allow send with a DTMF payloadtype
     dtmf_payload_type_ = payload_type;
@@ -89,7 +87,6 @@ int32_t RTPSenderAudio::RegisterAudioPayload(std::string_view payload_name,
 }
 
 bool RTPSenderAudio::MarkerBit(AudioFrameType frame_type, int8_t payload_type) {
-  rtc::CritScope cs(&send_audio_critsect_);
   // for audio true for first packet in a speech burst
   bool marker_bit = false;
   if (last_payload_type_ != payload_type) {
@@ -148,7 +145,6 @@ bool RTPSenderAudio::SendAudio(AudioFrameType frame_type,
   uint8_t audio_level_dbov = 0;
   uint32_t dtmf_payload_freq = 0;
   {
-    rtc::CritScope cs(&send_audio_critsect_);
     audio_level_dbov = audio_level_dbov_;
     dtmf_payload_freq = dtmf_payload_freq_;
   }
@@ -251,10 +247,7 @@ bool RTPSenderAudio::SendAudio(AudioFrameType frame_type,
   if (!rtp_sender_->AssignSequenceNumber(packet.get()))
     return false;
 
-  {
-    rtc::CritScope cs(&send_audio_critsect_);
-    last_payload_type_ = payload_type;
-  }
+  last_payload_type_ = payload_type;
   TRACE_EVENT_ASYNC_END2("webrtc", "Audio", rtp_timestamp, "timestamp",
                          packet->Timestamp(), "seqnum",
                          packet->SequenceNumber());
@@ -272,7 +265,6 @@ int32_t RTPSenderAudio::SetAudioLevel(uint8_t level_dbov) {
   if (level_dbov > 127) {
     return -1;
   }
-  rtc::CritScope cs(&send_audio_critsect_);
   audio_level_dbov_ = level_dbov;
   return 0;
 }
@@ -283,7 +275,6 @@ int32_t RTPSenderAudio::SendTelephoneEvent(uint8_t key,
                                            uint8_t level) {
   DtmfQueue::Event event;
   {
-    rtc::CritScope lock(&send_audio_critsect_);
     if (dtmf_payload_type_ < 0) {
       // TelephoneEvent payloadtype not configured
       return -1;

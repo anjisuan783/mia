@@ -40,13 +40,12 @@ RtpStreamsSynchronizer::RtpStreamsSynchronizer(Syncable* syncable_video)
       sync_(),
       last_sync_time_(rtc::TimeNanos()) {
   RTC_DCHECK(syncable_video);
-  process_thread_checker_.Detach();
 }
 
 RtpStreamsSynchronizer::~RtpStreamsSynchronizer() = default;
 
 void RtpStreamsSynchronizer::ConfigureSync(Syncable* syncable_audio) {
-  rtc::CritScope lock(&crit_);
+  
   if (syncable_audio == syncable_audio_) {
     // This prevents expensive no-ops.
     return;
@@ -61,17 +60,14 @@ void RtpStreamsSynchronizer::ConfigureSync(Syncable* syncable_audio) {
 }
 
 int64_t RtpStreamsSynchronizer::TimeUntilNextProcess() {
-  RTC_DCHECK_RUN_ON(&process_thread_checker_);
   const int64_t kSyncIntervalMs = 1000;
   return kSyncIntervalMs -
          (rtc::TimeNanos() - last_sync_time_) / rtc::kNumNanosecsPerMillisec;
 }
 
 void RtpStreamsSynchronizer::Process() {
-  RTC_DCHECK_RUN_ON(&process_thread_checker_);
   last_sync_time_ = rtc::TimeNanos();
 
-  rtc::CritScope lock(&crit_);
   if (!syncable_audio_) {
     return;
   }
@@ -123,7 +119,7 @@ bool RtpStreamsSynchronizer::GetStreamSyncOffsetInMs(
     int64_t render_time_ms,
     int64_t* stream_offset_ms,
     double* estimated_freq_khz) const {
-  rtc::CritScope lock(&crit_);
+  
   if (!syncable_audio_) {
     return false;
   }
