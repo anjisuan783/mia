@@ -29,7 +29,7 @@
 #include "logging/rtc_event_rtp_packet_incoming.h"
 #include "logging/rtc_event_video_receive_stream_config.h"
 #include "logging/rtc_stream_config.h"
-#include "congestion_controller/receive_side_congestion_controller.h"
+#include "cc/receive_side_congestion_controller.h"
 #include "rtp_rtcp/flexfec_receiver.h"
 #include "rtp_rtcp//rtp_header_extension_map.h"
 #include "rtp_rtcp/byte_io.h"

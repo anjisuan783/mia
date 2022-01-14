@@ -20,7 +20,7 @@
 #include "absl/algorithm/container.h"
 #include "media/media_constants.h"
 #include "pacing/packet_router.h"
-#include "remote_bitrate_estimator/remote_bitrate_estimator.h"
+#include "rbe/remote_bitrate_estimator.h"
 #include "rtp_rtcp/receive_statistics.h"
 #include "rtp_rtcp/rtp_cvo.h"
 #include "rtp_rtcp/rtp_rtcp.h"

@@ -18,7 +18,7 @@
 #include "absl/strings/match.h"
 #include "string_view"
 #include "api/audio_format.h"
-#include "remote_bitrate_estimator/test/bwe_test_logging.h"
+#include "rbe/test/bwe_test_logging.h"
 #include "rtp_rtcp/rtp_rtcp_defines.h"
 #include "rtp_rtcp/byte_io.h"
 #include "rtp_rtcp/rtp_header_extensions.h"

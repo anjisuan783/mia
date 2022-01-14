@@ -186,6 +186,9 @@ void RtpPayloadParams::SetGeneric(const CodecSpecificInfo* codec_specific_info,
       return;
     case VideoCodecType::kVideoCodecMultiplex:
       return;
+    case kVideoCodecVP8:
+    case kVideoCodecVP9:
+      ;
   }
   RTC_NOTREACHED() << "Unsupported codec.";
 }

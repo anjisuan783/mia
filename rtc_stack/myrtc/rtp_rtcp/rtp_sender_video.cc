@@ -19,7 +19,7 @@
 
 #include "string_view"
 #include "api/frame_encryptor_interface.h"
-#include "remote_bitrate_estimator/test/bwe_test_logging.h"
+#include "rbe/test/bwe_test_logging.h"
 #include "rtp_rtcp/rtp_rtcp_defines.h"
 #include "rtp_rtcp/byte_io.h"
 #include "rtp_rtcp/rtp_format.h"
@@ -608,7 +608,7 @@ bool RTPSenderVideo::SendVideo(
   if (num_packets == 0)
     return false;
 
-  uint16_t first_sequence_number;
+  uint16_t first_sequence_number = 0;
   bool first_frame = first_frame_sent_();
   std::vector<std::unique_ptr<RtpPacketToSend>> rtp_packets;
   for (size_t i = 0; i < num_packets; ++i) {

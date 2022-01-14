@@ -19,7 +19,7 @@ absl::InlinedVector<DecodeTargetIndication, 10>
 GenericFrameInfo::DecodeTargetInfo(std::string_view indication_symbols) {
   absl::InlinedVector<DecodeTargetIndication, 10> decode_targets;
   for (char symbol : indication_symbols) {
-    DecodeTargetIndication indication;
+    DecodeTargetIndication indication = DecodeTargetIndication::kNotPresent;
     switch (symbol) {
       case '-':
         indication = DecodeTargetIndication::kNotPresent;
