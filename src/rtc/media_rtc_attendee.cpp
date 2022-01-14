@@ -23,7 +23,8 @@ namespace {
 
 // one m=audio, one m=video sdp 
 // unified plan only
-void FillTrack(const std::string& sdp, std::vector<wa::TTrackInfo>& tracks) {
+void FillTrack(const std::string& sdp, 
+    std::vector<wa::TTrackInfo>& tracks, bool push) {
   size_t found = 0;
 
   found = sdp.find("m=audio", found);
@@ -55,6 +56,15 @@ void FillTrack(const std::string& sdp, std::vector<wa::TTrackInfo>& tracks) {
       track.request_keyframe_period_ = 
           g_server_.config_.request_keyframe_interval;
       tracks.emplace_back(track);
+    }
+  }
+
+  for (auto& i : tracks) {
+   if (push) {
+      i.direction_ = "sendonly";
+    }
+    else {
+      i.direction_ = "recvonly";
     }
   }
 }
@@ -121,12 +131,12 @@ srs_error_t MediaRtcPublisher::Open(
   t.stream_name_ = stream_id;
 
   // TODO parse sdp here
-  FillTrack(sdp, t.tracks_);
+  FillTrack(sdp, t.tracks_, true);
 
   t.call_back_ = shared_from_this();
   async_callback_ = true;
 
-  int rv = rtc_->publish(t, sdp);
+  int rv = rtc_->CreatePeer(t, sdp);
 
   srs_error_t err = srs_success;
   if (rv == wa::wa_e_found) {
@@ -140,7 +150,7 @@ srs_error_t MediaRtcPublisher::Open(
 
 void MediaRtcPublisher::Close() {
   if (pc_in_) {
-    int rv = rtc_->unpublish(pc_id_);
+    int rv = rtc_->DestroyPeer(pc_id_);
 
     pc_in_ = false;
     if (rv != wa::wa_ok) {
@@ -159,7 +169,7 @@ void MediaRtcPublisher::onAnswer(const std::string& sdp) {
 
     // try again ?
 
-    int rv = rtc_->unpublish(pc_id_);
+    int rv = rtc_->DestroyPeer(pc_id_);
     if (rv != wa::wa_ok) {
       MLOG_ERROR("pc[" << pc_id_ << "] not found");
     }
@@ -176,7 +186,7 @@ void MediaRtcPublisher::onReady() {
 
 void MediaRtcPublisher::onFailed(const std::string& /*remoted_sdp*/) {
   MLOG_CINFO("pc[%s] disconnected", pc_id_);
-  int rv = rtc_->unpublish(pc_id_);
+  int rv = rtc_->DestroyPeer(pc_id_);
 
   pc_in_ = false;
 
@@ -220,11 +230,11 @@ srs_error_t MediaRtcSubscriber::Open(
   t.connectId_ = pc_id_;
   t.stream_name_ = stream_id;
 
-  FillTrack(sdp, t.tracks_);
+  FillTrack(sdp, t.tracks_, false);
 
   t.call_back_ = shared_from_this();
 
-  int rv = rtc_->subscribe(t, sdp);
+  int rv = rtc_->CreatePeer(t, sdp);
 
   srs_error_t err = srs_success;
   if (rv == wa::wa_e_found) {
@@ -238,7 +248,7 @@ srs_error_t MediaRtcSubscriber::Open(
 
 void MediaRtcSubscriber::Close() {
   if (pc_in_) {
-    int rv = rtc_->unsubscribe(pc_id_);
+    int rv = rtc_->DestroyPeer(pc_id_);
 
     pc_in_ = false;
     if (rv != wa::wa_ok) {
@@ -256,7 +266,7 @@ void MediaRtcSubscriber::onAnswer(const std::string& sdp) {
     delete err;
 
     // try again ?
-    int rv = rtc_->unsubscribe(pc_id_);
+    int rv = rtc_->DestroyPeer(pc_id_);
     if (rv != wa::wa_ok) {
       MLOG_ERROR("pc[" << pc_id_ << "] not found");
     }
@@ -274,7 +284,7 @@ void MediaRtcSubscriber::onReady() {
     return ;
   }
   
-  int rv = rtc_->linkup(publisher_id_, pc_id_);
+  int rv = rtc_->Subscribe(publisher_id_, pc_id_);
   if (rv != wa::wa_ok) {
     MLOG_ERROR(pc_id_ << " subscribe " << 
                publisher_id_ << " failed code:" << rv);
@@ -287,12 +297,12 @@ void MediaRtcSubscriber::onReady() {
 void MediaRtcSubscriber::onFailed(const std::string& /*remoted_sdp*/) {
   MLOG_CINFO("pc[%s] disconnected", pc_id_);
 
-  int rv = rtc_->cutoff(publisher_id_, pc_id_);
+  int rv = rtc_->Unsubscribe(publisher_id_, pc_id_);
   if (rv != wa::wa_ok) {
     MLOG_CERROR("pc[%s] unsub failed, publisher[%s] not found", publisher_id_);
   }
   
-  rv = rtc_->unpublish(pc_id_);
+  rv = rtc_->DestroyPeer(pc_id_);
 
   pc_in_ = false;
 
@@ -311,7 +321,7 @@ void MediaRtcSubscriber::OnPublisherJoin(const std::string& id) {
   }
 
   publisher_id_ = id;
-  int rv = rtc_->linkup(publisher_id_, pc_id_);
+  int rv = rtc_->Subscribe(publisher_id_, pc_id_);
   if (rv != wa::wa_ok) {
     MLOG_ERROR(pc_id_ << " subscribe " << publisher_id_ << 
                " failed code:" << rv);
@@ -330,7 +340,7 @@ void MediaRtcSubscriber::OnPublisherLeft(const std::string& id) {
     return;
   }
   
-  int rv = rtc_->cutoff(publisher_id_, pc_id_);
+  int rv = rtc_->Unsubscribe(publisher_id_, pc_id_);
   if (rv != wa::wa_ok) {
     MLOG_ERROR(publisher_id_ << " cutoff  " << pc_id_ << " failed code:" << rv);
   }
@@ -348,12 +358,12 @@ void MediaRtcSubscriber::OnPublisherChange(const std::string& id) {
   }
   
   publisher_id_ = id;
-  int rv = rtc_->cutoff(publisher_id_, pc_id_);
+  int rv = rtc_->Unsubscribe(publisher_id_, pc_id_);
   if (rv != wa::wa_ok) {
     MLOG_CERROR("pc[%s] unsub failed, publisher[%s] not found", publisher_id_);
   }
 
-  rv = rtc_->linkup(publisher_id_, pc_id_);
+  rv = rtc_->Subscribe(publisher_id_, pc_id_);
   if (rv != wa::wa_ok) {
     MLOG_ERROR(pc_id_ << " subscribe " << publisher_id_ << 
                " failed code:" << rv);
