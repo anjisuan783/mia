@@ -89,19 +89,13 @@ class rtc_api {
       const std::vector<std::string>& network_addresses,
       const std::string& service_addr) = 0;
 
-  virtual int publish(TOption&, const std::string& offer) = 0;
+  virtual int CreatePeer(TOption&, const std::string& offer) = 0;
+  virtual int DestroyPeer(const std::string& connectId) = 0;
 
-  virtual int unpublish(const std::string& connectId) = 0;
-
-  virtual int subscribe(TOption&, const std::string& offer) = 0;
-
-  virtual int unsubscribe(const std::string& connectId) = 0;
-
-  virtual int linkup(const std::string& from, const std::string& to) = 0;
-
-  virtual int cutoff(const std::string& from, const std::string& to) = 0;
-
-  virtual void mediaOnOff() = 0;
+  // one peer must subscribe only one source
+  // TODO multiple subscriptions
+  virtual int Subscribe(const std::string& from, const std::string& to) = 0;
+  virtual int Unsubscribe(const std::string& from, const std::string& to) = 0;
 };
 
 class AgentFactory {

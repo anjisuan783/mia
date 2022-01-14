@@ -33,7 +33,7 @@ set(WA_CMAKE_C_FLAGS "-g ${WA_DWARF_TYPE} -Wall -fPIC")
 if(${WA_BUILD_TYPE} STREQUAL "debug")
   set(CMAKE_CXX_FLAGS "-O0 -ggdb ${WA_CMAKE_CXX_FLAGS} ${MYRTC_CMAKE_CXX_FLAGS}")
 else()
-  set(CMAKE_CXX_FLAGS "-O3 ${WA_CMAKE_CXX_FLAGS} ${MYRTC_CMAKE_CXX_FLAGS}")
+  set(CMAKE_CXX_FLAGS "-O3 ${WA_CMAKE_CXX_FLAGS} ${MYRTC_CMAKE_CXX_FLAGS} -DNDEBUG")
 endif()
 
 message("Generating wa ${WA_BUILD_TYPE} project with ${CMAKE_CXX_FLAGS}")
@@ -129,12 +129,12 @@ file(
 	"${MYRTC_SOURCE_DIR}/api/*.h" "${MYRTC_SOURCE_DIR}/api/*.cc"
 	"${MYRTC_SOURCE_DIR}/audio/*.h" "${MYRTC_SOURCE_DIR}/audio/*.cc"
 	"${MYRTC_SOURCE_DIR}/call/*.h" "${MYRTC_SOURCE_DIR}/call/*.cc"
-	"${MYRTC_SOURCE_DIR}/congestion_controller/*.h" "${MYRTC_SOURCE_DIR}/congestion_controller/*.cc"
+	"${MYRTC_SOURCE_DIR}/cc/*.h" "${MYRTC_SOURCE_DIR}/cc/*.cc"
 	"${MYRTC_SOURCE_DIR}/logging/*.h" "${MYRTC_SOURCE_DIR}/logging/*.cc"
 	"${MYRTC_SOURCE_DIR}/media/*.h" "${MYRTC_SOURCE_DIR}/media/*.cc"
 	"${MYRTC_SOURCE_DIR}/module/*.h" "${MYRTC_SOURCE_DIR}/module/*.cc"
 	"${MYRTC_SOURCE_DIR}/pacing/*.h" "${MYRTC_SOURCE_DIR}/pacing/*.cc"
-	"${MYRTC_SOURCE_DIR}/remote_bitrate_estimator/*.h" "${MYRTC_SOURCE_DIR}/remote_bitrate_estimator/*.cc"
+	"${MYRTC_SOURCE_DIR}/rbe/*.h" "${MYRTC_SOURCE_DIR}/rbe/*.cc"
 	"${MYRTC_SOURCE_DIR}/utility/*.h" "${MYRTC_SOURCE_DIR}/utility/*.cc"
 	"${MYRTC_SOURCE_DIR}/rtc_base/*.h" "${MYRTC_SOURCE_DIR}/rtc_base/*.cc"
 	"${MYRTC_SOURCE_DIR}/rtp_rtcp/*.h" "${MYRTC_SOURCE_DIR}/rtp_rtcp/*.cc"

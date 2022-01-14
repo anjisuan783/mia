@@ -34,19 +34,13 @@ public:
   int initiate(uint32_t num_workers, 
       const std::vector<std::string>& ip_addresses, const std::string& service_addr);
 
-  int publish(TOption&, const std::string& offer) override;
+  int CreatePeer(TOption&, const std::string& offer) override;
 
-  int unpublish(const std::string& connectId) override;
+  int DestroyPeer(const std::string& connectId) override;
 
-  int subscribe(TOption&, const std::string& offer) override;
-  
-  int unsubscribe(const std::string& connectId) override;
+  int Subscribe(const std::string& from, const std::string& to) override;
 
-  int linkup(const std::string& from, const std::string& to) override;
-
-  int cutoff(const std::string& from, const std::string& to) override;
-
-  void mediaOnOff() { }
+  int Unsubscribe(const std::string& from, const std::string& to) override;
 
   const std::vector<std::string>& getAddresses(){
     return network_addresses_;

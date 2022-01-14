@@ -8,6 +8,9 @@ buildLibrary() {
       then
         cd $d
           ninja
+          if [[ "$?" -ne 0 ]];then
+            exit 1
+          fi
         cd ..
       fi
     done
@@ -19,7 +22,7 @@ buildLibrary() {
 
 generateVersion() {
   echo "generating $1"
-  cmake ./rtc_stack -B$BUILD_DIR/wa  -G "Ninja" "-DWA_BUILD_TYPE=$1" -Wno-dev
+  cmake ./rtc_stack  -B$BUILD_DIR/wa -G "Ninja" "-DWA_BUILD_TYPE=$1" -Wno-dev
   cmake ./src  -B$BUILD_DIR/ma -G "Ninja" "-DMA_BUILD_TYPE=$1" -Wno-dev
 }
 

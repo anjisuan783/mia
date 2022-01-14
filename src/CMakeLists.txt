@@ -1,10 +1,11 @@
-cmake_minimum_required(VERSION 2.6)
+cmake_minimum_required(VERSION 2.8)
 
-project(media_server)
+project(libma)
 
-set(CMAKE_C_COMPILER "/opt/rh/devtoolset-7/root/usr/bin/gcc")
-set(CMAKE_CXX_COMPILER "/opt/rh/devtoolset-7/root/usr/bin/g++")
+#set(CMAKE_C_COMPILER "/opt/rh/devtoolset-7/root/usr/bin/gcc")
+#set(CMAKE_CXX_COMPILER "/opt/rh/devtoolset-7/root/usr/bin/g++")
 
+#check compiler version
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
   execute_process(COMMAND ${CMAKE_C_COMPILER} -dumpversion
     OUTPUT_VARIABLE GCC_VERSION)
@@ -19,8 +20,11 @@ if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
   endif()
 endif()
 
-set(MYRTC_CMAKE_CXX_FLAGS "-fexceptions -DWEBRTC_POSIX -DWEBRTC_LINUX -DLINUX -DNOLINUXIF -DNO_REG_RPC=1 -DHAVE_VFPRINTF=1 -DRETSIGTYPE=void -DNEW_STDIO -DHAVE_STRDUP=1 -DHAVE_STRLCPY=1 -DHAVE_LIBM=1 -DHAVE_SYS_TIME_H=1 -DTIME_WITH_SYS_TIME_H=1 -D_LIBCPP_ABI_UNSTABLE")
-set(MA_CMAKE_CXX_FLAGS "-D_GNU_SOURCE -g -Wall -std=gnu++17 -fPIC -D__STDC_FORMAT_MACROS ${MYRTC_CMAKE_CXX_FLAGS} ${CMAKE_CXX_GS_FLAGS}")
+set(COMMON_CMAKE_CXX_FLAGS "-D_GNU_SOURCE -g -std=gnu++17 -fPIC -Wall")
+set(COMMON_CMAKE_C_FLAGS "-g -Wall -fPIC")
+set(MYRTC_CMAKE_CXX_FLAGS "-fexceptions -DWEBRTC_POSIX -DWEBRTC_LINUX -DLINUX -DNOLINUXIF -DNO_REG_RPC=1 -DHAVE_VFPRINTF=1 -DRETSIGTYPE=void -DNEW_STDIO -DHAVE_STRDUP=1 -DHAVE_STRLCPY=1 -DHAVE_LIBM=1 -DHAVE_SYS_TIME_H=1 -DTIME_WITH_SYS_TIME_H=1 -D_LIBCPP_ABI_UNSTABLE -DWEBRTC_EXCLUDE_BUILT_IN_SSL_ROOT_CERTS")
+
+set(MA_CMAKE_CXX_FLAGS "-D__STDC_FORMAT_MACROS ${COMMON_CMAKE_CXX_FLAGS} ${MYRTC_CMAKE_CXX_FLAGS}")
 
 if(${MA_BUILD_TYPE} STREQUAL "debug")
   set(CMAKE_CXX_FLAGS "-O0 -ggdb ${MA_CMAKE_CXX_FLAGS}")
@@ -30,12 +34,9 @@ endif()
 
 message("Generating ma ${MA_BUILD_TYPE} project with ${CMAKE_CXX_FLAGS}")
 
-
 set(MA_SOURCE_PATH "${CMAKE_CURRENT_SOURCE_DIR}")
 
 set(WA_SOURCE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../rtc_stack")
-
-message("wa path ${WA_SOURCE_PATH}")
 
 include_directories(
 	${CMAKE_CURRENT_SOURCE_DIR}
@@ -62,5 +63,7 @@ file(GLOB_RECURSE MA_SOURCE_FILE
 
 add_library(ma STATIC ${MA_SOURCE_FILE} ${HEADER_FILES})
 
-#subdirs()
+#subdirs(
+#	../rtcstack
+#)
 
