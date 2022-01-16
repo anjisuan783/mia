@@ -67,9 +67,9 @@ bool VideoFrameConstructor::setBitrate(uint32_t kbps) {
   return true;
 }
 
-void VideoFrameConstructor::onAdapterFrame(const Frame& frame) {
+void VideoFrameConstructor::onAdapterFrame(std::shared_ptr<Frame> frame) {
   if (enable_) {
-    deliverFrame(frame);
+    deliverFrame(std::move(frame));
   }
 }
 

@@ -75,7 +75,7 @@ srs_error_t MediaFileHandler::serve_http(
   if (!worker_) {
     auto task_queue_factory = webrtc::CreateDefaultTaskQueueFactory();
     worker_ = std::make_shared<wa::Worker>(task_queue_factory.get());
-    worker_->start();
+    worker_->start("file server");
   }
 
   // serve common static file.

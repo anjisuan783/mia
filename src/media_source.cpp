@@ -136,9 +136,9 @@ void MediaSource::OnRtcNobody() {
   g_source_mgr_.RemoveSource(req_);
 }
 
-void MediaSource::OnMediaFrame(const owt_base::Frame& frm) {
+void MediaSource::OnMediaFrame(std::shared_ptr<owt_base::Frame> frm) {
   if (live_adapter_ ) {
-    live_adapter_->onFrame(frm);
+    live_adapter_->onFrame(std::move(frm));
   }
 }
 

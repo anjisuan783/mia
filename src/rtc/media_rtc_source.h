@@ -23,7 +23,7 @@ namespace ma {
 class RtcMediaSink {
  public:
   virtual ~RtcMediaSink() = default;
-  virtual void OnMediaFrame(const owt_base::Frame& frm) = 0;
+  virtual void OnMediaFrame(std::shared_ptr<owt_base::Frame> frm) = 0;
 };
 
 class Worker;

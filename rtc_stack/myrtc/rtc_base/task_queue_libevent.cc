@@ -17,7 +17,7 @@
 #include <stdint.h>
 #include <time.h>
 #include <unistd.h>
-#include <set>
+#include <unordered_set>
 #include <memory>
 #include <type_traits>
 #include <utility>
@@ -34,6 +34,8 @@
 #include "rtc_base/platform_thread_types.h"
 #include "rtc_base/thread_annotations.h"
 #include "rtc_base/time_utils.h"
+#include "rtc_base/object_pool.h"
+#include "rtc_base/clock.h"
 
 namespace webrtc {
 namespace {
@@ -114,6 +116,8 @@ class TaskQueueLibevent final : public TaskQueueBase {
                        uint32_t milliseconds) override;
 
  private:
+  bool NotifyWakeup();
+ 
   class SetTimerTask : public QueuedTask {
    public:
     SetTimerTask(std::unique_ptr<QueuedTask> task, uint32_t milliseconds)
@@ -140,10 +144,16 @@ class TaskQueueLibevent final : public TaskQueueBase {
   struct TimerEvent {
     TimerEvent(TaskQueueLibevent* task_queue, std::unique_ptr<QueuedTask> task)
         : task_queue_(task_queue), task_(std::move(task)) {}
+    TimerEvent() { }
     ~TimerEvent() { event_del(&ev_); }
 
+    void Init(TaskQueueLibevent* task_queue, std::unique_ptr<QueuedTask> task) {
+      task_queue_ = task_queue;
+      task_ = std::move(task);
+    }
+    
     event ev_;
-    TaskQueueLibevent* task_queue_;
+    TaskQueueLibevent* task_queue_{nullptr};
     std::unique_ptr<QueuedTask> task_;
   };
 
@@ -162,13 +172,21 @@ class TaskQueueLibevent final : public TaskQueueBase {
   rtc::CriticalSection pending_lock_;
   std::list<std::unique_ptr<QueuedTask>> pending_ RTC_GUARDED_BY(pending_lock_);
   // Holds a list of events pending timers for cleanup when the loop exits.
-  std::set<TimerEvent*> pending_timers_;
+  std::unordered_set<TimerEvent*> pending_timers_;
+
+  ObjectPoolT<TimerEvent> timer_event_pool_;
+
+  Clock* clock_;
+  Timestamp last_report_ts_;
 };
 
 TaskQueueLibevent::TaskQueueLibevent(std::string_view queue_name,
                                      rtc::ThreadPriority priority)
     : event_base_(event_base_new()),
-      thread_(&TaskQueueLibevent::ThreadMain, this, queue_name, priority) {
+      thread_(&TaskQueueLibevent::ThreadMain, this, queue_name, priority),
+      timer_event_pool_(16),
+      clock_(Clock::GetRealTimeClock()),
+      last_report_ts_(clock_->CurrentTime()) {
   int fds[2];
   RTC_CHECK(pipe(fds) == 0);
   SetNonBlocking(fds[0]);
@@ -178,7 +196,7 @@ TaskQueueLibevent::TaskQueueLibevent(std::string_view queue_name,
 
   EventAssign(&wakeup_event_, event_base_, wakeup_pipe_out_,
               EV_READ | EV_PERSIST, OnWakeup, this);
-  event_add(&wakeup_event_, 0);
+  event_add(&wakeup_event_, nullptr);
   thread_.Start();
 }
 
@@ -209,15 +227,39 @@ void TaskQueueLibevent::Delete() {
   delete this;
 }
 
-void TaskQueueLibevent::PostTask(std::unique_ptr<QueuedTask> task) {
-  QueuedTask* task_id = task.get();  // Only used for comparison.
-  {
-    rtc::CritScope lock(&pending_lock_);
-    pending_.push_back(std::move(task));
-  }
+bool TaskQueueLibevent::NotifyWakeup() {
   char message = kRunTask;
   if (write(wakeup_pipe_in_, &message, sizeof(message)) != sizeof(message)) {
-    RTC_LOG(WARNING) << "Failed to queue task.";
+    RTC_LOG(WARNING) << "Failed to NotifyWakeup.";
+    return false;
+  }
+  return true;
+}
+
+void TaskQueueLibevent::PostTask(std::unique_ptr<QueuedTask> task) {
+  static const int kWarningAppendEventCount = 100;
+  static const int kReportIntervalMs = 3000;
+  QueuedTask* task_id = task.get();  // Only used for comparison.
+  size_t pending_event = 0;
+  {
+    rtc::CritScope lock(&pending_lock_);
+    pending_event = pending_.size();
+    pending_.emplace_back(std::move(task));
+  }
+
+  Timestamp cur_ts = clock_->CurrentTime();
+  if (last_report_ts_ + TimeDelta::ms(kReportIntervalMs) > cur_ts) {
+    if (pending_event > kWarningAppendEventCount)
+      RTC_LOG(WARNING) << "task queue PostTask "
+        ", pending:" << pending_event << 
+        ", worker name:" << thread_.name();
+    last_report_ts_ = cur_ts;
+  }
+
+  if (pending_event > 0)
+    return;
+  
+  if (!NotifyWakeup()) {
     rtc::CritScope lock(&pending_lock_);
     pending_.remove_if([task_id](std::unique_ptr<QueuedTask>& t) {
       return t.get() == task_id;
@@ -228,7 +270,8 @@ void TaskQueueLibevent::PostTask(std::unique_ptr<QueuedTask> task) {
 void TaskQueueLibevent::PostDelayedTask(std::unique_ptr<QueuedTask> task,
                                         uint32_t milliseconds) {
   if (IsCurrent()) {
-    TimerEvent* timer = new TimerEvent(this, std::move(task));
+    TimerEvent* timer = timer_event_pool_.New();
+    timer->Init(this, std::move(task));
     EventAssign(&timer->ev_, event_base_, -1, 0, &TaskQueueLibevent::RunTimer,
                 timer);
     pending_timers_.insert(timer);
@@ -243,7 +286,7 @@ void TaskQueueLibevent::PostDelayedTask(std::unique_ptr<QueuedTask> task,
 // static
 void TaskQueueLibevent::ThreadMain(void* context) {
   TaskQueueLibevent* me = static_cast<TaskQueueLibevent*>(context);
-
+  me->last_report_ts_ = me->clock_->CurrentTime();
   {
     CurrentTaskQueueSetter set_current(me);
     while (me->is_active_)
@@ -251,38 +294,57 @@ void TaskQueueLibevent::ThreadMain(void* context) {
   }
 
   for (TimerEvent* timer : me->pending_timers_)
-    delete timer;
+    me->timer_event_pool_.Delete(timer);
 }
 
 // static
 void TaskQueueLibevent::OnWakeup(int socket,
                                  short flags,  // NOLINT
                                  void* context) {
+  static int const kMaxExecuteMs = 20;
   TaskQueueLibevent* me = static_cast<TaskQueueLibevent*>(context);
   RTC_DCHECK(me->wakeup_pipe_out_ == socket);
   char buf;
   RTC_CHECK(sizeof(buf) == read(socket, &buf, sizeof(buf)));
-  switch (buf) {
-    case kQuit:
-      me->is_active_ = false;
-      event_base_loopbreak(me->event_base_);
-      break;
-    case kRunTask: {
-      std::unique_ptr<QueuedTask> task;
-      {
-        rtc::CritScope lock(&me->pending_lock_);
-        RTC_DCHECK(!me->pending_.empty());
-        task = std::move(me->pending_.front());
-        me->pending_.pop_front();
-        RTC_DCHECK(task.get());
+  if (kRunTask == buf) {
+    static constexpr size_t max_events_once = 3;
+    std::list<std::unique_ptr<QueuedTask>> task_list;
+    size_t remain = 0;
+    {
+      rtc::CritScope lock(&me->pending_lock_);
+      size_t total_event = me->pending_.size();
+      RTC_CHECK(total_event > 0);
+      if (total_event <= max_events_once) {
+        std::swap(me->pending_, task_list);
+      } else {
+        for (size_t i = 0; i < max_events_once; ++i) {
+          task_list.emplace_back(std::move(me->pending_.front()));
+          me->pending_.pop_front();
+        }
       }
+      remain = me->pending_.size();
+    }
+
+    Timestamp before_ts = me->clock_->CurrentTime();
+    for (auto& task : task_list) {
       if (!task->Run())
         task.release();
-      break;
     }
-    default:
-      RTC_NOTREACHED();
-      break;
+    TimeDelta cost_ts = me->clock_->CurrentTime() - before_ts;
+    if (cost_ts.ms() > kMaxExecuteMs) {
+      RTC_LOG(WARNING) << "process event too long time,"
+        ", cost:" << cost_ts.ms() << 
+        ", worker name:" << me->thread_.name();
+    }
+    
+    if (remain > 0) {
+      me->NotifyWakeup();
+    }
+  } else if (kQuit == buf) {
+    me->is_active_ = false;
+    event_base_loopbreak(me->event_base_);
+  } else {
+    RTC_NOTREACHED();
   }
 }
 
@@ -292,7 +354,7 @@ void TaskQueueLibevent::RunTimer(int, short, void* context) {
   if (!timer->task_->Run())
     timer->task_.release();
   timer->task_queue_->pending_timers_.erase(timer);
-  delete timer;
+  timer->task_queue_->timer_event_pool_.Delete(timer);
 }
 
 class TaskQueueLibeventFactory final : public TaskQueueFactory {

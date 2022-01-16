@@ -128,12 +128,12 @@ void VideoSendAdapterImpl::reset() {
   timeStampOffset_ = 0;
 }
 
-void VideoSendAdapterImpl::onFrame(const Frame& frame) {
-  if (frame.format != FRAME_FORMAT_H264) {
+void VideoSendAdapterImpl::onFrame(std::shared_ptr<owt_base::Frame> f) {
+  if (f->format != FRAME_FORMAT_H264) {
     assert(false);
     return;
   }
-  
+  Frame& frame = *f.get();
   using namespace webrtc;
 
   if (!keyFrameArrived_) {

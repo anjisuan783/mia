@@ -48,17 +48,16 @@ class WebrtcAgentSink
   virtual void onCandidate(const std::string&) = 0;
   virtual void onReady() = 0;
   virtual void onAnswer(const std::string&) = 0;
-  virtual void onFrame(const owt_base::Frame&) = 0;
+  virtual void onFrame(std::shared_ptr<owt_base::Frame>) = 0;
   virtual void onStat() = 0;
 
   void callBack(std::function<void(std::shared_ptr<WebrtcAgentSink>)> f) {
     if (!async_callback_) {
       f(shared_from_this());
     } else {
-      std::weak_ptr<WebrtcAgentSink> weak_this = shared_from_this();
-      this->post([weak_this, f] {
+      this->post([weak_this=weak_from_this(), fun=std::move(f)] {
       if (auto this_ptr = weak_this.lock()) {
-          f(this_ptr);
+          fun(this_ptr);
         }
       });
     }

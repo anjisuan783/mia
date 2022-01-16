@@ -30,7 +30,7 @@ public:
   ~AudioSendAdapterImpl();
 
   // Implement AudioSendAdapter
-  void onFrame(const owt_base::Frame&) override;
+  void onFrame(std::shared_ptr<owt_base::Frame>) override;
   int onRtcpData(char* data, int len) override;
   uint32_t ssrc() override { return ssrc_; }
 

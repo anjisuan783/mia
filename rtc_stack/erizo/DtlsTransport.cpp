@@ -192,7 +192,7 @@ void DtlsTransport::close() {
   ELOG_DEBUG("%s message: closed", toLog());
 }
 
-void DtlsTransport::onIceData(packetPtr packet) {
+void DtlsTransport::onIceData(DataPacket* packet) {
   if (!running_) {
     return;
   }
@@ -218,10 +218,7 @@ void DtlsTransport::onIceData(packetPtr packet) {
   if (this->getTransportState() != TRANSPORT_READY) {
     return;
   }
-  
-  auto unprotect_packet = std::make_shared<DataPacket>(
-      component_id, data, len, VIDEO_PACKET, packet->received_time_ms);
-
+ 
   if (dtlsRtcp != NULL && component_id == 2) {
     srtp = srtcp_.get();
   }
@@ -229,14 +226,16 @@ void DtlsTransport::onIceData(packetPtr packet) {
   if (srtp == NULL) {
     return;
   }
+  auto unprotect_packet = std::make_shared<DataPacket>(
+      component_id, data, len, VIDEO_PACKET, packet->received_time_ms);
   
   RtcpHeader *chead = reinterpret_cast<RtcpHeader*>(unprotect_packet->data);
-  if (chead->isRtcp()) {
-    if (srtp->unprotectRtcp(unprotect_packet->data, &unprotect_packet->length) < 0) {
+  if (!chead->isRtcp()) {
+    if (srtp->unprotectRtp(unprotect_packet->data, &unprotect_packet->length) < 0) {
       return;
     }
   } else {
-    if (srtp->unprotectRtp(unprotect_packet->data, &unprotect_packet->length) < 0) {
+    if (srtp->unprotectRtcp(unprotect_packet->data, &unprotect_packet->length) < 0) {
       return;
     }
   }
@@ -246,12 +245,12 @@ void DtlsTransport::onIceData(packetPtr packet) {
   }
   
   if (auto listener = getTransportListener().lock()) {
-    listener->onTransportData(unprotect_packet, this);
+    listener->onTransportData(std::move(unprotect_packet), this);
   }
 }
 
 void DtlsTransport::updateIceState(IceState state, IceConnection *conn) {
-  std::weak_ptr<Transport> weak_transport = Transport::weak_from_this();
+  auto weak_transport = Transport::weak_from_this();
   worker_->task([weak_transport, state, conn, this]() {
     if (auto transport = weak_transport.lock()) {
       updateIceStateSync(state, conn);

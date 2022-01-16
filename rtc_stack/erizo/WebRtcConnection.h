@@ -9,7 +9,7 @@
 #define ERIZO_SRC_ERIZO_WEBRTCCONNECTION_H_
 
 #include <string>
-#include <map>
+#include <unordered_map>
 #include <vector>
 
 #include "erizo/logger.h"
@@ -179,7 +179,7 @@ class WebRtcConnection: public TransportListener,
   bool audio_muted_{false};
   bool video_muted_{false};
   bool first_remote_sdp_processed_{false};
-  std::map<std::string, uint32_t> mapping_ssrcs_;
+  std::unordered_map<std::string, uint32_t> mapping_ssrcs_;
   std::shared_ptr<Stats> stats_;
 };
 

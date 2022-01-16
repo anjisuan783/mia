@@ -45,7 +45,7 @@ struct DataPacket {
     : comp{comp_}, 
       length{length_}, 
       type{type_}, 
-      received_time_ms{wa::ClockUtils::timePointToMs(wa::clock::now())},
+      /*received_time_ms{wa::ClockUtils::timePointToMs(wa::clock::now())},*/
       is_keyframe{false}, 
       ending_of_layer_frame{false},
       picture_id{-1}, 
@@ -57,7 +57,7 @@ struct DataPacket {
     : comp{comp_}, 
       length{length_}, 
       type{VIDEO_PACKET}, 
-      received_time_ms{wa::ClockUtils::timePointToMs(wa::clock::now())},
+      /*received_time_ms{wa::ClockUtils::timePointToMs(wa::clock::now())},*/
       is_keyframe{false}, 
       ending_of_layer_frame{false}, 
       picture_id{-1}, 
@@ -85,7 +85,7 @@ struct DataPacket {
   char data[1500];
   int length;
   packetType type;
-  uint64_t received_time_ms;
+  uint64_t received_time_ms = 0;
   std::vector<int> compatible_spatial_layers;
   std::vector<int> compatible_temporal_layers;
   bool is_keyframe;  // Note: It can be just a keyframe first packet in VP8

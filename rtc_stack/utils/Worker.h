@@ -38,8 +38,9 @@ class Worker final : public std::enable_shared_from_this<Worker> {
 
   void task(Task f);
 
-  void start();
-  void start(std::shared_ptr<std::promise<void>> start_promise);
+  void start(const std::string& name);
+  void start(std::shared_ptr<std::promise<void>> start_promise,
+             const std::string& name);
   void close();
 
   std::shared_ptr<ScheduledTaskReference> scheduleFromNow(Task f, duration delta);
@@ -70,7 +71,7 @@ class ThreadPool {
   ~ThreadPool();
 
   std::shared_ptr<Worker> getLessUsedWorker();
-  void start();
+  void start(const std::string& name);
   void close();
 
  private:

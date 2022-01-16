@@ -90,9 +90,10 @@ int32_t VideoReceiveAdapterImpl::AdapterDecoder::Decode(
   frame.additionalInfo.video.height = height_;
   frame.additionalInfo.video.isKeyFrame = 
       (encodedImage._frameType == webrtc::VideoFrameType::kVideoFrameKey);
+  auto copy = std::make_shared<Frame>(frame);
   if (parent_) {
     if (parent_->frameListener_) {
-      parent_->frameListener_->onAdapterFrame(frame);
+      parent_->frameListener_->onAdapterFrame(std::move(copy));
     }
     // Check video update
     if (parent_->statsListener_) {

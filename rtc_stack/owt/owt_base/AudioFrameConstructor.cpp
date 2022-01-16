@@ -152,9 +152,11 @@ int AudioFrameConstructor::deliverAudioData_(
     ELOG_TRACE("No audio level extension");
     no_audio_level_ = true;
   }
+
+  auto copy = std::make_shared<Frame>(frame);
   
   if (enabled_) {
-    deliverFrame(frame);
+    deliverFrame(std::move(copy));
   }
   
   return audio_packet->length;

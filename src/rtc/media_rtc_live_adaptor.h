@@ -32,7 +32,7 @@ class MediaRtcLiveAdaptor {
  public:
   MediaRtcLiveAdaptor(const std::string& stream_id);
   ~MediaRtcLiveAdaptor();
-  void onFrame(const owt_base::Frame& frm);
+  void onFrame(std::shared_ptr<owt_base::Frame> frm);
   void SetSink(RtcLiveAdapterSink* s) {
     sink_ = s;
   }

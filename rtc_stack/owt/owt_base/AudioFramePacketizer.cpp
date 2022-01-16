@@ -61,12 +61,12 @@ void AudioFramePacketizer::receiveRtpData(char* buf, int len,
       std::make_shared<erizo::DataPacket>(0, buf, len, erizo::AUDIO_PACKET));
 }
 
-void AudioFramePacketizer::onFrame(const Frame& frame) {
-  if (frame.length <= 0) {
+void AudioFramePacketizer::onFrame(std::shared_ptr<Frame> f) {
+  if (f->length <= 0) {
     return;
   }
  
-  task_queue_->PostTask([this, weak_ptr = weak_from_this(), frame] () {
+  task_queue_->PostTask([this, weak_ptr = weak_from_this(), frame = std::move(f)] () {
     if (auto shared_this = weak_ptr.lock()) {
       if (!enable_) {
         return;
@@ -77,7 +77,7 @@ void AudioFramePacketizer::onFrame(const Frame& frame) {
       }
 
       if (audioSend_) {
-          audioSend_->onFrame(frame);
+          audioSend_->onFrame(std::move(frame));
       }
     }
   }); 

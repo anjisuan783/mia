@@ -22,7 +22,7 @@ IceConnection::IceConnection(const IceConfig& ice_config)
 }
 
 IceConnection::~IceConnection() {
-  this->listener_.reset();
+  listener_.reset();
 }
 
 void IceConnection::setIceListener(std::weak_ptr<IceConnectionListener> listener) {
@@ -31,26 +31,6 @@ void IceConnection::setIceListener(std::weak_ptr<IceConnectionListener> listener
 
 std::weak_ptr<IceConnectionListener> IceConnection::getIceListener() {
   return listener_;
-}
-
-const std::string& IceConnection::getLocalUsername() const {
-  return ufrag_;
-}
-
-const std::string& IceConnection::getLocalPassword() const {
-  return upass_;
-}
-
-const std::string& IceConnection::getRemoteUsername() const {
-  return ice_config_.username;
-}
-
-const std::string& IceConnection::getRemotePassword() const {
-  return ice_config_.password;
-}
-
-IceState IceConnection::checkIceState() {
-  return ice_state_;
 }
 
 std::string IceConnection::iceStateToString(IceState state) const {
@@ -79,7 +59,7 @@ void IceConnection::updateIceState(IceState state) {
             iceStateToString(ice_state_).c_str(), 
             iceStateToString(state).c_str(), 
             this);
-  this->ice_state_ = state;
+  ice_state_ = state;
   switch (ice_state_) {
     case IceState::FINISHED:
       return;

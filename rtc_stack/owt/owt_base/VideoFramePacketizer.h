@@ -51,7 +51,7 @@ class VideoFramePacketizer
   uint32_t getSsrc() { return m_ssrc; }
 
   // Implements FrameDestination.
-  void onFrame(const Frame&);
+  void onFrame(std::shared_ptr<Frame>);
   void onVideoSourceChanged() override;
   
   // Implements the AdapterFeedbackListener interfaces.

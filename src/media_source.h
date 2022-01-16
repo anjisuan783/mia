@@ -91,7 +91,7 @@ class MediaSource final : public sigslot::has_slots<>,
   void ActiveAdapter();
   void UnactiveAdapter();
 
-  void OnMediaFrame(const owt_base::Frame& frm) override;
+  void OnMediaFrame(std::shared_ptr<owt_base::Frame> frm) override;
  private:
   Config config_;
   std::mutex live_source_lock_;

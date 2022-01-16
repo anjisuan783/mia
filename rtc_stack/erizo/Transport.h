@@ -71,7 +71,7 @@ class Transport : public std::enable_shared_from_this<Transport>,
               worker_{worker} {}
   virtual ~Transport() {}
   virtual void updateIceState(IceState state, IceConnection *conn) = 0;
-  virtual void onIceData(packetPtr packet) = 0;
+  virtual void onIceData(DataPacket* packet) = 0;
   virtual void write(char* data, int len) = 0;
   virtual void processLocalSdp(SdpInfo *localSdp_) = 0;
   virtual void start() = 0;
@@ -111,17 +111,16 @@ class Transport : public std::enable_shared_from_this<Transport>,
   }
 
   //IceConnectionListener implement
-  void onPacketReceived(packetPtr packet) {
+  void onPacketReceived(DataPacket* packet) override{
     worker_->task([weak_transport = weak_from_this(), packet]() {
       if (auto this_ptr = weak_transport.lock()) {
         if (packet->length > 0) {
           this_ptr->onIceData(packet);
-        }
-        if (packet->length == -1) {
+        } else if (packet->length == -1) {
           this_ptr->running_ = false;
-          return;
         }
       }
+      delete packet;
     });
   }
 

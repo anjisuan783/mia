@@ -39,7 +39,7 @@ int WebrtcAgent::initiate(uint32_t num_workers,
   if(!global_init_) {
     erizo::erizo_global_init();
     workers_ = std::make_shared<ThreadPool>(num_workers);
-    workers_->start();
+    workers_->start("wa");
     io_workers_ = std::make_shared<IOThreadPool>(num_workers);
     io_workers_->start();
 

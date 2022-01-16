@@ -42,7 +42,7 @@ class DtlsTransport : dtls::DtlsReceiver, public Transport {
   void close() override;
 
   //woker thread
-  void onIceData(packetPtr packet) override;
+  void onIceData(DataPacket* packet) override;
 
   //IceConnectionListener implement
   void onCandidate(const CandidateInfo &candidate, IceConnection *conn) override;

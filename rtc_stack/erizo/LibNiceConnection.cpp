@@ -104,43 +104,34 @@ LibNiceConnection::~LibNiceConnection() {
 }
 
 void LibNiceConnection::close() {
-  std::lock_guard<std::mutex> guard(close_mutex_);
-  
-  if (this->checkIceState() == IceState::FINISHED) {
+  if (checkIceState() == IceState::FINISHED) {
     return;
   }
-  
+  updateIceState(IceState::FINISHED);
   ELOG_DEBUG("%s message:closing", toLog());
-  
-  this->updateIceState(IceState::FINISHED);
-  listener_.reset();
-  ELOG_DEBUG("%s message: m_thread join, this: %p", toLog(), this);
-  
-  if (agent_ != NULL) {
-    ELOG_DEBUG("%s message: unrefing agent", toLog());
-    g_object_unref(agent_);
-    agent_ = NULL;
+
+  {
+    std::lock_guard<std::mutex> guard(close_mutex_);
+    listener_.reset();
+    
+    if (agent_ != NULL) {
+      g_object_unref(agent_);
+      agent_ = NULL;
+    }
   }
   ELOG_DEBUG("%s message: closed, this: %p", toLog(), this);
 }
 
 void LibNiceConnection::onData(unsigned int component_id, char* buf, int len) {
-
-  IceState state;
-  {
-    std::lock_guard<std::mutex> guard(close_mutex_);
-    state = this->checkIceState();
-  }
-
-  if (state == IceState::READY) {
-    packetPtr packet (new DataPacket());
-    std::memcpy(packet->data, buf, len);
-    packet->comp = component_id;
-    packet->length = len;
-    packet->received_time_ms = ClockUtils::timePointToMs(clock::now());
+  if (checkIceState() == IceState::READY) {
+    DataPacket* packet = new DataPacket(component_id, buf, len, VIDEO_PACKET, 0);
+    bool need_delete = true;
     if (auto listener = getIceListener().lock()) {
       listener->onPacketReceived(packet);
+      need_delete = false;
     }
+    if (need_delete)
+      delete packet;
   }
 }
 

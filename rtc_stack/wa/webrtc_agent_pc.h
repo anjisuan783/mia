@@ -127,7 +127,7 @@ public:
                         std::vector<uint32_t> ssrc_list);
 
   //FrameDestination
-  void onFrame(const owt_base::Frame&) override;
+  void onFrame(std::shared_ptr<owt_base::Frame>) override;
 
   const std::string& id() {
     return id_;
@@ -184,7 +184,6 @@ public:
   };
 
   void callBack(E_SINKID id, const std::string& message);
-  void callBack(E_SINKID id, const owt_base::Frame& message);
 private:
   TOption config_;
   std::string id_;
