@@ -810,7 +810,7 @@ srs_error_t HttpResponseWriterProxy::final_request_i() {
   MessageChain* result = nullptr;
   if ((err = writer_->final_request(result)) == srs_success) {
     // final ok
-    if (buffer_) {
+    if (buffer_ && result) {
       buffer_->Append(result);
       return err;
     }
@@ -978,8 +978,7 @@ srs_error_t HttpResponseWriterProxy::write_i(
     pDuplcated = data->DuplicateChained();
   }
 
-  std::weak_ptr<HttpResponseWriterProxy> weak_ptr = weak_from_this();
-  asyncTask([weak_ptr, pDuplcated, this] (auto) {
+  asyncTask([weak_ptr = weak_from_this(), pDuplcated, this] (auto) {
     CHECK_MSG_DUPLICATED(pDuplcated);
     auto this_ptr = weak_ptr.lock();
     if (!this_ptr) {

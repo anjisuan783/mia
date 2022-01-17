@@ -347,17 +347,7 @@ void WrtcAgentPc::notifyEvent(erizo::WebRTCEvent newStatus,
     case erizo::CONN_GATHERED:
       processSendAnswer(stream_id, message);
       break;
-
-    case erizo::CONN_CANDIDATE:
-      callBack(E_CANDIDATE, message);
-      WLOG_DEBUG("%s, CONN_CANDIDATE, c:%s", id_.c_str(), message.c_str());
-      break;
-
-    case erizo::CONN_FAILED:
-      WLOG_DEBUG("%s, CONN_FAILED, msg:%s", id_.c_str(), message.c_str());
-      callBack(E_FAILED, message);
-      break;
-
+    
     case erizo::CONN_READY:
       WLOG_DEBUG("%s, CONN_READY", id_.c_str());
       if (!ready_) {
@@ -365,10 +355,21 @@ void WrtcAgentPc::notifyEvent(erizo::WebRTCEvent newStatus,
         callBack(E_READY, "");
       }
       break;
+
+    case erizo::CONN_CANDIDATE:
+      callBack(E_CANDIDATE, message);
+      WLOG_DEBUG("%s, CONN_CANDIDATE, c:%s", id_.c_str(), message.c_str());
+      break;
+
     case erizo::CONN_INITIAL:
     case erizo::CONN_STARTED:
     case erizo::CONN_SDP_PROCESSED:
     case erizo::CONN_FINISHED:
+      break;
+    
+    case erizo::CONN_FAILED:
+      WLOG_DEBUG("%s, CONN_FAILED, msg:%s", id_.c_str(), message.c_str());
+      callBack(E_FAILED, message);
       break;
   }
 }
