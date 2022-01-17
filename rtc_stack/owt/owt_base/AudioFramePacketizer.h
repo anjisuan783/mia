@@ -44,7 +44,7 @@ class AudioFramePacketizer
   uint32_t getSsrc() { return ssrc_; }
 
   // Implements FrameDestination.
-  void onFrame(const Frame&);
+  void onFrame(std::shared_ptr<Frame>);
 
   // Implements RTPDataReceiver.
   void receiveRtpData(char*, int len, erizoExtra::DataType, uint32_t channelId);

@@ -198,7 +198,7 @@ void MediaRtcPublisher::onFailed(const std::string& /*remoted_sdp*/) {
       std::dynamic_pointer_cast<MediaRtcAttendeeBase>(shared_from_this()));
 }
 
-void MediaRtcPublisher::onFrame(const owt_base::Frame& frm) {
+void MediaRtcPublisher::onFrame(std::shared_ptr<owt_base::Frame> frm) {
   if (!first_packet_) {
     first_packet_ = true;
     signal_first_packet_(
@@ -206,7 +206,7 @@ void MediaRtcPublisher::onFrame(const owt_base::Frame& frm) {
   }
 
   if (sink_) {
-    sink_->OnMediaFrame(frm);
+    sink_->OnMediaFrame(std::move(frm));
   }
 }
 

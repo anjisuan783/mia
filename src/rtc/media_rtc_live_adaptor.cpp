@@ -138,12 +138,12 @@ MediaRtcLiveAdaptor::~MediaRtcLiveAdaptor() {
   MLOG_TRACE_THIS(stream_id_);
 }
 
-void MediaRtcLiveAdaptor::onFrame(const owt_base::Frame& frm) {
+void MediaRtcLiveAdaptor::onFrame(std::shared_ptr<owt_base::Frame> f) {
   // discard Frame when sr hasn't been received yet
   // see@https://github.com/anjisuan783/mia/issues/32
-  if (frm.ntpTimeMs <= 0)
+  if (f->ntpTimeMs <= 0)
       return;
-  
+  owt_base::Frame& frm = *f.get();
   srs_error_t err = srs_success;
   if (owt_base::isAudioFrame(frm)) {
     if (nullptr == codec_) {

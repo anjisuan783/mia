@@ -12,6 +12,7 @@
 #include <vector>
 #include <queue>
 #include <map>
+#include <atomic>
 
 #include "erizo/MediaDefinitions.h"
 #include "erizo/SdpInfo.h"
@@ -75,7 +76,7 @@ enum IceState {
 
 class IceConnectionListener {
  public:
-    virtual void onPacketReceived(packetPtr packet) = 0;
+    virtual void onPacketReceived(DataPacket* packet) = 0;
     virtual void onCandidate(const CandidateInfo &candidate, IceConnection *conn) = 0;
     virtual void updateIceState(IceState state, IceConnection *conn) = 0;
 };
@@ -85,7 +86,6 @@ class IceConnection : public LogContext {
 
  public:
   explicit IceConnection(const IceConfig& ice_config);
-
   virtual ~IceConnection();
 
   virtual void start() = 0;
@@ -98,32 +98,41 @@ class IceConnection : public LogContext {
   virtual void setReceivedLastCandidate(bool hasReceived) = 0;
   virtual void close() = 0;
 
-  virtual void updateIceState(IceState state);
-  virtual IceState checkIceState();
-  virtual void setIceListener(std::weak_ptr<IceConnectionListener> listener);
-  virtual std::weak_ptr<IceConnectionListener> getIceListener();
+  void updateIceState(IceState state);
+  inline IceState checkIceState() {
+    return ice_state_;
+  }
+  void setIceListener(std::weak_ptr<IceConnectionListener> listener);
+  std::weak_ptr<IceConnectionListener> getIceListener();
+  
+  inline const std::string& getLocalUsername() const {
+    return ufrag_;
+  }
+  inline const std::string& getLocalPassword() const {
+    return upass_;
+  }
 
-  virtual const std::string& getLocalUsername() const;
-  virtual const std::string& getLocalPassword() const;
-
-  virtual const std::string& getRemoteUsername() const;
-  virtual const std::string& getRemotePassword() const;
+  inline const std::string& getRemoteUsername() const {
+    return ice_config_.username;
+  }
+  inline const std::string& getRemotePassword() const {
+    return ice_config_.password;
+  }
 
   virtual bool removeRemoteCandidates();
-
  private:
   virtual std::string iceStateToString(IceState state) const;
 
- protected:
+ protected:  
   inline std::string toLog() const {
     return "id: " + ice_config_.connection_id + ", " + printLogContext();
   }
+ private:
+  std::atomic<IceState> ice_state_;
 
  protected:
   std::weak_ptr<IceConnectionListener> listener_;
-  IceState ice_state_;
   IceConfig ice_config_;
-
   std::string ufrag_;
   std::string upass_;
   std::map <unsigned int, IceState> comp_state_list_;

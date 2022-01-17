@@ -5,8 +5,7 @@
 
 #include "myrtc/api/default_task_queue_factory.h"
 
-namespace wa
-{
+namespace wa {
 
 bool ScheduledTaskReference::isCancelled() {
   return cancelled_;
@@ -16,6 +15,9 @@ void ScheduledTaskReference::cancel() {
   cancelled_ = true;
 }
 
+////////////////////////////////////////////////////////////////////////////////
+//Worker
+////////////////////////////////////////////////////////////////////////////////
 Worker::Worker(webrtc::TaskQueueFactory* factory, std::shared_ptr<Clock> the_clock) 
     : factory_(factory),
       clock_{the_clock} { 
@@ -25,14 +27,15 @@ void Worker::task(Task f) {
   task_queue_->PostTask(f);
 }
 
-void Worker::start() {
+void Worker::start(const std::string& name) {
   auto promise = std::make_shared<std::promise<void>>();
-  start(promise);
+  start(promise, name);
   promise->get_future().wait();
 }
 
-void Worker::start(std::shared_ptr<std::promise<void>> start_promise) {
-  auto pQueue = factory_->CreateTaskQueue("wa worker", webrtc::TaskQueueFactory::Priority::NORMAL);
+void Worker::start(std::shared_ptr<std::promise<void>> start_promise,
+                   const std::string& name) {
+  auto pQueue = factory_->CreateTaskQueue(name, webrtc::TaskQueueFactory::Priority::NORMAL);
   task_queue_base_ = pQueue.get();
   task_queue_ = std::move(std::make_unique<rtc::TaskQueue>(std::move(pQueue))); 
 
@@ -81,6 +84,9 @@ void Worker::unschedule(std::shared_ptr<ScheduledTaskReference> id) {
   id->cancel();
 }
 
+////////////////////////////////////////////////////////////////////////////////
+//ThreadPool
+////////////////////////////////////////////////////////////////////////////////
 static std::unique_ptr<webrtc::TaskQueueFactory> g_task_queue_factory = 
     webrtc::CreateDefaultTaskQueueFactory();
 
@@ -104,12 +110,12 @@ std::shared_ptr<Worker> ThreadPool::getLessUsedWorker() {
   return chosen_worker;
 }
 
-void ThreadPool::start() {
+void ThreadPool::start(const std::string& name) {
   std::vector<std::shared_ptr<std::promise<void>>> promises(workers_.size());
   int index = 0;
   for (auto worker : workers_) {
     promises[index] = std::make_shared<std::promise<void>>();
-    worker->start(promises[index++]);
+    worker->start(promises[index++], name);
   }
   for (auto promise : promises) {
     promise->get_future().wait();

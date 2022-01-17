@@ -394,13 +394,11 @@ int MediaStream::deliverEvent_(MediaEventPtr event) {
   return 1;
 }
 
-void MediaStream::onTransportData(std::shared_ptr<DataPacket> incoming_packet, 
+void MediaStream::onTransportData(std::shared_ptr<DataPacket> packet, 
                                   Transport*) {
   if (audio_sink_ == nullptr && video_sink_ == nullptr && fb_sink_ == nullptr) {
     return;
   }
-
-  auto packet = std::make_shared<DataPacket>(*incoming_packet);
 
   if (!pipeline_initialized_) {
     ELOG_ERROR("%s message: Pipeline not initialized yet.", toLog());
@@ -417,12 +415,9 @@ void MediaStream::onTransportData(std::shared_ptr<DataPacket> incoming_packet,
       assert(fb_sink_ == nullptr);
       if (video_sink_) {
         video_sink_->deliverVideoData(std::move(packet));
-      }
-
-      if (audio_sink_) {
+      } else if (audio_sink_) {
         audio_sink_->deliverAudioData(std::move(packet));
       }
-      
     } else if (fb_sink_ != nullptr && should_send_feedback_) {
        fb_sink_->deliverFeedback(std::move(packet));
     }

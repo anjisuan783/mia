@@ -716,8 +716,15 @@ void WrtcAgentPc::setVideoSsrcList(const std::string& mid,
   connection_->getLocalSdpInfo()->video_ssrc_map[mid] = ssrc_list;
 }
 
-void WrtcAgentPc::onFrame(const owt_base::Frame& f) {
-  callBack(E_DATA, f);
+void WrtcAgentPc::onFrame(std::shared_ptr<owt_base::Frame> f) {
+  auto sink = std::atomic_load<WebrtcAgentSink>(&sink_);
+  if (!sink) {
+    return;
+  }
+
+  sink->callBack([frame = std::move(f)](std::shared_ptr<WebrtcAgentSink> pc_sink){
+    pc_sink->onFrame(std::move(frame));
+  });
 }
 
 void WrtcAgentPc::onVideoInfo(const std::string& videoInfoJSON) {
@@ -750,21 +757,9 @@ void WrtcAgentPc::callBack(E_SINKID id, const std::string& message) {
   });  
 }
 
-void WrtcAgentPc::callBack(E_SINKID, const owt_base::Frame& message) {
-  auto sink = std::atomic_load<WebrtcAgentSink>(&sink_);
-  if (!sink) {
-    return;
-  }
-
-  sink->callBack([message](std::shared_ptr<WebrtcAgentSink> pc_sink){
-    pc_sink->onFrame(message);
-  });
-}
-
 void WrtcAgentPc::asyncTask(
     std::function<void(std::shared_ptr<WrtcAgentPc>)> f) {
-  std::weak_ptr<WrtcAgentPc> weak_this = weak_from_this();
-  worker_->task([weak_this, f] {
+  worker_->task([weak_this = weak_from_this(), f] {
     if (auto this_ptr = weak_this.lock()) {
       f(this_ptr);
     }

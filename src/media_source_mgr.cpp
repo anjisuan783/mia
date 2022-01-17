@@ -8,7 +8,7 @@ static std::shared_ptr<wa::ThreadPool>  workers_;
 
 int MediaSourceMgr::Init(unsigned int num) {
   workers_ = std::make_shared<wa::ThreadPool>(num);
-  workers_->start();
+  workers_->start("live");
   rtc_api_ = std::move(wa::AgentFactory().create_agent());
   return rtc_api_->initiate(g_server_.config_.rtc_workers_,
                             g_server_.config_.candidates_,

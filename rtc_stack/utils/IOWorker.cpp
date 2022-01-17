@@ -5,7 +5,7 @@
 
 namespace wa {
 
-static const char* const thraed_name = "IO Woker";
+static const char* const thraed_name = "nice";
 
 IOWorker::IOWorker() = default;
 

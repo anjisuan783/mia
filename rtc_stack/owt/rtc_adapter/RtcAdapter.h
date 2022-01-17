@@ -19,7 +19,7 @@ public:
 
 class AdapterFrameListener {
 public:
-  virtual void onAdapterFrame(const owt_base::Frame& frame) = 0;
+  virtual void onAdapterFrame(std::shared_ptr<owt_base::Frame> frame) = 0;
 
   virtual ~AdapterFrameListener() = default;
 };
@@ -55,7 +55,7 @@ public:
 
 class VideoSendAdapter {
 public:
-  virtual void onFrame(const owt_base::Frame&) = 0;
+  virtual void onFrame(std::shared_ptr<owt_base::Frame>) = 0;
   virtual int onRtcpData(char* data, int len) = 0;
   virtual uint32_t ssrc() = 0;
   virtual void reset() = 0;
@@ -72,7 +72,7 @@ public:
 
 class AudioSendAdapter {
 public:
-  virtual void onFrame(const owt_base::Frame&) = 0;
+  virtual void onFrame(std::shared_ptr<owt_base::Frame>) = 0;
   virtual int onRtcpData(char* data, int len) = 0;
   virtual uint32_t ssrc() = 0;
 

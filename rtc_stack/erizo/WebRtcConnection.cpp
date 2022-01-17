@@ -584,7 +584,7 @@ void WebRtcConnection::onTransportData(
   if (!mid.empty()) {
     std::string streamId{mid};
     if (!rid.empty()) {
-      // Compose ID as js layer
+      // Compose ID as wa layer
       streamId = mid + ":" + rid;
     }
 
@@ -598,7 +598,7 @@ void WebRtcConnection::onTransportData(
       });
     }
   }
-  
+
   forEachMediaStream([packet, transport, ssrc] (const std::shared_ptr<MediaStream> &media_stream) {
     if (media_stream->isSourceSSRC(ssrc) || media_stream->isSinkSSRC(ssrc)) {
       media_stream->onTransportData(packet, transport);

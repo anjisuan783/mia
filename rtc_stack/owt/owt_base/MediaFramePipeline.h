@@ -160,7 +160,7 @@ class FrameSource : public std::enable_shared_from_this<FrameSource> {
   void removeDataDestination(FrameDestination*);
 
  protected:
-  void deliverFrame(const Frame&);
+  void deliverFrame(std::shared_ptr<Frame>);
   void deliverMetaData(const MetaData&);
 
  private:
@@ -174,7 +174,7 @@ class FrameDestination {
   FrameDestination() = default;
   virtual ~FrameDestination() { }
 
-  virtual void onFrame(const Frame&) = 0;
+  virtual void onFrame(std::shared_ptr<Frame>) = 0;
   virtual void onMetaData(const MetaData&) {}
   virtual void onVideoSourceChanged() {}
 

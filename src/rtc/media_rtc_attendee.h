@@ -93,7 +93,7 @@ class MediaRtcPublisher : public MediaRtcAttendeeBase {
   void onAnswer(const std::string&) override;
   void onReady() override;
   void onFailed(const std::string&) override;
-  void onFrame(const owt_base::Frame& frm) override;
+  void onFrame(std::shared_ptr<owt_base::Frame>) override;
   void OnPublisherJoin(const std::string& id) override { }
   void OnPublisherLeft(const std::string& id) override { }
   void OnPublisherChange(const std::string& id) override { }
@@ -123,7 +123,7 @@ class MediaRtcSubscriber : public MediaRtcAttendeeBase {
   void onAnswer(const std::string&) override;
   void onReady() override;
   void onFailed(const std::string&) override;
-  void onFrame(const owt_base::Frame& frm) override { }
+  void onFrame(std::shared_ptr<owt_base::Frame> frm) override { }
   void OnPublisherJoin(const std::string& id) override;
   void OnPublisherLeft(const std::string& id) override;
   void OnPublisherChange(const std::string& id) override;

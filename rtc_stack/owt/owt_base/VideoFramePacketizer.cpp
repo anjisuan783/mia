@@ -98,19 +98,19 @@ void VideoFramePacketizer::onAdapterData(char* data, int len) {
       0, data, len, erizo::VIDEO_PACKET));
 }
 
-void VideoFramePacketizer::onFrame(const Frame& frame) {
-  if (frame.length <= 0) {
+void VideoFramePacketizer::onFrame(std::shared_ptr<Frame> f) {
+  if (f->length <= 0) {
     return ;
   }
   
-  task_queue_->PostTask([this, weak_ptr = weak_from_this(), frame] () {
+  task_queue_->PostTask([this, weak_ptr = weak_from_this(), frame = std::move(f)] () {
     if (auto shared_this = weak_ptr.lock()) {
       if (!m_enabled) {
         return;
       }
 
       if (m_videoSend) {
-        m_videoSend->onFrame(frame);
+        m_videoSend->onFrame(std::move(frame));
       }
     }
   });

@@ -48,41 +48,41 @@ int AudioSendAdapterImpl::onRtcpData(char* data, int len) {
   return len;
 }
 
-void AudioSendAdapterImpl::onFrame(const Frame& frame) {
-  if (frame.format != frameFormat_) {
-    frameFormat_ = frame.format;
+void AudioSendAdapterImpl::onFrame(std::shared_ptr<owt_base::Frame> frame) {
+  if (frame->format != frameFormat_) {
+    frameFormat_ = frame->format;
     setSendCodec(frameFormat_);
   }
 
-  if (frame.additionalInfo.audio.isRtpPacket) {
+  if (frame->additionalInfo.audio.isRtpPacket) {
     // FIXME: Temporarily use Frame to carry rtp-packets
     // due to the premature AudioFrameConstructor implementation.
-    updateSeqNo(frame.payload);
+    updateSeqNo(frame->payload);
     if (rtpListener_) {
       if (!mid_.empty()) {
         webrtc::RtpPacket packet(&extensions_);
-        packet.Parse(frame.payload, frame.length);
+        packet.Parse(frame->payload, frame->length);
         packet.SetExtension<webrtc::RtpMid>(mid_);
         rtpListener_->onAdapterData(
             reinterpret_cast<char*>(const_cast<uint8_t*>(packet.data())), 
             packet.size());
       } else {
         rtpListener_->onAdapterData(
-            reinterpret_cast<char*>(frame.payload), frame.length);
+            reinterpret_cast<char*>(frame->payload), frame->length);
       }
     }
   } else {
-    int payloadType = getAudioPltype(frame.format);
+    int payloadType = getAudioPltype(frame->format);
     if (payloadType != INVALID_PT) {
-      if (rtpRtcp_->OnSendingRtpFrame(frame.timeStamp, 
+      if (rtpRtcp_->OnSendingRtpFrame(frame->timeStamp, 
                                        -1, payloadType, false)) {
         const uint32_t rtp_timestamp = 
-            frame.timeStamp + rtpRtcp_->StartTimestamp();
+            frame->timeStamp + rtpRtcp_->StartTimestamp();
         // TODO: The frame type information is lost.
         // We treat every frame a kAudioFrameSpeech frame for now.
         if (!senderAudio_->SendAudio(webrtc::AudioFrameType::kAudioFrameSpeech,
                 payloadType, rtp_timestamp,
-                frame.payload, frame.length)) {
+                frame->payload, frame->length)) {
           RTC_DLOG(LS_ERROR) << 
               "ChannelSend failed to send data to RTP/RTCP module";
         }

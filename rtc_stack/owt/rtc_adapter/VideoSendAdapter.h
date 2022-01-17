@@ -32,7 +32,7 @@ class VideoSendAdapterImpl : public VideoSendAdapter,
   ~VideoSendAdapterImpl();
 
   // Implement VideoSendAdapter
-  void onFrame(const owt_base::Frame&) override;
+  void onFrame(std::shared_ptr<owt_base::Frame>) override;
   int onRtcpData(char* data, int len) override;
   void reset() override;
 
