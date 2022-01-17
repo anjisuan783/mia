@@ -257,6 +257,9 @@ uint32_t MessageChain::GetChainedSpace() const {
 }
 
 void MessageChain::Append(MessageChain *aMb) {
+  if (!aMb) {
+    return;
+  }
   SELFCHECK_MessageChain(aMb);
   MessageChain *pMbMove = this;
   while (pMbMove) {

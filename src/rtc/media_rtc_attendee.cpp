@@ -339,11 +339,7 @@ void MediaRtcSubscriber::OnPublisherLeft(const std::string& id) {
   if (!linked_) {
     return;
   }
-  
-  int rv = rtc_->Unsubscribe(publisher_id_, pc_id_);
-  if (rv != wa::wa_ok) {
-    MLOG_ERROR(publisher_id_ << " cutoff  " << pc_id_ << " failed code:" << rv);
-  }
+
   publisher_id_ = "";
   linked_ = false;
 }
