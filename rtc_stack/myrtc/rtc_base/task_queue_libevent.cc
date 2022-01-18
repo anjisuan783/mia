@@ -247,6 +247,7 @@ void TaskQueueLibevent::PostTask(std::unique_ptr<QueuedTask> task) {
     pending_.emplace_back(std::move(task));
   }
 
+#ifdef RTC_DCHECK_IS_ON
   Timestamp cur_ts = clock_->CurrentTime();
   if (last_report_ts_ + TimeDelta::ms(kReportIntervalMs) > cur_ts) {
     if (pending_event > kWarningAppendEventCount)
@@ -255,6 +256,7 @@ void TaskQueueLibevent::PostTask(std::unique_ptr<QueuedTask> task) {
         ", worker name:" << thread_.name();
     last_report_ts_ = cur_ts;
   }
+#endif
 
   if (pending_event > 0)
     return;
@@ -302,18 +304,18 @@ void TaskQueueLibevent::OnWakeup(int socket,
                                  short flags,  // NOLINT
                                  void* context) {
   static int const kMaxExecuteMs = 20;
+  static constexpr size_t max_events_once = 3;
+  
   TaskQueueLibevent* me = static_cast<TaskQueueLibevent*>(context);
   RTC_DCHECK(me->wakeup_pipe_out_ == socket);
   char buf;
   RTC_CHECK(sizeof(buf) == read(socket, &buf, sizeof(buf)));
-  if (kRunTask == buf) {
-    static constexpr size_t max_events_once = 3;
+  if (kRunTask == buf) {  
     std::list<std::unique_ptr<QueuedTask>> task_list;
     size_t remain = 0;
     {
       rtc::CritScope lock(&me->pending_lock_);
       size_t total_event = me->pending_.size();
-      RTC_CHECK(total_event > 0);
       if (total_event <= max_events_once) {
         std::swap(me->pending_, task_list);
       } else {
@@ -336,6 +338,11 @@ void TaskQueueLibevent::OnWakeup(int socket,
         ", cost:" << cost_ts.ms() << 
         ", worker name:" << me->thread_.name();
     }
+
+    if (remain > 500) {
+      RTC_LOG(WARNING) << "event acumulate, apending event:" << remain << 
+        ", worker name:" << me->thread_.name();
+    }
     
     if (remain > 0) {
       me->NotifyWakeup();
@@ -353,6 +360,7 @@ void TaskQueueLibevent::RunTimer(int, short, void* context) {
   TimerEvent* timer = static_cast<TimerEvent*>(context);
   if (!timer->task_->Run())
     timer->task_.release();
+  
   timer->task_queue_->pending_timers_.erase(timer);
   timer->task_queue_->timer_event_pool_.Delete(timer);
 }

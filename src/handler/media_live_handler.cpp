@@ -7,6 +7,7 @@
 #include "media_live_handler.h"
 
 #include <chrono>
+#include <iostream>
 
 #include "rtc_base/sequence_checker.h"
 #include "http/http_consts.h"
@@ -24,6 +25,7 @@
 #include "rtmp/media_req.h"
 #include "common/media_performance.h"
 #include "media_server.h"
+#include "media_statistics.h"
 
 namespace ma {
 
@@ -115,7 +117,7 @@ void StreamEntry::initialize() {
   }
   
   async_task([this]() {
-    auto consumer = source_->create_consumer();
+    auto consumer = source_->CreateConsumer();
     auto file_writer = std::make_unique<SrsFileWriter>();
 
     std::string file_writer_path = "/tmp/" + req_->stream + ".flv";
@@ -277,7 +279,7 @@ srs_error_t StreamEntry::serve_http(std::shared_ptr<IHttpResponseWriter> writer,
       return;
     }
     
-    auto consumer = source_->create_consumer();
+    auto consumer = source_->CreateConsumer();
 
     if ((err = source_->consumer_dumps(
         consumer.get(), true, true, !encoder->has_cache())) != srs_success) {
@@ -381,6 +383,12 @@ void MediaFlvPlayHandler::conn_destroy(std::shared_ptr<IMediaConnection> conn) {
   if (handler) {
     handler->conn_destroy(conn);
   }
+  
+  std::ostringstream oss;
+  oss << conn->Ip();
+  oss << (uint64_t) conn.get();
+
+  Stat().OnDisconnect(oss.str());
 }
 
 srs_error_t MediaFlvPlayHandler::serve_http(
@@ -418,7 +426,11 @@ srs_error_t MediaFlvPlayHandler::serve_http(
     std::lock_guard<std::mutex> guard(index_lock_);
     index_.emplace(msg->connection().get(), handler);
   }
-  
+
+  std::ostringstream oss;
+  oss << req->ip;
+  oss << (uint64_t) msg->connection().get();
+  Stat().OnClient(oss.str(), req, TRtmpPlay);
   return handler->serve_http(writer, msg);
 }
 

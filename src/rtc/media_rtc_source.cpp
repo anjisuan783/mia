@@ -8,6 +8,8 @@
 
 #include <string_view>
 #include "rtc/media_rtc_attendee.h"
+#include "rtmp/media_req.h"
+#include "media_statistics.h"
 
 namespace ma {
 
@@ -48,14 +50,15 @@ srs_error_t MediaRtcSource::Publish(
     const std::string& sdp, 
     std::shared_ptr<IHttpResponseWriter> w,
     const std::string& stream_id,
-    std::string& id) {
+    std::string& id,
+    std::shared_ptr<MediaRequest> req) {
 
   std::string_view pc_id = GetPcId(sdp);
  
   auto publisher = std::make_shared<MediaRtcPublisher>(
       std::string(pc_id.data(), pc_id.length()));
   srs_error_t err = 
-      publisher->Open(rtc_, std::move(w), stream_id, sdp, worker_);
+      publisher->Open(rtc_, std::move(w), stream_id, sdp, worker_, std::move(req));
 
   if (err != srs_success) {
     return err;
@@ -87,12 +90,13 @@ srs_error_t MediaRtcSource::Subscribe(
     const std::string& sdp, 
     std::shared_ptr<IHttpResponseWriter> w,
     const std::string& stream_id,
-    std::string& id) {
+    std::string& id,
+    std::shared_ptr<MediaRequest> req) {
   std::string_view pc_id = GetPcId(sdp);
   auto subscriber = std::make_shared<MediaRtcSubscriber>(
                         std::string(pc_id.data(), pc_id.length()));
   srs_error_t err = subscriber->Open(
-      rtc_, std::move(w), stream_id, sdp, worker_, publisher_id_);
+      rtc_, std::move(w), stream_id, sdp, worker_, std::move(req), publisher_id_);
 
   if (err != srs_success) {
     return err;
@@ -115,6 +119,8 @@ void MediaRtcSource::OnFirstPacket(std::shared_ptr<MediaRtcAttendeeBase> p) {
 void MediaRtcSource::OnAttendeeJoined(std::shared_ptr<MediaRtcAttendeeBase> p) {
   MLOG_CINFO("%s %s joined",
       (p->IsPublisher()?"published":"subscriber"), p->Id());
+
+  Stat().OnClient(p->Id(), std::move(p->GetRequest()), TRtcPublish);
 
   p->signal_join_ok_.disconnect(this);
 
@@ -148,6 +154,7 @@ void MediaRtcSource::OnAttendeeJoined(std::shared_ptr<MediaRtcAttendeeBase> p) {
 void MediaRtcSource::OnAttendeeLeft(std::shared_ptr<MediaRtcAttendeeBase> p) {
   MLOG_CINFO("%s %s left",
       (p->IsPublisher()?"published":"subscriber"), p->Id());
+  Stat().OnDisconnect(p->Id());
   p->Close();
 
   bool empty = false;
@@ -173,6 +180,7 @@ void MediaRtcSource::OnAttendeeLeft(std::shared_ptr<MediaRtcAttendeeBase> p) {
   
     signal_rtc_publisher_left_();
     publisher_id_ = "";
+    publisher_ = nullptr;
   }
 
   if (empty) {
@@ -202,6 +210,8 @@ void MediaRtcSource::SetMediaSink(RtcMediaSink* s) {
 void MediaRtcSource::OnPublisherJoin(std::shared_ptr<MediaRtcAttendeeBase> p) {
   p->signal_first_packet_.connect(this, &MediaRtcSource::OnFirstPacket);
   publisher_id_ = p->Id();
+  publisher_ = p.get();
+  publisher_->ChangeOnFrame(frame_on_);
   if (media_sink_) {
     p->SetSink(media_sink_);
     media_sink_ = nullptr;
@@ -212,6 +222,13 @@ void MediaRtcSource::OnPublisherJoin(std::shared_ptr<MediaRtcAttendeeBase> p) {
     for (auto& i : attendees_) {
       i.second->OnPublisherJoin(publisher_id_);
     }
+  }
+}
+
+void MediaRtcSource::TurnOnFrameCallback(bool on) {
+  frame_on_ = on;
+  if (publisher_) {
+    publisher_->ChangeOnFrame(frame_on_);
   }
 }
 

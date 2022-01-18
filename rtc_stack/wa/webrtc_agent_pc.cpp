@@ -723,6 +723,9 @@ void WrtcAgentPc::onFrame(std::shared_ptr<owt_base::Frame> f) {
     return;
   }
 
+  if (!sink->on_frame_)
+    return;
+
   sink->callBack([frame = std::move(f)](std::shared_ptr<WebrtcAgentSink> pc_sink){
     pc_sink->onFrame(std::move(frame));
   });

@@ -19,6 +19,8 @@ class IMediaConnection : public
 
   virtual void Start() = 0;
   virtual void Disconnect() = 0;
+
+  virtual std::string Ip() = 0;
 };
 
 }

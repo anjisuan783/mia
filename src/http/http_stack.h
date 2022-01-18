@@ -16,6 +16,7 @@
 
 #include "http/h/http_message.h"
 #include "http/h/http_protocal.h"
+#include "connection/h/conn_interface.h"
 
 namespace ma {
 

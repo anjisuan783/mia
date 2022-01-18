@@ -68,6 +68,8 @@ class AsyncSokcetWrapper : public sigslot::has_slots<>,
   inline rtc::Thread* GetThread() {
     return thread_;
   }
+
+  std::string Ip();
  private:
   srs_error_t Write_i(const char* c_data, int c_size, int* sent);
  private:
@@ -181,6 +183,8 @@ class HttpRequestReader final : public IHttpRequestReader,
   
   void OnRequest(std::string_view);
   void OnDisconnect();
+
+  std::string Ip() override;
  private:
   std::shared_ptr<AsyncSokcetWrapper> socket_;
   CallBack* callback_;

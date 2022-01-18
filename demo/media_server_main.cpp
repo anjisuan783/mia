@@ -217,7 +217,10 @@ int main(int argc, char* argv[]) {
     return ret;
   }
 
-  do {::sleep(1);} while(true);
+  do {
+    ::sleep(5);
+    server->Dump();
+  } while(true);
 
   MIA_LOG("mia stop");
 

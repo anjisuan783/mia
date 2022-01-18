@@ -62,6 +62,8 @@ class MediaServerApi {
    *  num2 : thread num of connection thread pool  TODO not implement
    */
   virtual int Init(const Config&) = 0;
+
+  virtual void Dump() = 0;
 };
 
 class MediaServerFactory {

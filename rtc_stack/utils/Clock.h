@@ -38,6 +38,11 @@ class ClockUtils {
     return std::chrono::duration_cast<std::chrono::milliseconds>(
         time_point.time_since_epoch()).count();
   }
+
+  static inline uint64_t timePointToS(time_point time_point) {
+    return std::chrono::duration_cast<std::chrono::seconds>(
+        time_point.time_since_epoch()).count();
+  }
 };
 
 }  // namespace wa

@@ -9,6 +9,7 @@
 
 #include <memory>
 #include <functional>
+#include <atomic>
 
 #include "rtc_media_frame.h"
 
@@ -63,6 +64,7 @@ class WebrtcAgentSink
     }
   }
 
+  std::atomic<bool> on_frame_{false};
  protected:
   typedef std::function<void()> Task;
   virtual void post(Task) { }

@@ -45,9 +45,10 @@ class MediaSource final : public sigslot::has_slots<>,
   MediaSource() = delete;
   ~MediaSource();
 
-  void Initialize(Config&);
+  void open(Config&);
+  void close();
 
-  std::shared_ptr<MediaConsumer> create_consumer();
+  std::shared_ptr<MediaConsumer> CreateConsumer();
   srs_error_t consumer_dumps(MediaConsumer* consumer, 
                              bool dump_seq_header, 
                              bool dump_meta, 
@@ -64,17 +65,19 @@ class MediaSource final : public sigslot::has_slots<>,
   }
 
   inline bool IsPublisherJoined() {
-    return publisher_in_.test_and_set();
+    return rtc_publisher_in_;
   }
   
   srs_error_t Publish(const std::string& sdp, 
                       std::shared_ptr<IHttpResponseWriter> writer,
-                      std::string& publisher_id);
+                      std::string& publisher_id,
+                      std::shared_ptr<MediaRequest> req);
   srs_error_t UnPublish() { return srs_success; }
   
   srs_error_t Subscribe(const std::string& sdp, 
                         std::shared_ptr<IHttpResponseWriter> writer,
-                        std::string& subscriber_id);
+                        std::string& subscriber_id,
+                        std::shared_ptr<MediaRequest> req);
   srs_error_t UnSubscribe() { return srs_success; }
 
   // rtc source signal
@@ -96,14 +99,15 @@ class MediaSource final : public sigslot::has_slots<>,
   Config config_;
   std::mutex live_source_lock_;
   std::shared_ptr<MediaLiveSource> live_source_;
-  
   std::shared_ptr<MediaRtcSource> rtc_source_;
 
   std::shared_ptr<MediaRequest> req_;
   std::unique_ptr<MediaRtcLiveAdaptor> live_adapter_;
-  std::atomic_flag publisher_in_{ATOMIC_FLAG_INIT};
+  std::atomic<bool> rtc_publisher_in_{false};
 
   std::atomic<bool> rtc_active_{false};
+
+  bool consumer_first_empty_{true};
 };
 
 } //namespace ma

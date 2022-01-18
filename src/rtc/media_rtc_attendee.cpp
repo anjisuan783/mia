@@ -74,7 +74,20 @@ void FillTrack(const std::string& sdp,
 static log4cxx::LoggerPtr logger = 
     log4cxx::Logger::getLogger("MediaRtcAttendee");
 
+///////////////////////////////////////////////////////////////////////////////
 //MediaRtcAttendeeBase
+///////////////////////////////////////////////////////////////////////////////
+srs_error_t MediaRtcAttendeeBase::Open(wa::rtc_api* rtc, 
+                 std::shared_ptr<IHttpResponseWriter> w, 
+                 const std::string& stream_id,
+                 const std::string& offer,
+                 wa::Worker* worker,
+                 std::shared_ptr<MediaRequest> req,
+                 const std::string& publisher_id) {
+  req_ = std::move(req);
+  return Open_i(rtc, w, stream_id, offer, worker, publisher_id);
+}
+
 srs_error_t MediaRtcAttendeeBase::Responese(int code, const std::string& sdp) {
   srs_error_t err = srs_success;
   writer_->header()->set("Connection", "Close");
@@ -110,8 +123,12 @@ void MediaRtcAttendeeBase::post(Task t) {
   worker_->task(t);
 }
 
+void MediaRtcAttendeeBase::ChangeOnFrame(bool on) {
+  on_frame_ = on;
+}
+
 //MediaRtcPublisher
-srs_error_t MediaRtcPublisher::Open(
+srs_error_t MediaRtcPublisher::Open_i(
     wa::rtc_api* rtc, 
     std::shared_ptr<IHttpResponseWriter> writer, 
     const std::string& stream_id,
@@ -210,8 +227,10 @@ void MediaRtcPublisher::onFrame(std::shared_ptr<owt_base::Frame> frm) {
   }
 }
 
+///////////////////////////////////////////////////////////////////////////////
 //MediaRtcPublisher
-srs_error_t MediaRtcSubscriber::Open(
+///////////////////////////////////////////////////////////////////////////////
+srs_error_t MediaRtcSubscriber::Open_i(
     wa::rtc_api* rtc, 
     std::shared_ptr<IHttpResponseWriter> writer,
     const std::string& stream_id,

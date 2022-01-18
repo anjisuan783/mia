@@ -28,6 +28,7 @@ public:
 
   virtual void open() = 0;
   virtual void disconnect() = 0;
+  virtual std::string Ip() = 0;
 };
 
 class IHttpResponseWriter {
