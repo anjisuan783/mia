@@ -29,6 +29,7 @@ class RtcMediaSink {
 class Worker;
 class IHttpResponseWriter;
 class MediaRtcAttendeeBase;
+class MediaRequest;
 
 //MediaRtcSource
 class MediaRtcSource final : public sigslot::has_slots<> {
@@ -46,18 +47,22 @@ class MediaRtcSource final : public sigslot::has_slots<> {
   srs_error_t Publish(const std::string& sdp, 
                       std::shared_ptr<IHttpResponseWriter>,
                       const std::string& stream_id,
-                      std::string& pc_id);
+                      std::string& pc_id,
+                      std::shared_ptr<MediaRequest> req);
   void UnPublish(const std::string& id);
 
   srs_error_t Subscribe(const std::string& sdp, 
                         std::shared_ptr<IHttpResponseWriter>,
                         const std::string& stream_id,
-                        std::string& id);
+                        std::string& id,
+                        std::shared_ptr<MediaRequest> req);
   void UnSubscribe(const std::string& id);
 
   void OnFirstPacket(std::shared_ptr<MediaRtcAttendeeBase>);
   void OnAttendeeJoined(std::shared_ptr<MediaRtcAttendeeBase>);
   void OnAttendeeLeft(std::shared_ptr<MediaRtcAttendeeBase>);
+
+  void TurnOnFrameCallback(bool);
  private:
   void OnPublisherJoin(std::shared_ptr<MediaRtcAttendeeBase>);
 
@@ -74,8 +79,10 @@ class MediaRtcSource final : public sigslot::has_slots<> {
   std::mutex attendees_lock_;
   std::unordered_map<std::string, std::shared_ptr<MediaRtcAttendeeBase>> attendees_;
   std::string publisher_id_;  //not safe, change to smart pointer
+  MediaRtcAttendeeBase* publisher_{nullptr};
 
   RtcMediaSink* media_sink_{nullptr};
+  bool frame_on_{false};
 };
 
 } //namespace ma

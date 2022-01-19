@@ -44,7 +44,12 @@ class MediaLiveSource final :
   
   void OnUnpublish();
 
-  std::shared_ptr<MediaConsumer> create_consumer();
+  std::shared_ptr<MediaConsumer> CreateConsumer();
+
+  bool ConsumerEmpty() {
+    RTC_DCHECK_RUN_ON(&thread_check_);
+    return consumers_.empty();
+  }
   
   srs_error_t OnAudio(std::shared_ptr<MediaMessage>);
 

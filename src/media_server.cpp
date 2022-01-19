@@ -1,5 +1,7 @@
 #include "media_server.h"
 
+#include <iostream>
+
 #include "h/rtc_return_value.h"
 #include "h/media_return_code.h"
 #include "media_source_mgr.h"
@@ -8,6 +10,7 @@
 #include "media_source.h"
 #include "rtmp/media_req.h"
 #include "http/http_consts.h"
+#include "media_statistics.h"
 
 namespace ma {
 
@@ -60,6 +63,10 @@ void MediaServerImp::OnUnpublish(std::shared_ptr<MediaSource> s,
 
 void MediaServerImp::OnLogMessage(const std::string& message) {
   MLOG_TRACE(message);
+}
+
+void MediaServerImp::Dump() {
+  std::cout << "client:" << Stat().Clients() << std::endl;
 }
 
 MediaServerImp g_server_;

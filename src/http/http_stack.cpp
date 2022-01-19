@@ -1941,9 +1941,9 @@ HttpMessage::to_request(const std::string& vhost) {
   }
 
   // Set ip by remote ip of connection.
-  //if (owner_) {
-  //    req->ip = owner_->remote_ip();
-  //}
+  if (owner_) {
+      req->ip = owner_->Ip();
+  }
 
   // Overwrite by ip from proxy.
   //string oip = srs_get_original_ip(this);

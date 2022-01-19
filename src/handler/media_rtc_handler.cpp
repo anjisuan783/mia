@@ -113,7 +113,7 @@ srs_error_t MediaHttpPlayHandler::serve_http(
   std::string clientip = std::move((std::string)jobj["clientip"]);
   std::string sdp = std::move((std::string)jobj["sdp"]);
 
-  auto req = std::make_shared<MediaRequest>();
+  auto req = msg->to_request(g_server_.config_.vhost);
   srs_parse_rtmp_url(streamurl, req->tcUrl, req->stream);
   srs_discovery_tc_url(req->tcUrl, 
                        req->schema, 
@@ -123,8 +123,6 @@ srs_error_t MediaHttpPlayHandler::serve_http(
                        req->stream,
                        req->port, 
                        req->param);
-
-  req->vhost = g_server_.config_.vhost;
 
   MLOG_INFO("subscriber desc schema:" << req->schema << 
             ", host:" << req->host <<
@@ -141,7 +139,8 @@ srs_error_t MediaHttpPlayHandler::serve_http(
                           JitterAlgorithmZERO};
 
   auto rtc_source = g_source_mgr_.FetchOrCreateSource(cfg, req);
-  err = rtc_source->Subscribe(sdp, std::move(writer), subscriber_id);
+  err = rtc_source->Subscribe(
+      sdp, std::move(writer), subscriber_id, std::move(req));
   return err;
 }
 
@@ -252,8 +251,7 @@ srs_error_t MediaHttpPublishHandler::serve_http(
   std::string clientip = std::move((std::string)jobj["clientip"]);
   std::string sdp = std::move((std::string)jobj["sdp"]);
 
-  auto req = std::make_shared<MediaRequest>();
-  req->ip = clientip;
+  auto req = msg->to_request(g_server_.config_.vhost);
   srs_parse_rtmp_url(streamurl, req->tcUrl, req->stream);
   srs_discovery_tc_url(req->tcUrl, 
                        req->schema, 
@@ -264,8 +262,6 @@ srs_error_t MediaHttpPublishHandler::serve_http(
                        req->port, 
                        req->param);
 
-  req->vhost = g_server_.config_.vhost;
-  
   MediaSource::Config cfg{std::move(g_source_mgr_.GetWorker()), 
                           g_server_.config_.enable_gop_,
                           JitterAlgorithmZERO};
@@ -274,25 +270,26 @@ srs_error_t MediaHttpPublishHandler::serve_http(
   // change publisher
   if (!ms->IsPublisherJoined()) {
     MLOG_INFO("publisher desc schema:" << req->schema << 
-          ", host:" << req->host <<
-          ", vhost:" << req->vhost << 
-          ", app:" << req->app << 
-          ", stream:" << req->stream << 
-          ", port:" << req->port << 
-          ", param:" << req->param <<
-          ", clientip:" << clientip);
+              ", host:" << req->host <<
+              ", vhost:" << req->vhost << 
+              ", app:" << req->app << 
+              ", stream:" << req->stream << 
+              ", port:" << req->port << 
+              ", param:" << req->param <<
+              ", clientip:" << clientip);
     std::string publisher_id;
-    return ms->Publish(sdp, std::move(writer), publisher_id);
+    return ms->Publish(
+        sdp, std::move(writer), publisher_id, req);
   }
 
   MLOG_WARN("publisher existed! desc schema:" << req->schema << 
-      ", host:" << req->host <<
-      ", vhost:" << req->vhost << 
-      ", app:" << req->app << 
-      ", stream:" << req->stream << 
-      ", port:" << req->port << 
-      ", param:" << req->param <<
-      ", clientip:" << clientip);
+            ", host:" << req->host <<
+            ", vhost:" << req->vhost << 
+            ", app:" << req->app << 
+            ", stream:" << req->stream << 
+            ", port:" << req->port << 
+            ", param:" << req->param <<
+            ", clientip:" << clientip);
   
   writer->header()->set("Connection", "Close");
   

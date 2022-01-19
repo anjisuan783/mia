@@ -192,6 +192,12 @@ void AsyncSokcetWrapper::OnWriteEvent(rtc::AsyncPacketSocket*) {
   }
 }
 
+std::string AsyncSokcetWrapper::Ip() {
+  if (conn_)
+    return conn_->GetRemoteAddress().HostAsURIString();
+  return "";
+}
+
 //HttpMessageParser
 void HttpMessageParser::initialize(enum http_parser_type type) {
   jsonp_ = false;
@@ -596,6 +602,10 @@ void HttpRequestReader::disconnect() {
     socket_ = nullptr;
   }
   callback_ = nullptr;
+}
+
+std::string HttpRequestReader::Ip() {
+  return socket_->Ip();
 }
 
 //HttpResponseWriter

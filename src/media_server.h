@@ -36,6 +36,8 @@ class MediaServerImp final : public MediaServerApi,
                    std::shared_ptr<MediaRequest> r);
 
  private:
+  void Dump() override;
+ 
   //rtc::LogSink implement
   void OnLogMessage(const std::string& message) override;
 

@@ -33,6 +33,8 @@ class MediaHttpConn : public IMediaConnection,
  private:
   srs_error_t process_request(std::string_view) override;
   void on_disconnect() override;
+  
+  std::string Ip() override;
  
  protected:
   std::shared_ptr<IHttpRequestReader>  reader_;
@@ -40,6 +42,7 @@ class MediaHttpConn : public IMediaConnection,
   IMediaHttpHandler* http_mux_;
   std::unique_ptr<MediaHttpCorsMux> cors_;
   std::unique_ptr<IHttpProtocalFactory> factory_;
+  std::string remote_ip_;
 };
 
 class MediaResponseOnlyHttpConn : public MediaHttpConn {

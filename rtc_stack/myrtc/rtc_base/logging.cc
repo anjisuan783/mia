@@ -68,7 +68,7 @@ void LogSink::OnLogMessage(const std::string& msg,
 // LogMessage
 /////////////////////////////////////////////////////////////////////////////
 
-bool LogMessage::log_to_stderr_ = true;
+bool LogMessage::log_to_stderr_ = false;
 
 // The list of logging streams currently configured.
 // Note: we explicitly do not clean this up, because of the uncertain ordering

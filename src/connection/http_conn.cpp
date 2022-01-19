@@ -126,6 +126,15 @@ void MediaHttpConn::on_disconnect() {
   g_conn_mgr_.RemoveConnection(shared_from_this());
 }
 
+std::string MediaHttpConn::Ip() {
+  if (remote_ip_.empty())
+    return remote_ip_;
+  
+  if (reader_)
+    remote_ip_ = reader_->Ip();
+  return remote_ip_;
+}
+
 void MediaHttpConn::Disconnect() {
   if(reader_){
     reader_->disconnect();

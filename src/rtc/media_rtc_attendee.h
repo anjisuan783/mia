@@ -14,6 +14,7 @@
 #include "utils/sigslot.h"
 #include "utils/Worker.h"
 #include "common/media_kernel_error.h"
+#include "rtmp/media_req.h"
 
 namespace ma {
 
@@ -27,12 +28,13 @@ class MediaRtcAttendeeBase
       : pc_id_(id) { }
   ~MediaRtcAttendeeBase() override = default;
   
-  virtual srs_error_t Open(wa::rtc_api* rtc, 
-                           std::shared_ptr<IHttpResponseWriter> w, 
-                           const std::string& stream_id,
-                           const std::string& offer,
-                           wa::Worker* worker,
-                           const std::string& = "") = 0;
+  srs_error_t Open(wa::rtc_api* rtc, 
+                   std::shared_ptr<IHttpResponseWriter> w, 
+                   const std::string& stream_id,
+                   const std::string& offer,
+                   wa::Worker* worker,
+                   std::shared_ptr<MediaRequest> req,
+                   const std::string& = "");
   virtual void Close() = 0;
   srs_error_t Responese(int code, const std::string& sdp);
   virtual bool IsPublisher() = 0;
@@ -40,14 +42,26 @@ class MediaRtcAttendeeBase
     return pc_id_; 
   }
 
-  void SetSink(RtcMediaSink* s) {
+  inline void SetSink(RtcMediaSink* s) {
     sink_ = s;
   }
+
+  inline std::shared_ptr<MediaRequest> GetRequest() {
+    return req_;
+  }
+  void ChangeOnFrame(bool);
 
   virtual void OnPublisherJoin(const std::string& id) = 0;
   virtual void OnPublisherLeft(const std::string& id) = 0;
   virtual void OnPublisherChange(const std::string& id) = 0;
-  
+
+ protected:
+  virtual srs_error_t Open_i(wa::rtc_api* rtc, 
+                           std::shared_ptr<IHttpResponseWriter> w, 
+                           const std::string& stream_id,
+                           const std::string& offer,
+                           wa::Worker* worker,
+                           const std::string& = "") = 0;
  public:
   sigslot::signal1<std::shared_ptr<MediaRtcAttendeeBase>> 
                                        signal_first_packet_;
@@ -68,7 +82,9 @@ class MediaRtcAttendeeBase
   bool pc_in_{false};
   wa::rtc_api* rtc_;
   wa::Worker* worker_{nullptr};
-  RtcMediaSink* sink_{nullptr};
+  RtcMediaSink* sink_{nullptr};
+ private:
+  std::shared_ptr<MediaRequest> req_;
 };
 
 class MediaRtcPublisher : public MediaRtcAttendeeBase {
@@ -78,17 +94,18 @@ class MediaRtcPublisher : public MediaRtcAttendeeBase {
   }
   ~MediaRtcPublisher() override = default;
   
-  srs_error_t Open(wa::rtc_api* rtc, 
-                   std::shared_ptr<IHttpResponseWriter> writer, 
-                   const std::string& stream_id,
-                   const std::string& offer,
-                   wa::Worker* worker,
-                   const std::string& = "") override;
   void Close() override;
   bool IsPublisher() override {
     return true;
   }
  private:
+  srs_error_t Open_i(wa::rtc_api* rtc, 
+                     std::shared_ptr<IHttpResponseWriter> writer, 
+                     const std::string& stream_id,
+                     const std::string& offer,
+                     wa::Worker* worker,
+                     const std::string& = "") override;
+ 
   //WebrtcAgentSink implement
   void onAnswer(const std::string&) override;
   void onReady() override;
@@ -108,17 +125,18 @@ class MediaRtcSubscriber : public MediaRtcAttendeeBase {
   }
   ~MediaRtcSubscriber() override = default;
   
-  srs_error_t Open(wa::rtc_api* rtc, 
-                   std::shared_ptr<IHttpResponseWriter> w,
-                   const std::string& stream_id,
-                   const std::string& offer,
-                   wa::Worker* worker,
-                   const std::string& publisher_id) override;
   void Close() override;
   bool IsPublisher() override {
     return false;
   }
  private:
+  srs_error_t Open_i(wa::rtc_api* rtc, 
+                     std::shared_ptr<IHttpResponseWriter> w,
+                     const std::string& stream_id,
+                     const std::string& offer,
+                     wa::Worker* worker,
+                     const std::string& publisher_id) override;
+ 
   //WebrtcAgentSink implement
   void onAnswer(const std::string&) override;
   void onReady() override;

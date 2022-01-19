@@ -32,7 +32,7 @@ MediaSourceMgr::FetchOrCreateSource(MediaSource::Config& cfg,
   
   auto ms = std::make_shared<MediaSource>(req);
 
-  ms->Initialize(cfg);
+  ms->open(cfg);
   
   {
     std::lock_guard<std::mutex> guard(source_lock_);
@@ -63,6 +63,8 @@ void MediaSourceMgr::RemoveSource(std::shared_ptr<MediaRequest> req) {
     assert(false);
     return;
   }
+
+  found->second->close();
   sources_.erase(found);
 }
 

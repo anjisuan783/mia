@@ -152,7 +152,7 @@ void MediaLiveSource::OnUnpublish() {
   active_ = false;
 }
 
-std::shared_ptr<MediaConsumer> MediaLiveSource::create_consumer() {
+std::shared_ptr<MediaConsumer> MediaLiveSource::CreateConsumer() {
   RTC_DCHECK_RUN_ON(&thread_check_); 
   auto consumer = std::make_shared<MediaConsumer>(this); 
   consumers_.emplace_back(consumer);

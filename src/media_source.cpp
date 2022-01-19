@@ -27,13 +27,31 @@ MediaSource::~MediaSource() {
   MLOG_TRACE(req_->get_stream_url())
 }
 
-void MediaSource::Initialize(Config& c) {
+void MediaSource::open(Config& c) {
   config_ = c;
+  g_server_.OnPublish(shared_from_this(), req_);
 }
 
-std::shared_ptr<MediaConsumer> MediaSource::create_consumer() {
+void MediaSource::close() {
+  g_server_.OnUnpublish(shared_from_this(), req_);
+}
+
+std::shared_ptr<MediaConsumer> MediaSource::CreateConsumer() {
   ActiveLiveSource();
-  return live_source_->create_consumer();
+
+  if (live_source_->ConsumerEmpty()) {
+    if (consumer_first_empty_) {
+      // turn on frame callback
+      consumer_first_empty_ = false;      
+    } else {
+      // turn off frame callback
+      consumer_first_empty_ = true;
+    }
+    if (rtc_source_)
+      rtc_source_->TurnOnFrameCallback(!consumer_first_empty_);
+  }
+  
+  return live_source_->CreateConsumer();
 }
 
 srs_error_t MediaSource::consumer_dumps(
@@ -92,20 +110,30 @@ void MediaSource::CheckRtcSource() {
                    this, &MediaSource::OnRtcFirstPacket);
   rtc_source_->signal_rtc_publisher_left_.connect(
                    this, &MediaSource::OnRtcPublisherLeft);
+
+  rtc_source_->TurnOnFrameCallback(!consumer_first_empty_);
 }
 
 srs_error_t MediaSource::Publish(const std::string& s, 
                                  std::shared_ptr<IHttpResponseWriter> w,
-                                 std::string& publisher_id) {
+                                 std::string& publisher_id,
+                                 std::shared_ptr<MediaRequest> req) {
   CheckRtcSource();
-  return rtc_source_->Publish(s, std::move(w), req_->stream, publisher_id);
+  srs_error_t err = rtc_source_->Publish(
+      s, std::move(w), req_->stream, publisher_id, std::move(req));
+  if (err == srs_success) {
+    rtc_publisher_in_ = true;
+  }
+  
+  return err;
 }
 
 srs_error_t MediaSource::Subscribe(const std::string& s, 
                                    std::shared_ptr<IHttpResponseWriter> w,
-                                   std::string& subscriber_id) {
+                                   std::string& subscriber_id,
+                                   std::shared_ptr<MediaRequest> req) {
   CheckRtcSource();
-  return rtc_source_->Subscribe(s, std::move(w), req_->stream, subscriber_id);
+  return rtc_source_->Subscribe(s, std::move(w), req_->stream, subscriber_id, std::move(req));
 }
 
 JitterAlgorithm MediaSource::jitter() {
@@ -115,15 +143,13 @@ JitterAlgorithm MediaSource::jitter() {
 
 void MediaSource::OnRtcFirstPacket() {
   rtc_active_ = true;
-  g_server_.OnPublish(shared_from_this(), req_);
   rtc_source_->SetMediaSink(this);
   ActiveAdapter();
 }
 
 void MediaSource::OnRtcPublisherLeft() {
   rtc_active_ = false;
-  publisher_in_.clear();
-  g_server_.OnUnpublish(shared_from_this(), req_);
+  rtc_publisher_in_ = false;
   UnactiveAdapter();
 }
 
