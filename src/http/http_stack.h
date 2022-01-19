@@ -22,8 +22,7 @@ namespace ma {
 
 // parse uri from schema/server:port/path?query
 
-class SrsHttpUri final
-{
+class SrsHttpUri final {
 private:
   std::string url;
   std::string schema;

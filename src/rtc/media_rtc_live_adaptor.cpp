@@ -6,6 +6,8 @@
 
 #include "rtc/media_rtc_live_adaptor.h"
 
+#include <math.h>
+
 #include "myrtc/rtp_rtcp/rtp_packet.h"
 #include "owt_base/MediaUtilities.h"
 #include "utils/media_kernel_buffer.h"
@@ -139,10 +141,14 @@ MediaRtcLiveAdaptor::~MediaRtcLiveAdaptor() {
 }
 
 void MediaRtcLiveAdaptor::onFrame(std::shared_ptr<owt_base::Frame> f) {
+  static constexpr int64_t report_interval = 10000;
+  static constexpr int64_t av_differ = 200;
+
   // discard Frame when sr hasn't been received yet
   // see@https://github.com/anjisuan783/mia/issues/32
   if (f->ntpTimeMs <= 0)
       return;
+  
   owt_base::Frame& frm = *f.get();
   srs_error_t err = srs_success;
   if (owt_base::isAudioFrame(frm)) {
@@ -158,7 +164,7 @@ void MediaRtcLiveAdaptor::onFrame(std::shared_ptr<owt_base::Frame> f) {
       from.channels = frm.additionalInfo.audio.channels;
       from.bitrate = from.samplerate * from.bitpersample * from.channels;
       
-      to.samplerate = 44100; // The output audio sample rate in HZ.
+      to.samplerate = 44100; // The output audio sample rate in hz.
       to.bitpersample = 16;
       to.channels = 2;       //stero
       to.bitrate = 48000; // The output audio bitrate in bps.
@@ -170,15 +176,36 @@ void MediaRtcLiveAdaptor::onFrame(std::shared_ptr<owt_base::Frame> f) {
       }
     }
 
+    a_last_ts_ = f->ntpTimeMs;
+    
     if ((err = Trancode_audio(frm)) != srs_success) {
       MLOG_CERROR("transcode audio failed, desc:%s", srs_error_desc(err));
       delete err;
     }
   } else if (owt_base::isVideoFrame(frm)) {
+    v_last_ts_ = f->ntpTimeMs;
+  
     if ((err = PacketVideo(frm)) != srs_success) {
       MLOG_CERROR("packet video failed, desc:%s", srs_error_desc(err));
       delete err;
     }
+
+    // logging av async 
+    if (-1 != a_last_ts_) {
+      if (-1 != last_report_ts_) {
+        last_report_ts_ = a_last_ts_;
+      }
+      
+      int64_t diff = llabs(a_last_ts_ - v_last_ts_);
+
+      if (diff > av_differ &&
+          llabs(a_last_ts_ - last_report_ts_) > report_interval) {
+        MLOG_CWARN("av ts differ:%lld, a:%lld, v:%lld", 
+                   diff, a_last_ts_, v_last_ts_);
+        last_report_ts_ = a_last_ts_;
+      }
+    }
+
     dump_video(frm.payload, frm.length);
   } else {
     MLOG_CFATAL("unknown media format:%d", frm.format);
@@ -381,10 +408,10 @@ srs_error_t MediaRtcLiveAdaptor::Trancode_audio(const owt_base::Frame& frm) {
 
   // out of order rtp
   // TODO order ?
-  if (last_timestamp_ > ts) {
-    MLOG_WARN("audio ts not mono increse.");
-  } else {
+  if (last_timestamp_ <= ts) {
     last_timestamp_ = ts;
+  } else {
+    MLOG_WARN("audio ts not mono increse.");
   }
 
   auto payload = rtp.payload();

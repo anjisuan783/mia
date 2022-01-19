@@ -7,8 +7,11 @@
 #include <iostream>
 #include <future>
 #include <random>
+#include <math.h>
+
 #include "common/rtputils.h"
 #include "myrtc/api/task_queue_base.h"
+#include "rtp_rtcp/byte_io.h"
 
 using namespace rtc_adapter;
 
@@ -69,6 +72,7 @@ bool VideoFrameConstructor::setBitrate(uint32_t kbps) {
 
 void VideoFrameConstructor::onAdapterFrame(std::shared_ptr<Frame> frame) {
   if (enable_) {
+    frame->ntpTimeMs = getNtpTimestamp(frame->timeStamp);
     deliverFrame(std::move(frame));
   }
 }
@@ -98,22 +102,16 @@ void VideoFrameConstructor::onAdapterData(char* data, int len) {
 
 int VideoFrameConstructor::deliverVideoData_(
     std::shared_ptr<erizo::DataPacket> video_packet) {
-  RTCPHeader* chead = reinterpret_cast<RTCPHeader*>(video_packet->data);
-  uint8_t packetType = chead->getPacketType();
+  erizo::RtcpHeader* chead = 
+      reinterpret_cast<erizo::RtcpHeader*>(video_packet->data);
 
-  assert(packetType != RTCP_Receiver_PT && 
-         packetType != RTCP_PS_Feedback_PT && 
-         packetType != RTCP_RTP_Feedback_PT);
-  if (videoReceive_ && 
-      (packetType == RTCP_SDES_PT || 
-       packetType == RTCP_Sender_PT || 
-       packetType == RTCP_XR_PT) ) {
-    videoReceive_->onRtpData(video_packet->data, video_packet->length);
+  if (chead->isRtcp()) {
+    if (chead->getPacketType() == RTCP_Sender_PT)
+      onSr(chead);
+
+    if (videoReceive_)
+      videoReceive_->onRtpData(video_packet->data, video_packet->length);
     return video_packet->length;
-  }
-
-  if (packetType >= RTCP_MIN_PT && packetType <= RTCP_MAX_PT) {
-    return 0;
   }
 
   RTPHeader* head = reinterpret_cast<RTPHeader*>(video_packet->data);
@@ -200,6 +198,27 @@ void VideoFrameConstructor::createReceiveVideo(uint32_t ssrc) {
   recvConfig.frame_listener = this;
 
   videoReceive_ = rtcAdapter_->createVideoReceiver(recvConfig);
+}
+
+void VideoFrameConstructor::onSr(erizo::RtcpHeader *chead) {
+  const uint8_t* const payload = reinterpret_cast<const uint8_t*>(&(chead->ssrc));
+  uint32_t ntp_secs = webrtc::ByteReader<uint32_t>::ReadBigEndian(&payload[4]);
+  uint32_t ntp_frac = webrtc::ByteReader<uint32_t>::ReadBigEndian(&payload[8]);
+  webrtc::NtpTime ntp;
+  ntp.Set(ntp_secs, ntp_frac);
+  
+  uint32_t rtp_timestamp = webrtc::ByteReader<uint32_t>::ReadBigEndian(&payload[12]);  
+  bool new_rtcp_sr = false;
+  ntp_estimator_.UpdateMeasurements(ntp_secs, ntp_frac, rtp_timestamp, &new_rtcp_sr);
+}
+
+int64_t VideoFrameConstructor::getNtpTimestamp(uint32_t ts) {
+  int64_t ntp = 0;
+
+  if(!ntp_estimator_.Estimate(ts, &ntp))
+    return -1;
+
+  return ntp;
 }
 
 }

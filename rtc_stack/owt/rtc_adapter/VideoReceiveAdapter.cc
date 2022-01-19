@@ -85,6 +85,8 @@ int32_t VideoReceiveAdapterImpl::AdapterDecoder::Decode(
   frame.payload = frameBuffer_.get();
   frame.length = encodedImage.size();
   frame.timeStamp = encodedImage.Timestamp();
+  
+  // something wrong with ntp time, av timestamp async
   frame.ntpTimeMs = encodedImage.ntp_time_ms_;
   frame.additionalInfo.video.width = width_;
   frame.additionalInfo.video.height = height_;
