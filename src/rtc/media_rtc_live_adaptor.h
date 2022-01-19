@@ -60,7 +60,12 @@ class MediaRtcLiveAdaptor {
   std::unique_ptr<SrsSample> sps_;
 
   //audio timestamp check
-  int64_t last_timestamp_{0}; 
+  int64_t last_timestamp_{0};
+
+  // for debug
+  int64_t a_last_ts_{-1};
+  int64_t v_last_ts_{-1};
+  int64_t last_report_ts_{-1};
 };
 
 }

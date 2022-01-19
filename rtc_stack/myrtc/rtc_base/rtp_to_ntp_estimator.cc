@@ -146,8 +146,6 @@ bool RtpToNtpEstimator::UpdateMeasurements(uint32_t ntp_secs,
         ntp_ms_new > old_ntp_ms + kMaxAllowedRtcpNtpIntervalMs) {
       invalid_sample = true;
     } else if (unwrapped_rtp_timestamp <= old_rtp_timestamp) {
-      RTC_LOG(LS_WARNING)
-          << "Newer RTCP SR report with older RTP timestamp, dropping";
       invalid_sample = true;
     } else if (unwrapped_rtp_timestamp - old_rtp_timestamp > (1 << 25)) {
       // Sanity check. No jumps too far into the future in rtp.
@@ -171,7 +169,7 @@ bool RtpToNtpEstimator::UpdateMeasurements(uint32_t ntp_secs,
   if (measurements_.size() == kNumRtcpReportsToUse)
     measurements_.pop_back();
 
-  measurements_.push_front(new_measurement);
+  measurements_.emplace_front(new_measurement);
   *new_rtcp_sr = true;
 
   // List updated, calculate new parameters.

@@ -32,7 +32,13 @@ void MediaStatistics::StatisticsClient::Dump(json::Object& obj) {
   obj["url"] = req->get_stream_url();
   obj["type"] = ClienType2String(type);
   obj["publish"] = ClientTypeIsPublish(type);
-  obj["alive"] = (int)(time(nullptr) - created);
+  time_t tm_sec = time(nullptr) - created;
+  struct tm now_time;
+  localtime_r(&tm_sec, &now_time);
+  char buf[256];
+  snprintf(buf, 256, "%dD:%dH:%dM:%dS", 
+      now_time.tm_mday, now_time.tm_hour, now_time.tm_min, now_time.tm_sec);
+  obj["alive"] = std::string(buf);
 }
 
 void MediaStatistics::OnClient(const std::string& id, 

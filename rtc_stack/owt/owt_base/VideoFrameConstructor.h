@@ -8,11 +8,14 @@
 #include <memory>
 #include "common/logger.h"
 
+#include "rtc_base/rtp_to_ntp_estimator.h"
+
 #include "utils/Worker.h"
 #include "erizo/MediaDefinitions.h"
 #include "owt_base/MediaDefinitionExtra.h"
 #include "owt_base/MediaFramePipeline.h"
 #include "rtc_adapter/RtcAdapter.h"
+#include "erizo/rtp/RtpHeaders.h"
 
 namespace owt_base {
 
@@ -73,8 +76,9 @@ public:
   bool setBitrate(uint32_t kbps);
 
 private:
-  config config_;
-
+  void onSr(erizo::RtcpHeader *chead);
+  int64_t getNtpTimestamp(uint32_t ts);
+ 
   void createReceiveVideo(uint32_t);
 
   // Implement erizo::MediaSink
@@ -82,6 +86,9 @@ private:
   int deliverVideoData_(std::shared_ptr<erizo::DataPacket> video_packet) override;
   int deliverEvent_(erizo::MediaEventPtr event) override { return 0; }
   void close();
+
+private:
+  config config_;
 
   bool enable_{true};
   uint32_t ssrc_{0};
@@ -95,6 +102,8 @@ private:
   rtc_adapter::VideoReceiveAdapter* videoReceive_{nullptr};
 
   wa::Worker* worker_;
+
+  webrtc::RtpToNtpEstimator ntp_estimator_;
 };
 
 } // namespace owt_base
