@@ -21,8 +21,10 @@
 #include <memory>
 #include <type_traits>
 #include <utility>
-
 #include <string_view>
+#include <list>
+#include <atomic>
+
 #include "api/queued_task.h"
 #include "api/task_queue_base.h"
 #include "libevent/event.h"
@@ -36,6 +38,8 @@
 #include "rtc_base/time_utils.h"
 #include "rtc_base/object_pool.h"
 #include "rtc_base/clock.h"
+
+#define EVENT_QUEUE_SPIN_LOCK
 
 namespace webrtc {
 namespace {
@@ -105,6 +109,41 @@ rtc::ThreadPriority TaskQueuePriorityToThreadPriority(Priority priority) {
   return rtc::kNormalPriority;
 }
 
+class SpinLock {
+ public:
+  inline void lock() {
+    while(flag.test_and_set()) { }
+  }
+
+  inline void unlock() {
+    flag.clear();
+  }
+ private:
+  std::atomic_flag flag = ATOMIC_FLAG_INIT; 
+};
+
+class SpinLockGuard {
+ public:
+  SpinLockGuard(SpinLock* lock)
+      : lock_(lock) {
+    lock_->lock();
+  }
+
+  ~SpinLockGuard() {
+    lock_->unlock();
+  }
+ private:
+  SpinLock* lock_;
+};
+
+#ifdef EVENT_QUEUE_SPIN_LOCK
+#define EventLock      SpinLock
+#define EventLockGuard SpinLockGuard
+#else
+#define EventLock      rtc::CriticalSection
+#define EventLockGuard rtc::CritScope
+#endif
+
 //TaskQueueLibevent
 class TaskQueueLibevent final : public TaskQueueBase {
  public:
@@ -169,7 +208,7 @@ class TaskQueueLibevent final : public TaskQueueBase {
   event_base* event_base_;
   event wakeup_event_;
   rtc::PlatformThread thread_;
-  rtc::CriticalSection pending_lock_;
+  EventLock pending_lock_;
   std::list<std::unique_ptr<QueuedTask>> pending_ RTC_GUARDED_BY(pending_lock_);
   // Holds a list of events pending timers for cleanup when the loop exits.
   std::unordered_set<TimerEvent*> pending_timers_;
@@ -177,7 +216,8 @@ class TaskQueueLibevent final : public TaskQueueBase {
   ObjectPoolT<TimerEvent> timer_event_pool_;
 
   Clock* clock_;
-  Timestamp last_report_ts_;
+  Timestamp post_last_report_ts_;
+  Timestamp wakeup_last_report_ts_;
 };
 
 TaskQueueLibevent::TaskQueueLibevent(std::string_view queue_name,
@@ -186,7 +226,8 @@ TaskQueueLibevent::TaskQueueLibevent(std::string_view queue_name,
       thread_(&TaskQueueLibevent::ThreadMain, this, queue_name, priority),
       timer_event_pool_(16),
       clock_(Clock::GetRealTimeClock()),
-      last_report_ts_(clock_->CurrentTime()) {
+      post_last_report_ts_(clock_->CurrentTime()),
+      wakeup_last_report_ts_(post_last_report_ts_) {
   int fds[2];
   RTC_CHECK(pipe(fds) == 0);
   SetNonBlocking(fds[0]);
@@ -230,31 +271,32 @@ void TaskQueueLibevent::Delete() {
 bool TaskQueueLibevent::NotifyWakeup() {
   char message = kRunTask;
   if (write(wakeup_pipe_in_, &message, sizeof(message)) != sizeof(message)) {
-    RTC_LOG(WARNING) << "Failed to NotifyWakeup.";
+    RTC_LOG(WARNING) << "Failed to write wakeup pipe.";
     return false;
   }
   return true;
 }
 
 void TaskQueueLibevent::PostTask(std::unique_ptr<QueuedTask> task) {
-  static const int kWarningAppendEventCount = 100;
-  static const int kReportIntervalMs = 3000;
   QueuedTask* task_id = task.get();  // Only used for comparison.
   size_t pending_event = 0;
   {
-    rtc::CritScope lock(&pending_lock_);
+    EventLockGuard lock(&pending_lock_);
     pending_event = pending_.size();
     pending_.emplace_back(std::move(task));
   }
 
-#ifdef RTC_DCHECK_IS_ON
+#if RTC_DCHECK_IS_ON
+  static const int kWarningAppendEventCount = 100;
+  static const int kReportIntervalMs = 3000;
+
   Timestamp cur_ts = clock_->CurrentTime();
-  if (last_report_ts_ + TimeDelta::ms(kReportIntervalMs) > cur_ts) {
+  if (post_last_report_ts_ + TimeDelta::ms(kReportIntervalMs) > cur_ts) {
     if (pending_event > kWarningAppendEventCount)
       RTC_LOG(WARNING) << "task queue PostTask "
         ", pending:" << pending_event << 
         ", worker name:" << thread_.name();
-    last_report_ts_ = cur_ts;
+    post_last_report_ts_ = cur_ts;
   }
 #endif
 
@@ -262,7 +304,8 @@ void TaskQueueLibevent::PostTask(std::unique_ptr<QueuedTask> task) {
     return;
   
   if (!NotifyWakeup()) {
-    rtc::CritScope lock(&pending_lock_);
+    RTC_LOG(WARNING) << "Failed to NotifyWakeup.";
+    EventLockGuard lock(&pending_lock_);
     pending_.remove_if([task_id](std::unique_ptr<QueuedTask>& t) {
       return t.get() == task_id;
     });
@@ -288,7 +331,8 @@ void TaskQueueLibevent::PostDelayedTask(std::unique_ptr<QueuedTask> task,
 // static
 void TaskQueueLibevent::ThreadMain(void* context) {
   TaskQueueLibevent* me = static_cast<TaskQueueLibevent*>(context);
-  me->last_report_ts_ = me->clock_->CurrentTime();
+  me->post_last_report_ts_ = me->clock_->CurrentTime();
+  me->wakeup_last_report_ts_ = me->post_last_report_ts_;
   {
     CurrentTaskQueueSetter set_current(me);
     while (me->is_active_)
@@ -303,47 +347,52 @@ void TaskQueueLibevent::ThreadMain(void* context) {
 void TaskQueueLibevent::OnWakeup(int socket,
                                  short flags,  // NOLINT
                                  void* context) {
-  static int const kMaxExecuteMs = 20;
-  static constexpr size_t max_events_once = 3;
-  
   TaskQueueLibevent* me = static_cast<TaskQueueLibevent*>(context);
+#if RTC_DCHECK_IS_ON
   RTC_DCHECK(me->wakeup_pipe_out_ == socket);
+#endif
   char buf;
   RTC_CHECK(sizeof(buf) == read(socket, &buf, sizeof(buf)));
   if (kRunTask == buf) {  
-    std::list<std::unique_ptr<QueuedTask>> task_list;
+    static constexpr size_t max_events_once = 3;
+    std::vector<std::unique_ptr<QueuedTask>> task_list;
+    task_list.reserve(max_events_once);
     size_t remain = 0;
+    size_t get_count = 0;
     {
-      rtc::CritScope lock(&me->pending_lock_);
-      size_t total_event = me->pending_.size();
-      if (total_event <= max_events_once) {
-        std::swap(me->pending_, task_list);
-      } else {
-        for (size_t i = 0; i < max_events_once; ++i) {
-          task_list.emplace_back(std::move(me->pending_.front()));
-          me->pending_.pop_front();
-        }
-      }
+      EventLockGuard lock(&me->pending_lock_);
       remain = me->pending_.size();
+      get_count = std::min(remain, max_events_once);
+      for (size_t i = 0; i < get_count; ++i) {
+        task_list.emplace_back(std::move(me->pending_.front()));
+        me->pending_.pop_front();
+      }
     }
-
+    remain -= get_count;
+#if RTC_DCHECK_IS_ON
     Timestamp before_ts = me->clock_->CurrentTime();
-    for (auto& task : task_list) {
+#endif
+    std::for_each(task_list.begin(), task_list.end(), [](auto& task) {
       if (!task->Run())
         task.release();
+    });
+      
+#if RTC_DCHECK_IS_ON
+    static constexpr int kMaxExecuteMs = 20;
+    static constexpr size_t events_water_mark = 500;
+    static constexpr size_t report_interval = 5000;
+    Timestamp atfer_ts = me->clock_->CurrentTime();
+    TimeDelta cost_ts = atfer_ts - before_ts;
+    if (cost_ts.ms() > kMaxExecuteMs || remain > events_water_mark) {
+      TimeDelta cost_ts1 = atfer_ts - me->wakeup_last_report_ts_;
+      if (cost_ts1.ms() > report_interval) {
+        RTC_LOG(WARNING) << "event timeout or acumulate, cost:" << 
+          cost_ts.ms() << ", apending event:" << remain <<
+          ", worker name:" << me->thread_.name();
+        me->wakeup_last_report_ts_ = atfer_ts;
+      }
     }
-    TimeDelta cost_ts = me->clock_->CurrentTime() - before_ts;
-    if (cost_ts.ms() > kMaxExecuteMs) {
-      RTC_LOG(WARNING) << "process event too long time,"
-        ", cost:" << cost_ts.ms() << 
-        ", worker name:" << me->thread_.name();
-    }
-
-    if (remain > 500) {
-      RTC_LOG(WARNING) << "event acumulate, apending event:" << remain << 
-        ", worker name:" << me->thread_.name();
-    }
-    
+#endif    
     if (remain > 0) {
       me->NotifyWakeup();
     }
