@@ -183,7 +183,10 @@ class TaskQueueLibevent final : public TaskQueueBase {
   
   struct TimerEvent {
     TimerEvent() = default;
-    ~TimerEvent() { event_del(&ev_); }
+    ~TimerEvent() { 
+      if (task_queue_)
+        event_del(&ev_); 
+    }
 
     void Init(TaskQueueLibevent* task_queue, 
               std::unique_ptr<QueuedTask> task,
@@ -397,7 +400,7 @@ void TaskQueueLibevent::OnWakeup(int socket,
 #if RTC_DCHECK_IS_ON
     static constexpr int kMaxExecuteMs = 20;
     static constexpr size_t events_water_mark = 500;
-    static constexpr size_t report_interval = 5000;
+    static constexpr int64_t report_interval = 5000;
     Timestamp atfer_ts = me->clock_->CurrentTime();
     TimeDelta cost_ts = atfer_ts - before_ts;
     if (cost_ts.ms() > kMaxExecuteMs || remain > events_water_mark) {

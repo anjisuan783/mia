@@ -255,7 +255,7 @@ srs_error_t StreamEntry::serve_http(std::shared_ptr<IHttpResponseWriter> writer,
   writer->header()->set_content_type("video/x-flv");
   writer->write_header(SRS_CONSTS_HTTP_OK);
 
-  async_task([this, key = msg->connection().get(), 
+  async_task([this, message = std::move(msg), 
               shared_writer = std::move(writer)]() {
     RTC_DCHECK_RUN_ON(&thread_check_);
     srs_error_t err = srs_success;
@@ -308,7 +308,15 @@ srs_error_t StreamEntry::serve_http(std::shared_ptr<IHttpResponseWriter> writer,
       }
     }
 
+    IMediaConnection* key = message->connection().get();
     add_customer(key, std::move(consumer), std::move(bw), std::move(encoder));
+
+    // statistics
+    auto req = message->to_request(g_server_.config_.vhost);
+    std::ostringstream oss;
+    oss << req->ip;
+    oss << (uint64_t)key;
+    Stat().OnClient(oss.str(), req, TRtmpPlay);
   });
 
   return srs_success;
@@ -427,10 +435,6 @@ srs_error_t MediaFlvPlayHandler::serve_http(
     index_.emplace(msg->connection().get(), handler);
   }
 
-  std::ostringstream oss;
-  oss << req->ip;
-  oss << (uint64_t) msg->connection().get();
-  Stat().OnClient(oss.str(), req, TRtmpPlay);
   return handler->serve_http(writer, msg);
 }
 

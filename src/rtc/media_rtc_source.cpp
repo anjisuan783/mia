@@ -223,6 +223,8 @@ void MediaRtcSource::OnPublisherJoin(std::shared_ptr<MediaRtcAttendeeBase> p) {
       i.second->OnPublisherJoin(publisher_id_);
     }
   }
+
+  signal_rtc_publisher_join_();
 }
 
 void MediaRtcSource::TurnOnFrameCallback(bool on) {

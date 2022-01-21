@@ -82,6 +82,7 @@ class MediaSource final : public sigslot::has_slots<>,
 
   // rtc source signal
   void OnRtcFirstPacket();
+  void OnRtcPublisherJoin();
   void OnRtcPublisherLeft();
   void OnRtcFirstSubscriber();
   void OnRtcNobody();
@@ -106,8 +107,6 @@ class MediaSource final : public sigslot::has_slots<>,
   std::atomic<bool> rtc_publisher_in_{false};
 
   std::atomic<bool> rtc_active_{false};
-
-  bool consumer_first_empty_{true};
 };
 
 } //namespace ma
