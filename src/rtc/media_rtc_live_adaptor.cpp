@@ -19,11 +19,6 @@ namespace ma {
 
 MDEFINE_LOGGER(MediaRtcLiveAdaptor, "MediaRtcLiveAdaptor");
 
-// 00 00 00 01
-const uint32_t kNaluLongStartSequence = 0x1000000;
-// 00 00 01
-const uint32_t kNaluShortStartSequence = 0x10000;
-
 // StapPackage STAP-A, for multiple NALUs.
 class StapPackage final {
  public:
