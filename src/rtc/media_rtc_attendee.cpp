@@ -124,6 +124,7 @@ void MediaRtcAttendeeBase::post(Task t) {
 }
 
 void MediaRtcAttendeeBase::ChangeOnFrame(bool on) {
+  MLOG_INFO(pc_id_ << (on ? ", on" : ", off"));
   on_frame_ = on;
 }
 

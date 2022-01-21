@@ -38,19 +38,6 @@ void MediaSource::close() {
 
 std::shared_ptr<MediaConsumer> MediaSource::CreateConsumer() {
   ActiveLiveSource();
-
-  if (live_source_->ConsumerEmpty()) {
-    if (consumer_first_empty_) {
-      // turn on frame callback
-      consumer_first_empty_ = false;      
-    } else {
-      // turn off frame callback
-      consumer_first_empty_ = true;
-    }
-    if (rtc_source_)
-      rtc_source_->TurnOnFrameCallback(!consumer_first_empty_);
-  }
-  
   return live_source_->CreateConsumer();
 }
 
@@ -110,8 +97,8 @@ void MediaSource::CheckRtcSource() {
                    this, &MediaSource::OnRtcFirstPacket);
   rtc_source_->signal_rtc_publisher_left_.connect(
                    this, &MediaSource::OnRtcPublisherLeft);
-
-  rtc_source_->TurnOnFrameCallback(!consumer_first_empty_);
+  rtc_source_->signal_rtc_publisher_join_.connect( 
+                   this, &MediaSource::OnRtcPublisherJoin);
 }
 
 srs_error_t MediaSource::Publish(const std::string& s, 
@@ -142,6 +129,9 @@ JitterAlgorithm MediaSource::jitter() {
 }
 
 void MediaSource::OnRtcFirstPacket() {
+}
+
+void MediaSource::OnRtcPublisherJoin() {
   rtc_active_ = true;
   rtc_source_->SetMediaSink(this);
   ActiveAdapter();
@@ -176,13 +166,16 @@ void MediaSource::ActiveAdapter() {
   assert(live_adapter_.get() == nullptr);
   live_adapter_.reset(new MediaRtcLiveAdaptor(req_->stream));
   live_adapter_->SetSink(live_source_.get());
+  rtc_source_->TurnOnFrameCallback(true);
 }
 
 void MediaSource::UnactiveAdapter() {
   if (!live_adapter_) {
     return;
   }
+  
   live_adapter_.reset(nullptr);
+  rtc_source_->TurnOnFrameCallback(false);
 }
 
 } //namespace ma
