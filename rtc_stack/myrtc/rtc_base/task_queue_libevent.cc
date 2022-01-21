@@ -17,13 +17,14 @@
 #include <stdint.h>
 #include <time.h>
 #include <unistd.h>
-#include <unordered_set>
 #include <memory>
 #include <type_traits>
 #include <utility>
 #include <string_view>
-#include <list>
 #include <atomic>
+#include <limits>
+#include <vector>
+#include <queue>
 
 #include "api/queued_task.h"
 #include "api/task_queue_base.h"
@@ -181,19 +182,21 @@ class TaskQueueLibevent final : public TaskQueueBase {
   };
   
   struct TimerEvent {
-    TimerEvent(TaskQueueLibevent* task_queue, std::unique_ptr<QueuedTask> task)
-        : task_queue_(task_queue), task_(std::move(task)) {}
-    TimerEvent() { }
+    TimerEvent() = default;
     ~TimerEvent() { event_del(&ev_); }
 
-    void Init(TaskQueueLibevent* task_queue, std::unique_ptr<QueuedTask> task) {
+    void Init(TaskQueueLibevent* task_queue, 
+              std::unique_ptr<QueuedTask> task,
+              int index) {
       task_queue_ = task_queue;
       task_ = std::move(task);
+      pending_timer_index_ = index;
     }
     
     event ev_;
     TaskQueueLibevent* task_queue_{nullptr};
     std::unique_ptr<QueuedTask> task_;
+    int pending_timer_index_{-1};
   };
 
   ~TaskQueueLibevent() override = default;
@@ -208,11 +211,15 @@ class TaskQueueLibevent final : public TaskQueueBase {
   event_base* event_base_;
   event wakeup_event_;
   rtc::PlatformThread thread_;
+  
   EventLock pending_lock_;
-  std::list<std::unique_ptr<QueuedTask>> pending_ RTC_GUARDED_BY(pending_lock_);
-  // Holds a list of events pending timers for cleanup when the loop exits.
-  std::unordered_set<TimerEvent*> pending_timers_;
+  std::queue<std::unique_ptr<QueuedTask>> pending_;
 
+  // Holds a list of events pending timers for cleanup when the loop exits.
+  static const int timer_nb_ = std::numeric_limits<uint16_t>::max();
+  std::vector<int> pending_timers_index_;
+  TimerEvent* pending_timers_[timer_nb_];
+  
   ObjectPoolT<TimerEvent> timer_event_pool_;
 
   Clock* clock_;
@@ -224,7 +231,7 @@ TaskQueueLibevent::TaskQueueLibevent(std::string_view queue_name,
                                      rtc::ThreadPriority priority)
     : event_base_(event_base_new()),
       thread_(&TaskQueueLibevent::ThreadMain, this, queue_name, priority),
-      timer_event_pool_(16),
+      timer_event_pool_(4096),
       clock_(Clock::GetRealTimeClock()),
       post_last_report_ts_(clock_->CurrentTime()),
       wakeup_last_report_ts_(post_last_report_ts_) {
@@ -238,6 +245,12 @@ TaskQueueLibevent::TaskQueueLibevent(std::string_view queue_name,
   EventAssign(&wakeup_event_, event_base_, wakeup_pipe_out_,
               EV_READ | EV_PERSIST, OnWakeup, this);
   event_add(&wakeup_event_, nullptr);
+
+  pending_timers_index_.reserve(timer_nb_);
+  for (int i = 0; i < timer_nb_; ++i) {
+    pending_timers_index_.push_back(i);
+    pending_timers_[i] = nullptr;
+  }
   thread_.Start();
 }
 
@@ -278,12 +291,11 @@ bool TaskQueueLibevent::NotifyWakeup() {
 }
 
 void TaskQueueLibevent::PostTask(std::unique_ptr<QueuedTask> task) {
-  QueuedTask* task_id = task.get();  // Only used for comparison.
   size_t pending_event = 0;
   {
     EventLockGuard lock(&pending_lock_);
     pending_event = pending_.size();
-    pending_.emplace_back(std::move(task));
+    pending_.emplace(std::move(task));
   }
 
 #if RTC_DCHECK_IS_ON
@@ -302,24 +314,25 @@ void TaskQueueLibevent::PostTask(std::unique_ptr<QueuedTask> task) {
 
   if (pending_event > 0)
     return;
-  
-  if (!NotifyWakeup()) {
-    RTC_LOG(WARNING) << "Failed to NotifyWakeup.";
-    EventLockGuard lock(&pending_lock_);
-    pending_.remove_if([task_id](std::unique_ptr<QueuedTask>& t) {
-      return t.get() == task_id;
-    });
-  }
+
+  RTC_CHECK(NotifyWakeup());
 }
 
 void TaskQueueLibevent::PostDelayedTask(std::unique_ptr<QueuedTask> task,
                                         uint32_t milliseconds) {
   if (IsCurrent()) {
+    RTC_CHECK(!pending_timers_index_.empty());
+  
+    int index = pending_timers_index_.back();
+    pending_timers_index_.pop_back();
+
     TimerEvent* timer = timer_event_pool_.New();
-    timer->Init(this, std::move(task));
+    pending_timers_[index] = timer;
+    
+    timer->Init(this, std::move(task), index);
     EventAssign(&timer->ev_, event_base_, -1, 0, &TaskQueueLibevent::RunTimer,
                 timer);
-    pending_timers_.insert(timer);
+
     timeval tv = {rtc::dchecked_cast<int>(milliseconds / 1000),
                   rtc::dchecked_cast<int>(milliseconds % 1000) * 1000};
     event_add(&timer->ev_, &tv);
@@ -339,8 +352,12 @@ void TaskQueueLibevent::ThreadMain(void* context) {
       event_base_loop(me->event_base_, 0);
   }
 
-  for (TimerEvent* timer : me->pending_timers_)
-    me->timer_event_pool_.Delete(timer);
+  for (int i = 0; i < timer_nb_; ++i) {
+    TimerEvent* timer = me->pending_timers_[i];
+    if (timer) {
+      me->timer_event_pool_.Delete(timer);
+    }
+  }
 }
 
 // static
@@ -365,7 +382,7 @@ void TaskQueueLibevent::OnWakeup(int socket,
       get_count = std::min(remain, max_events_once);
       for (size_t i = 0; i < get_count; ++i) {
         task_list.emplace_back(std::move(me->pending_.front()));
-        me->pending_.pop_front();
+        me->pending_.pop();
       }
     }
     remain -= get_count;
@@ -409,8 +426,10 @@ void TaskQueueLibevent::RunTimer(int, short, void* context) {
   TimerEvent* timer = static_cast<TimerEvent*>(context);
   if (!timer->task_->Run())
     timer->task_.release();
-  
-  timer->task_queue_->pending_timers_.erase(timer);
+
+  int index = timer->pending_timer_index_;
+  timer->task_queue_->pending_timers_index_.push_back(index);
+  timer->task_queue_->pending_timers_[index] = nullptr;
   timer->task_queue_->timer_event_pool_.Delete(timer);
 }
 

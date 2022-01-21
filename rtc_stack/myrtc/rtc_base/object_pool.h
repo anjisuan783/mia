@@ -1,3 +1,9 @@
+//
+// Copyright (c) 2021- anjisuan783
+//
+// SPDX-License-Identifier: MIT
+//
+
 #ifndef __RTC_OBJECTPOOL_H__
 #define __RTC_OBJECTPOOL_H__
 
@@ -7,6 +13,7 @@ template<typename ObjType>
 class ObjectPoolT {
  public:
 	ObjectPoolT(int pre_size) {
+    pool_.reserve(pre_size);
     for(int i = 0; i < pre_size; ++i)
       pool_.push_back(new ObjType);
   }
@@ -19,22 +26,22 @@ class ObjectPoolT {
 
 	ObjType* New() {
 	  bool pool_empty = pool_.empty();
-	  ObjType* ret = pool_empty ? (new ObjType) : pool_.front();
+	  ObjType* ret = pool_empty ? (new ObjType) : pool_.back();
     if (!pool_empty)
-      pool_.pop_front();
+      pool_.pop_back();
     
 		return ret;
 	}
 	
 	void Delete(ObjType* p) {
-		if (p == 0)
+		if (p == nullptr)
 			return ;
     
 		pool_.push_back(p);
 	}
 
 private:
-	typedef std::list<ObjType*> PoolType;
+	typedef std::vector<ObjType*> PoolType;
 
 	PoolType pool_;
 };
