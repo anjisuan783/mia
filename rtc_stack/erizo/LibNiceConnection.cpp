@@ -7,7 +7,10 @@
 #include <string>
 #include <cstring>
 #include <vector>
+#include <mutex>
+#include <iostream>
 
+#include "rtc_base/object_pool.h"
 #include "erizo/LibNiceConnection.h"
 #include "erizo/SdpInfo.h"
 #include "utils/Clock.h"
@@ -122,26 +125,53 @@ void LibNiceConnection::close() {
   ELOG_DEBUG("%s message: closed, this: %p", toLog(), this);
 }
 
+static std::mutex s_memory_pool_lock_;
+static webrtc::ObjectPoolT<DataPacket> s_memory_pool_{102400};
+
+DataPacket* DataPacketMaker(int _comp, 
+                            const char *_data, 
+                            int _length, 
+                            packetType _type, 
+                            uint64_t _received_time_ms) {
+  DataPacket* pkt = nullptr;
+  {
+    std::lock_guard<std::mutex> guard(s_memory_pool_lock_);
+    pkt = s_memory_pool_.New(); 
+  }
+  pkt->Init(_comp, _data, _length, _type, _received_time_ms);
+  return pkt;
+}
+
+void DataPacketDeleter(DataPacket* pkt) {
+    std::lock_guard<std::mutex> guard(s_memory_pool_lock_);
+    s_memory_pool_.Delete(pkt); 
+}
+
 void LibNiceConnection::onData(unsigned int component_id, char* buf, int len) {
   if (checkIceState() == IceState::READY) {
-    DataPacket* packet = new DataPacket(component_id, buf, len, VIDEO_PACKET, 0);
-    bool need_delete = true;
     if (auto listener = getIceListener().lock()) {
-      listener->onPacketReceived(packet);
-      need_delete = false;
+#ifdef USER_PACKET_POOL      
+      std::shared_ptr<DataPacket> packet(
+          DataPacketMaker(component_id, buf, len, VIDEO_PACKET, 0), 
+          DataPacketDeleter);
+#else
+      auto packet = std::make_shared<DataPacket>(
+          component_id, buf, len, VIDEO_PACKET, 0);
+#endif
+      listener->onPacketReceived(std::move(packet));
     }
-    if (need_delete)
-      delete packet;
   }
 }
 
 int LibNiceConnection::sendData(unsigned int component_id, const void* buf, int len) {
   int val = -1;
   if (this->checkIceState() == IceState::READY) {
-    val = lib_nice_->NiceAgentSend(agent_, stream_id_, component_id, len, reinterpret_cast<const gchar*>(buf));
+    val = lib_nice_->NiceAgentSend(agent_, stream_id_, 
+        component_id, len, reinterpret_cast<const gchar*>(buf));
   }
   if (val != len) {
-    ELOG_DEBUG("%s message: Sending less data than expected, sent: %d, to_send: %d", toLog(), val, len);
+    ELOG_DEBUG("%s message: Sending less data than expected,"
+               " sent: %d, to_send: %d", toLog(), val, len);
   }
   return val;
 }

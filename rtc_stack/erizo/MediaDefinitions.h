@@ -13,6 +13,7 @@
 #include <cstring>
 
 #include "utils/Clock.h"
+#include "rtc_base/copy_on_write_buffer.h"
 
 namespace erizo {
 
@@ -23,77 +24,57 @@ enum packetType {
 };
 
 struct DataPacket {
-  DataPacket() = default;
-
-  DataPacket(int comp_, 
-             const char *data_, 
-             int length_, 
-             packetType type_, 
-             uint64_t received_time_ms_) 
-             : comp{comp_}, 
-               length{length_}, 
-               type{type_}, 
-               received_time_ms{received_time_ms_}, 
-               is_keyframe{false},
-               ending_of_layer_frame{false}, 
-               picture_id{-1}, 
-               tl0_pic_idx{-1} {
-    std::memcpy(data, data_, length_);
+  static const size_t MTU_SIZE = 1500;
+  DataPacket() : buffer_{0, MTU_SIZE}, data{(char*)buffer_.data()} { }
+  DataPacket(const DataPacket&) = delete;
+  DataPacket(DataPacket&& dpk)
+      : comp{dpk.comp}, 
+        type{dpk.type}, 
+        received_time_ms{dpk.received_time_ms},
+        buffer_{std::move(dpk.buffer_)},
+        length{dpk.length},
+        data{dpk.data} {
+    dpk.length = 0;
+    dpk.data = nullptr;
   }
 
-  DataPacket(int comp_, const char *data_, int length_, packetType type_)
-    : comp{comp_}, 
-      length{length_}, 
-      type{type_}, 
-      /*received_time_ms{wa::ClockUtils::timePointToMs(wa::clock::now())},*/
-      is_keyframe{false}, 
-      ending_of_layer_frame{false},
-      picture_id{-1}, 
-      tl0_pic_idx{-1} {
-    std::memcpy(data, data_, length_);
+  DataPacket(int _comp, 
+             const char *_data, 
+             int _length, 
+             packetType _type, 
+             uint64_t _received_time_ms) 
+             : comp{_comp},
+               type{_type},
+               received_time_ms{_received_time_ms},
+               buffer_{_data, (size_t)_length, MTU_SIZE},
+               length{_length},
+               data{(char*)buffer_.data()} { }
+
+  DataPacket(int _comp, const char *_data, int _length, packetType _type)
+    : DataPacket(_comp, _data, _length, _type, 0) { }
+
+  DataPacket(int _comp, const char *_data, int _length)
+    : DataPacket(_comp, _data, _length, VIDEO_PACKET, 0) { }
+
+  void Init(int _comp, 
+            const char *_data, 
+            int _length, 
+            packetType _type, 
+            uint64_t _received_time_ms) {
+    comp = _comp;
+    type = _type;
+    received_time_ms = _received_time_ms;
+    buffer_.SetData(_data, _length);
+    length = _length;
+    data = (char*)buffer_.data();
   }
 
-  DataPacket(int comp_, const unsigned char *data_, int length_)
-    : comp{comp_}, 
-      length{length_}, 
-      type{VIDEO_PACKET}, 
-      /*received_time_ms{wa::ClockUtils::timePointToMs(wa::clock::now())},*/
-      is_keyframe{false}, 
-      ending_of_layer_frame{false}, 
-      picture_id{-1}, 
-      tl0_pic_idx{-1} {
-    std::memcpy(data, data_, length_);
-  }
-
-  bool belongsToSpatialLayer(int spatial_layer_) {
-    std::vector<int>::iterator item = std::find(compatible_spatial_layers.begin(),
-                                              compatible_spatial_layers.end(),
-                                              spatial_layer_);
-
-    return item != compatible_spatial_layers.end();
-  }
-
-  bool belongsToTemporalLayer(int temporal_layer_) {
-    std::vector<int>::iterator item = std::find(compatible_temporal_layers.begin(),
-                                              compatible_temporal_layers.end(),
-                                              temporal_layer_);
-
-    return item != compatible_temporal_layers.end();
-  }
-
-  int comp;         //component_id
-  char data[1500];
-  int length;
-  packetType type;
-  uint64_t received_time_ms = 0;
-  std::vector<int> compatible_spatial_layers;
-  std::vector<int> compatible_temporal_layers;
-  bool is_keyframe;  // Note: It can be just a keyframe first packet in VP8
-  bool ending_of_layer_frame;
-  int picture_id;
-  int tl0_pic_idx;
-  std::string codec;
-  unsigned int clock_rate = 0;
+  int comp{-1};         //component_id
+  packetType type{VIDEO_PACKET};
+  uint64_t received_time_ms{0};
+  rtc::CopyOnWriteBuffer buffer_;
+  int length{0};
+  char* data{nullptr};
 };
 
 class MediaEvent {

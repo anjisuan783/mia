@@ -32,15 +32,18 @@ public:
   ~WebrtcAgent();
 
   int initiate(uint32_t num_workers, 
-      const std::vector<std::string>& ip_addresses, const std::string& service_addr);
+               const std::vector<std::string>& ip_addresses, 
+               const std::string& service_addr);
 
   int CreatePeer(TOption&, const std::string& offer) override;
 
   int DestroyPeer(const std::string& connectId) override;
 
-  int Subscribe(const std::string& from, const std::string& to) override;
+  int Subscribe(const std::string& publisher, 
+                const std::string& player) override;
 
-  int Unsubscribe(const std::string& from, const std::string& to) override;
+  int Unsubscribe(const std::string& publisher, 
+                  const std::string& player) override;
 
   const std::vector<std::string>& getAddresses(){
     return network_addresses_;

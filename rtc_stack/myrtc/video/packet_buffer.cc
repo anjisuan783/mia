@@ -510,7 +510,7 @@ void PacketBuffer::UpdateMissingPackets(uint16_t seq_num) {
 }
 
 void PacketBuffer::OnTimestampReceived(uint32_t rtp_timestamp) {
-  const size_t kMaxTimestampsHistory = 1000;
+  static const size_t kMaxTimestampsHistory = 1000;
   if (rtp_timestamps_history_set_.insert(rtp_timestamp).second) {
     rtp_timestamps_history_queue_.push(rtp_timestamp);
     ++unique_frames_seen_;

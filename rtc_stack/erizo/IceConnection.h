@@ -76,7 +76,7 @@ enum IceState {
 
 class IceConnectionListener {
  public:
-    virtual void onPacketReceived(DataPacket* packet) = 0;
+    virtual void onPacketReceived(std::shared_ptr<DataPacket> packet) = 0;
     virtual void onCandidate(const CandidateInfo &candidate, IceConnection *conn) = 0;
     virtual void updateIceState(IceState state, IceConnection *conn) = 0;
 };

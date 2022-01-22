@@ -29,15 +29,18 @@ AudioReceiveAdapterImpl::~AudioReceiveAdapterImpl() {
   }
 }
 
-int AudioReceiveAdapterImpl::onRtpData(char* data, int len) {
+int AudioReceiveAdapterImpl::onRtpData(erizo::DataPacket* pkt) {
+  if (pkt->length != (int)pkt->buffer_.size())
+    pkt->buffer_.SetSize(pkt->length);
+  
   auto rv = call()->Receiver()->DeliverPacket(
           webrtc::MediaType::AUDIO,
-          rtc::CopyOnWriteBuffer(data, len),
+          std::move(pkt->buffer_),
           rtc::TimeUTCMicros());
   if (webrtc::PacketReceiver::DELIVERY_OK != rv) {
     OLOG_ERROR_THIS("AudioReceiveAdapterImpl DeliverPacket failed code:" << rv);
   }
-  return len;
+  return pkt->length;
 }
 
 bool AudioReceiveAdapterImpl::SendRtp(const uint8_t*,

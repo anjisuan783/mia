@@ -42,7 +42,7 @@ class DtlsTransport : dtls::DtlsReceiver, public Transport {
   void close() override;
 
   //woker thread
-  void onIceData(DataPacket* packet) override;
+  void onIceData(std::shared_ptr<DataPacket> packet) override;
 
   //IceConnectionListener implement
   void onCandidate(const CandidateInfo &candidate, IceConnection *conn) override;
@@ -60,7 +60,8 @@ class DtlsTransport : dtls::DtlsReceiver, public Transport {
                             std::string srtp_profile) override;
   void onHandshakeFailed(dtls::DtlsSocketContext *ctx, const std::string& error) override;
 
-  void writeDtlsPacket(dtls::DtlsSocketContext *ctx, packetPtr packet);
+  void writeDtlsPacket(dtls::DtlsSocketContext *ctx,
+      int component_id, const unsigned char* data, unsigned int len);
   
   void processLocalSdp(SdpInfo *localSdp_) override;
 

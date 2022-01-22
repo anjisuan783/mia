@@ -102,27 +102,29 @@ void VideoFrameConstructor::onAdapterData(char* data, int len) {
 
 int VideoFrameConstructor::deliverVideoData_(
     std::shared_ptr<erizo::DataPacket> video_packet) {
+  char* data = video_packet->data;
+  int len = video_packet->length;
   erizo::RtcpHeader* chead = 
-      reinterpret_cast<erizo::RtcpHeader*>(video_packet->data);
+      reinterpret_cast<erizo::RtcpHeader*>(data);
 
   if (chead->isRtcp()) {
     if (chead->getPacketType() == RTCP_Sender_PT)
       onSr(chead);
 
     if (videoReceive_)
-      videoReceive_->onRtpData(video_packet->data, video_packet->length);
-    return video_packet->length;
+      videoReceive_->onRtpData(video_packet.get());
+    return len;
   }
 
-  RTPHeader* head = reinterpret_cast<RTPHeader*>(video_packet->data);
+  RTPHeader* head = reinterpret_cast<RTPHeader*>(data);
   if (!ssrc_ && head->getSSRC()) {
     createReceiveVideo(head->getSSRC());
   }
   if (videoReceive_) {
-    videoReceive_->onRtpData(video_packet->data, video_packet->length);
+    videoReceive_->onRtpData(video_packet.get());
   }
 
-  return video_packet->length;
+  return len;
 }
 
 int VideoFrameConstructor::deliverAudioData_(

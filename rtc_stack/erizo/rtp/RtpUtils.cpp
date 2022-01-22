@@ -46,24 +46,24 @@ void RtpUtils::forEachNack(RtcpHeader *chead, std::function<void(uint16_t, uint1
   }
 }
 
-bool RtpUtils::isPLI(std::shared_ptr<DataPacket> packet) {
+bool RtpUtils::isPLI(DataPacket* packet) {
   bool is_pli = false;
   forEachRtcpBlock(packet, [&is_pli] (RtcpHeader *header) {
     if (header->getPacketType() == RTCP_PS_Feedback_PT &&
-        header->getBlockCount() == RTCP_PLI_FMT) {
-          is_pli = true;
-        }
+      header->getBlockCount() == RTCP_PLI_FMT) {
+        is_pli = true;
+      }
   });
   return is_pli;
 }
 
-bool RtpUtils::isFIR(std::shared_ptr<DataPacket> packet) {
+bool RtpUtils::isFIR(DataPacket* packet) {
   bool is_fir = false;
   forEachRtcpBlock(packet, [&is_fir] (RtcpHeader *header) {
     if (header->getPacketType() == RTCP_PS_Feedback_PT &&
-        header->getBlockCount() == RTCP_FIR_FMT) {
-          is_fir = true;
-        }
+      header->getBlockCount() == RTCP_FIR_FMT) {
+        is_fir = true;
+      }
   });
   return is_fir;
 }
@@ -115,7 +115,7 @@ std::shared_ptr<DataPacket> RtpUtils::createREMB(uint32_t ssrc, std::vector<uint
 }
 
 
-int RtpUtils::getPaddingLength(std::shared_ptr<DataPacket> packet) {
+int RtpUtils::getPaddingLength(DataPacket* packet) {
   RtpHeader *rtp_header = reinterpret_cast<RtpHeader*>(packet->data);
   if (rtp_header->hasPadding()) {
     return packet->data[packet->length - 1] & 0xFF;
@@ -123,7 +123,7 @@ int RtpUtils::getPaddingLength(std::shared_ptr<DataPacket> packet) {
   return 0;
 }
 
-void RtpUtils::forEachRtcpBlock(std::shared_ptr<DataPacket> packet, std::function<void(RtcpHeader*)> f) {
+void RtpUtils::forEachRtcpBlock(DataPacket* packet, std::function<void(RtcpHeader*)> f) {
   RtcpHeader *chead = reinterpret_cast<RtcpHeader*>(packet->data);
   int len = packet->length;
   if (chead->isRtcp()) {
@@ -143,7 +143,7 @@ void RtpUtils::forEachRtcpBlock(std::shared_ptr<DataPacket> packet, std::functio
   }
 }
 
-std::shared_ptr<DataPacket> RtpUtils::makePaddingPacket(std::shared_ptr<DataPacket> packet, uint8_t padding_size) {
+std::shared_ptr<DataPacket> RtpUtils::makePaddingPacket(DataPacket* packet, uint8_t padding_size) {
   erizo::RtpHeader *header = reinterpret_cast<RtpHeader*>(packet->data);
 
   uint16_t packet_length = header->getHeaderLength() + padding_size;

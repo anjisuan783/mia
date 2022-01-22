@@ -99,53 +99,55 @@ int WebrtcAgent::DestroyPeer(const std::string& connectId) {
   return wa_ok;
 }
 
-int WebrtcAgent::Subscribe(const std::string& from, const std::string& to) {
-  OLOG_TRACE("Subscribe s:" << from << ", d:" << to);
-  std::shared_ptr<WrtcAgentPc> pc_from;
-  std::shared_ptr<WrtcAgentPc> pc_to;
+int WebrtcAgent::Subscribe(const std::string& publisher, 
+                           const std::string& player) {
+  OLOG_TRACE(player << " subscribe " << publisher);
+  std::shared_ptr<WrtcAgentPc> pc_publisher;
+  std::shared_ptr<WrtcAgentPc> pc_player;
 
   {
     std::lock_guard<std::mutex> guard(pcLock_);
-    auto found = peerConnections_.find(from);
+    auto found = peerConnections_.find(publisher);
     if(found == peerConnections_.end()){
       return wa_e_not_found;
     }
-    pc_from = found->second;
+    pc_publisher = found->second;
 
-    found = peerConnections_.find(to);
+    found = peerConnections_.find(player);
     if(found == peerConnections_.end()){
       return wa_e_not_found;
     }
-    pc_to = found->second;
+    pc_player = found->second;
   }
 
-  pc_from->Subscribe(std::move(pc_to));
+  pc_publisher->Subscribe(std::move(pc_player));
 
   return wa_ok;
 }
 
-int WebrtcAgent::Unsubscribe(const std::string& from, const std::string& to) {
-  OLOG_TRACE("Unsubscribe s:" << from << ", d:" << to);
-  std::shared_ptr<WrtcAgentPc> pc_from;
-  std::shared_ptr<WrtcAgentPc> pc_to;
+int WebrtcAgent::Unsubscribe(const std::string& publisher, 
+                             const std::string& player) {
+  OLOG_TRACE(player << " unsubscribe " << publisher);
+  std::shared_ptr<WrtcAgentPc> pc_publisher;
+  std::shared_ptr<WrtcAgentPc> pc_player;
 
   {
     std::lock_guard<std::mutex> guard(pcLock_);
 
-    auto found = peerConnections_.find(from);
+    auto found = peerConnections_.find(publisher);
     if(found == peerConnections_.end()){
       return wa_e_not_found;
     }
-    pc_from = found->second;
+    pc_publisher = found->second;
 
-    found = peerConnections_.find(to);
+    found = peerConnections_.find(player);
     if(found == peerConnections_.end()){
       return wa_e_not_found;
     }
-    pc_to = found->second;
+    pc_player = found->second;
   }
 
-  pc_from->unSubscribe(std::move(pc_to));
+  pc_publisher->unSubscribe(std::move(pc_player));
 
   return wa_ok;
 }
