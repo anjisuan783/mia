@@ -544,19 +544,21 @@ void WebRtcConnection::onREMBFromTransport(RtcpHeader *, Transport *) {
 }
 
 void WebRtcConnection::onRtcpFromTransport(
-    std::shared_ptr<DataPacket> packet, Transport *transport) {
+    DataPacket* packet, Transport *transport) {
   RtpUtils::forEachRtcpBlock(packet, [this, packet, transport](RtcpHeader *chead) {
     uint32_t ssrc = chead->isFeedback() ? chead->getSourceSSRC() : chead->getSSRC();
     if (chead->isREMB()) {
       onREMBFromTransport(chead, transport);
       return;
     }
-    std::shared_ptr<DataPacket> rtcp = std::make_shared<DataPacket>(*packet);
-    rtcp->length = (ntohs(chead->length) + 1) * 4;
-    std::memcpy(rtcp->data, chead, rtcp->length);
-    forEachMediaStream([this, rtcp, transport, ssrc] (const std::shared_ptr<MediaStream> &media_stream) {
+    auto new_rtcp = std::make_shared<DataPacket>(
+        packet->comp, (const char*)chead, (ntohs(chead->length) + 1) * 4, 
+        packet->type, packet->received_time_ms);
+    
+    forEachMediaStream([this, rtcp=std::move(new_rtcp), transport, ssrc] 
+        (const std::shared_ptr<MediaStream> &media_stream) {
       if (media_stream->isSourceSSRC(ssrc) || media_stream->isSinkSSRC(ssrc)) {
-        media_stream->onTransportData(rtcp, transport);
+        media_stream->onTransportData(std::move(rtcp), transport);
       }
     });
   });
@@ -571,7 +573,7 @@ void WebRtcConnection::onTransportData(
   char* buf = packet->data;
   RtcpHeader *chead = reinterpret_cast<RtcpHeader*> (buf);
   if (chead->isRtcp()) {
-    onRtcpFromTransport(packet, transport);
+    onRtcpFromTransport(packet.get(), transport);
     return;
   }
   
@@ -601,7 +603,7 @@ void WebRtcConnection::onTransportData(
 
   forEachMediaStream([packet, transport, ssrc] (const std::shared_ptr<MediaStream> &media_stream) {
     if (media_stream->isSourceSSRC(ssrc) || media_stream->isSinkSSRC(ssrc)) {
-      media_stream->onTransportData(packet, transport);
+      media_stream->onTransportData(std::move(packet), transport);
     }
   });
 }

@@ -231,15 +231,18 @@ VideoReceiveAdapterImpl::CreateVideoDecoder(
   return std::make_unique<AdapterDecoder>(this);
 }
 
-int VideoReceiveAdapterImpl::onRtpData(char* data, int len) {
+int VideoReceiveAdapterImpl::onRtpData(erizo::DataPacket* pkt) {
+  if (pkt->length != (int)pkt->buffer_.size())
+    pkt->buffer_.SetSize(pkt->length);
+  
   auto rv = call()->Receiver()->DeliverPacket(
           webrtc::MediaType::VIDEO,
-          rtc::CopyOnWriteBuffer(data, len),
+          std::move(pkt->buffer_),
           rtc::TimeUTCMicros());
   if (webrtc::PacketReceiver::DELIVERY_OK != rv) {
     OLOG_ERROR_THIS("VideoReceiveAdapterImpl DeliverPacket failed code:" << rv);
   }
-  return len;
+  return pkt->length;
 }
 
 bool VideoReceiveAdapterImpl::SendRtp(const uint8_t* data, size_t len, 

@@ -110,7 +110,7 @@ int AudioFrameConstructor::deliverAudioData_(
       onSr(chead);
 
     if (audioReceive_)
-      audioReceive_->onRtpData(audio_packet->data, audio_packet->length);
+      audioReceive_->onRtpData(audio_packet.get());
     return audio_packet->length;
   }
 
@@ -118,11 +118,6 @@ int AudioFrameConstructor::deliverAudioData_(
   if (!ssrc_ && head->getSSRC()) {
     createAudioReceiver();
   }
-
-  // support audio twcc, 
-  // see @https://github.com/anjisuan783/mia/issues/8
-  if (audioReceive_)
-    audioReceive_->onRtpData(audio_packet->data, audio_packet->length);
 
   FrameFormat frameFormat;
   Frame frame;
@@ -158,6 +153,11 @@ int AudioFrameConstructor::deliverAudioData_(
   if (enabled_) {
     deliverFrame(std::move(copy));
   }
+
+  // support audio twcc, 
+  // see @https://github.com/anjisuan783/mia/issues/8
+  if (audioReceive_)
+    audioReceive_->onRtpData(audio_packet.get());
   
   return audio_packet->length;
 }

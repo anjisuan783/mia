@@ -29,7 +29,7 @@ public:
   VideoReceiveAdapterImpl(CallOwner* owner, const RtcAdapter::Config& config);
   virtual ~VideoReceiveAdapterImpl();
   // Implement VideoReceiveAdapter
-  int onRtpData(char* data, int len) override;
+  int onRtpData(erizo::DataPacket*) override;
   void requestKeyFrame() override;
 
   // Implements rtc::VideoSinkInterface<VideoFrame>.

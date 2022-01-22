@@ -338,17 +338,19 @@ void MediaStream::initializePipeline() {
 }
 
 int MediaStream::deliverAudioData_(std::shared_ptr<DataPacket> audio_packet) {
+  int len = audio_packet->length;
   if (audio_enabled_) {
-    sendPacket(std::make_shared<DataPacket>(*audio_packet));
+    sendPacket(std::move(audio_packet));
   }
-  return audio_packet->length;
+  return len;
 }
 
 int MediaStream::deliverVideoData_(std::shared_ptr<DataPacket> video_packet) {
+  int len = video_packet->length;
   if (video_enabled_) {
-    sendPacket(std::make_shared<DataPacket>(*video_packet));
+    sendPacket(std::move(video_packet));
   }
-  return video_packet->length;
+  return len;
 }
 
 int MediaStream::deliverFeedback_(std::shared_ptr<DataPacket> fb_packet) {
@@ -378,9 +380,9 @@ int MediaStream::deliverFeedback_(std::shared_ptr<DataPacket> fb_packet) {
                this->getVideoSourceSSRC(), this->getAudioSourceSSRC());
   }
 */
-  sendPacket(std::make_shared<DataPacket>(*fb_packet));
-  
-  return fb_packet->length;
+  int len = fb_packet->length;
+  sendPacket(std::move(fb_packet));  
+  return len;
 }
 
 int MediaStream::deliverEvent_(MediaEventPtr event) {
@@ -510,12 +512,12 @@ void MediaStream::sendPacket(std::shared_ptr<DataPacket> packet) {
     sending_ = false;
     auto p = std::make_shared<DataPacket>();
     p->comp = -1;
-    sendPacket_i(p);
+    sendPacket_i(std::move(p));
     return;
   }
 
   changeDeliverPayloadType(packet.get(), packet->type);
-  sendPacket_i(packet);
+  sendPacket_i(std::move(packet));
 }
 
 void MediaStream::muteStream(bool mute_video, bool mute_audio) {
@@ -620,7 +622,7 @@ void MediaStream::parseIncomingPayloadType(char *buf, int len, packetType type) 
 
 void MediaStream::write(std::shared_ptr<DataPacket> packet) {
   if (connection_) {
-    connection_->write(packet);
+    connection_->write(std::move(packet));
   }
 }
 

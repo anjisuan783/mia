@@ -152,7 +152,7 @@ class WebRtcConnection: public TransportListener,
   void onRemoteSdpsSetToMediaStreams(const std::string& stream_id);
   std::string getJSONCandidate(const std::string& mid, const std::string& sdp);
   void trackTransportInfo();
-  void onRtcpFromTransport(std::shared_ptr<DataPacket> packet, Transport *transport);
+  void onRtcpFromTransport(DataPacket* packet, Transport *transport);
   void onREMBFromTransport(RtcpHeader *chead, Transport *transport);
   void maybeNotifyWebRtcConnectionEvent(const WebRTCEvent& event, 
       const std::string& message, const std::string& stream_id = "");

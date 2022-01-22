@@ -95,8 +95,10 @@ class rtc_api {
 
   // one peer must subscribe only one source
   // TODO multiple subscriptions
-  virtual int Subscribe(const std::string& from, const std::string& to) = 0;
-  virtual int Unsubscribe(const std::string& from, const std::string& to) = 0;
+  virtual int Subscribe(const std::string& publisher, 
+                        const std::string& player) = 0;
+  virtual int Unsubscribe(const std::string& publisher, 
+                          const std::string& player) = 0;
 };
 
 class AgentFactory {

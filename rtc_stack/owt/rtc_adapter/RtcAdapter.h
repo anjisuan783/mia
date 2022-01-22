@@ -7,6 +7,7 @@
 
 #include "myrtc/api/task_queue_base.h"
 #include "owt_base/MediaFramePipeline.h"
+#include "erizo/MediaDefinitions.h"
 
 namespace rtc_adapter {
 
@@ -47,7 +48,7 @@ public:
 
 class VideoReceiveAdapter {
 public:
-  virtual int onRtpData(char* data, int len) = 0;
+  virtual int onRtpData(erizo::DataPacket*) = 0;
   virtual void requestKeyFrame() = 0;
 
   virtual ~VideoReceiveAdapter() = default;
@@ -65,7 +66,7 @@ public:
 
 class AudioReceiveAdapter {
 public:
-  virtual int onRtpData(char* data, int len) = 0;
+  virtual int onRtpData(erizo::DataPacket*) = 0;
 
   virtual ~AudioReceiveAdapter() = default;
 };

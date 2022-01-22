@@ -192,7 +192,7 @@ void DtlsTransport::close() {
   ELOG_DEBUG("%s message: closed", toLog());
 }
 
-void DtlsTransport::onIceData(DataPacket* packet) {
+void DtlsTransport::onIceData(std::shared_ptr<DataPacket> packet) {
   if (!running_) {
     return;
   }
@@ -201,7 +201,6 @@ void DtlsTransport::onIceData(DataPacket* packet) {
   char *data = packet->data;
   unsigned int component_id = packet->comp;
 
-  int length = len;
   SrtpChannel *srtp = srtp_.get();
   if (DtlsTransport::isDtlsPacket(data, len)) {
     ELOG_DEBUG("%s message: Received DTLS message, transportName: %s, componentId: %u",
@@ -226,26 +225,26 @@ void DtlsTransport::onIceData(DataPacket* packet) {
   if (srtp == NULL) {
     return;
   }
-  auto unprotect_packet = std::make_shared<DataPacket>(
-      component_id, data, len, VIDEO_PACKET, packet->received_time_ms);
+  //auto unprotect_packet = std::make_shared<DataPacket>(
+  //    component_id, data, len, VIDEO_PACKET, packet->received_time_ms);
   
-  RtcpHeader *chead = reinterpret_cast<RtcpHeader*>(unprotect_packet->data);
+  RtcpHeader *chead = reinterpret_cast<RtcpHeader*>(data);
   if (!chead->isRtcp()) {
-    if (srtp->unprotectRtp(unprotect_packet->data, &unprotect_packet->length) < 0) {
+    if (srtp->unprotectRtp(data, &packet->length) < 0) {
       return;
     }
   } else {
-    if (srtp->unprotectRtcp(unprotect_packet->data, &unprotect_packet->length) < 0) {
+    if (srtp->unprotectRtcp(data, &packet->length) < 0) {
       return;
     }
   }
   
-  if (length <= 0) {
+  if (len <= 0) {
     return;
   }
   
   if (auto listener = getTransportListener().lock()) {
-    listener->onTransportData(std::move(unprotect_packet), this);
+    listener->onTransportData(std::move(packet), this);
   }
 }
 
@@ -310,27 +309,22 @@ void DtlsTransport::write(char* data, int len) {
   }
 }
 
-void DtlsTransport::onDtlsPacket(DtlsSocketContext *ctx, const unsigned char* data, unsigned int len) {
+void DtlsTransport::onDtlsPacket(DtlsSocketContext *ctx, 
+    const unsigned char* data, unsigned int len) {
   bool is_rtcp = ctx == dtlsRtcp.get();
   int component_id = is_rtcp ? 2 : 1;
 
-  packetPtr packet = std::make_shared<DataPacket>(component_id, data, len);
+//  packetPtr packet = std::make_shared<DataPacket>(component_id, data, len);
 
-  if (is_rtcp) {
-    writeDtlsPacket(dtlsRtcp.get(), packet);
-  } else {
-    writeDtlsPacket(dtlsRtp.get(), packet);
-  }
+  writeDtlsPacket(ctx, component_id, data, len);
 
   ELOG_DEBUG("%s message: Sending DTLS message, transportName: %s, componentId: %d",
-             toLog(), transport_name.c_str(), packet->comp);
+             toLog(), transport_name.c_str(), component_id);
 }
 
-void DtlsTransport::writeDtlsPacket(DtlsSocketContext *ctx, packetPtr packet) {
-  char data[1500];
-  unsigned int len = packet->length;
-  memcpy(data, packet->data, len);
-  writeOnIce(packet->comp, data, len);
+void DtlsTransport::writeDtlsPacket(DtlsSocketContext *ctx, 
+    int component_id, const unsigned char* data, unsigned int len) {
+  writeOnIce(component_id, (void*)data, len);
 }
 
 void DtlsTransport::onHandshakeCompleted(

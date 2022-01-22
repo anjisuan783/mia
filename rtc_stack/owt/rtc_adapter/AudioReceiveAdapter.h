@@ -30,7 +30,7 @@ class AudioReceiveAdapterImpl : public AudioReceiveAdapter,
  public:
   AudioReceiveAdapterImpl(CallOwner* owner, const RtcAdapter::Config& config);
   ~AudioReceiveAdapterImpl() override;
-  int onRtpData(char* data, int len) override;
+  int onRtpData(erizo::DataPacket*) override;
   bool SendRtp(const uint8_t* packet,
                size_t length,
                const webrtc::PacketOptions& options) override;
