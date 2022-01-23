@@ -81,8 +81,12 @@ class WrtcAgentPc final : public erizo::WebRtcConnectionEventListener,
       return name_ == "audio";
     }
 
-    inline const std::string& getName() {
+    inline std::string getName() {
       return name_;
+    }
+
+    inline std::string pcId() {
+      return pc_id_;
     }
   private:
     WrtcAgentPc* pc_{nullptr};
@@ -97,9 +101,15 @@ class WrtcAgentPc final : public erizo::WebRtcConnectionEventListener,
     int32_t audioFormat_{0};
     int32_t videoFormat_{0};
     std::string name_;
-  };
 
-public:
+    std::string pc_id_;
+  };
+  
+ public:
+  // composedId(mid) => WebrtcTrack
+  typedef std::unordered_map<
+      std::string, std::shared_ptr<WrtcAgentPc::WebrtcTrack>> WEBRTC_TRACK_TYPE;
+  
   // Libnice collects candidates on |ipAddresses| only.
   WrtcAgentPc(const TOption&, WebrtcAgent&);
   ~WrtcAgentPc();
@@ -118,8 +128,8 @@ public:
                    const std::string& message, 
                    const std::string &stream_id = "") override;
 
-  void Subscribe(std::shared_ptr<WrtcAgentPc> subscriber);
-  void unSubscribe(std::shared_ptr<WrtcAgentPc> subscriber);
+  void Subscribe(WEBRTC_TRACK_TYPE&);
+  void unSubscribe(WEBRTC_TRACK_TYPE&);
 
   void setAudioSsrc(const std::string& mid, uint32_t ssrc);
   
@@ -133,11 +143,14 @@ public:
     return id_;
   }
   
+  inline auto getTracks() {
+    return track_map_;
+  }
  private:
   void init_i(const std::vector<std::string>& ipAddresses, 
               const std::string& stun_addr);
   void close_i();
-  void subscribe_i(std::shared_ptr<WrtcAgentPc> subscriber, bool isSub);
+  void subscribe_i(WEBRTC_TRACK_TYPE&, bool isSub);
   srs_error_t processOffer(const std::string& sdp, const std::string& stream_id);
 
   // call by WebrtcConnection
@@ -163,10 +176,6 @@ public:
 
   WebrtcTrack* getTrack(const std::string& name);
 
-  inline auto& getTracks() {
-    return track_map_;
-  }
-
   srs_error_t addTrackOperation(const std::string& mid, 
                                 EMediaType type, 
                                 const std::string& direction, 
@@ -184,7 +193,8 @@ public:
   };
 
   void callBack(E_SINKID id, const std::string& message);
-private:
+
+ private:
   TOption config_;
   std::string id_;
   WebrtcAgent& mgr_;
@@ -220,7 +230,7 @@ private:
   std::unordered_map<std::string, operation> operation_map_;
 
   // composedId(mid) => WebrtcTrack
-  std::unordered_map<std::string, std::shared_ptr<WebrtcTrack>> track_map_;
+  WEBRTC_TRACK_TYPE track_map_;
 
   // mid => msid
   std::unordered_map<std::string, std::string> msid_map_;
