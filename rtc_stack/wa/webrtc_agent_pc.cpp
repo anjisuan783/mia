@@ -25,6 +25,7 @@ WrtcAgentPc::WebrtcTrack::WebrtcTrack(const std::string& mid,
                                       erizo::MediaStream* ms,
                                       int32_t request_kframe_s)
   : pc_(pc), mid_(mid), request_kframe_period_(request_kframe_s) {
+  pc_id_ = pc_->id();
   if (isPublish) {
     if (setting.is_audio) {
       audioFormat_ = setting.format;
@@ -590,48 +591,33 @@ srs_error_t WrtcAgentPc::setupTransport(MediaDesc& media) {
   return result;
 }
 
-void WrtcAgentPc::Subscribe(std::shared_ptr<WrtcAgentPc> subscriber) {
-  OLOG_TRACE_THIS("s:" << id_ << " d:" << subscriber->id());
-  subscribe_i(std::move(subscriber), true);
+void WrtcAgentPc::Subscribe(WEBRTC_TRACK_TYPE& tracks) {
+  subscribe_i(tracks, true);
 }
 
-void WrtcAgentPc::unSubscribe(std::shared_ptr<WrtcAgentPc> subscriber) {
-  OLOG_TRACE_THIS("s:" << id_ << " d:" << subscriber->id());
-  subscribe_i(std::move(subscriber), false);
+void WrtcAgentPc::unSubscribe(WEBRTC_TRACK_TYPE& tracks) {
+  subscribe_i(tracks, false);
 }
 
 void WrtcAgentPc::subscribe_i(
-    std::shared_ptr<WrtcAgentPc> sub_pc, bool isSub) {
-  asyncTask([sub_pc, isSub] (std::shared_ptr<WrtcAgentPc> this_pc) {
+    WEBRTC_TRACK_TYPE& dest_tracks, bool isSub) {
+  asyncTask([dest_tracks, isSub] (std::shared_ptr<WrtcAgentPc> this_pc) {
     
     WebrtcTrack* dest_track = nullptr;
     WebrtcTrack* src_track = nullptr;
     bool isAudio = true;
     std::shared_ptr<owt_base::FrameDestination> receiver;
-    auto& dest_tracks = sub_pc->getTracks();
 
-    if (dest_tracks.empty()) {
-      OLOG_ERROR("dest tracks empty! s:" << this_pc->id() << 
-                 " d:" << sub_pc->id());
-    }
-    
     // add or remove FrameDestination by name
     for (auto& i : dest_tracks) {
-      std::string track_name = i.second->getName();
+      dest_track = i.second.get();
+      std::string track_name = dest_track->getName();
       isAudio = i.second->isAudio();
       src_track = this_pc->getTrack(track_name);
-      dest_track = sub_pc->getTrack(track_name);
       if (!src_track) {
         OLOG_ERROR(track_name << (isSub?" sub":" unsub") << 
                    ", src track not found! s:" << 
-                   this_pc->id() << " d:" << sub_pc->id());
-        continue;
-      }
-      
-      if (!dest_track) {
-        OLOG_ERROR(track_name << (isSub?" sub":" unsub") << 
-                   ", dest track not found! s:" << 
-                   this_pc->id() << " d:" << sub_pc->id());
+                   this_pc->id() << " d:" << dest_track->pcId());
         continue;
       }
 
@@ -639,17 +625,17 @@ void WrtcAgentPc::subscribe_i(
       if (!receiver) {
         OLOG_ERROR(track_name << (isSub?" sub":" unsub") << 
                    ", dest track receiver not found! s:" << 
-                   this_pc->id() << " d:" << sub_pc->id());
+                   this_pc->id() << " d:" << dest_track->pcId());
         continue;
       }
       
       if (isSub) {
         OLOG_INFO(track_name << " sub, s:" << 
-                  this_pc->id() << " d:" << sub_pc->id());
+                  this_pc->id() << " d:" << dest_track->pcId());
         src_track->addDestination(isAudio, receiver);
       } else {
         OLOG_INFO(track_name << " unsub, s:" << 
-                  this_pc->id() << " d:" << sub_pc->id());
+                  this_pc->id() << " d:" << dest_track->pcId());
         src_track->removeDestination(isAudio, receiver.get());
       }
     }

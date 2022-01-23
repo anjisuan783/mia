@@ -104,6 +104,7 @@ int WebrtcAgent::Subscribe(const std::string& publisher,
   OLOG_TRACE(player << " subscribe " << publisher);
   std::shared_ptr<WrtcAgentPc> pc_publisher;
   std::shared_ptr<WrtcAgentPc> pc_player;
+  WrtcAgentPc::WEBRTC_TRACK_TYPE player_tracks;
 
   {
     std::lock_guard<std::mutex> guard(pcLock_);
@@ -118,9 +119,15 @@ int WebrtcAgent::Subscribe(const std::string& publisher,
       return wa_e_not_found;
     }
     pc_player = found->second;
-  }
 
-  pc_publisher->Subscribe(std::move(pc_player));
+    player_tracks = pc_player->getTracks();
+  }
+  
+  if (player_tracks.empty()) {
+    OLOG_ERROR("player tracks empty!");
+    return wa_failed;
+  }
+  pc_publisher->Subscribe(player_tracks);
 
   return wa_ok;
 }
@@ -130,6 +137,7 @@ int WebrtcAgent::Unsubscribe(const std::string& publisher,
   OLOG_TRACE(player << " unsubscribe " << publisher);
   std::shared_ptr<WrtcAgentPc> pc_publisher;
   std::shared_ptr<WrtcAgentPc> pc_player;
+  WrtcAgentPc::WEBRTC_TRACK_TYPE player_tracks;
 
   {
     std::lock_guard<std::mutex> guard(pcLock_);
@@ -145,9 +153,15 @@ int WebrtcAgent::Unsubscribe(const std::string& publisher,
       return wa_e_not_found;
     }
     pc_player = found->second;
-  }
 
-  pc_publisher->unSubscribe(std::move(pc_player));
+    player_tracks = pc_player->getTracks();
+  }
+  
+  if (player_tracks.empty()) {
+    OLOG_ERROR("player tracks empty!");
+    return wa_failed;
+  }
+  pc_publisher->unSubscribe(player_tracks);
 
   return wa_ok;
 }
