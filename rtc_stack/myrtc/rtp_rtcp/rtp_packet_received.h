@@ -23,7 +23,7 @@ namespace webrtc {
 // Class to hold rtp packet with metadata for receiver side.
 class RtpPacketReceived : public RtpPacket {
  public:
-  RtpPacketReceived();
+  RtpPacketReceived(bool readonly = false);
   explicit RtpPacketReceived(const ExtensionManager* extensions);
   RtpPacketReceived(const RtpPacketReceived& packet);
   RtpPacketReceived(RtpPacketReceived&& packet);
@@ -31,7 +31,7 @@ class RtpPacketReceived : public RtpPacket {
   RtpPacketReceived& operator=(const RtpPacketReceived& packet);
   RtpPacketReceived& operator=(RtpPacketReceived&& packet);
 
-  ~RtpPacketReceived();
+  ~RtpPacketReceived() override;
 
   // TODO(danilchap): Remove this function when all code update to use RtpPacket
   // directly. Function is there just for easier backward compatibilty.
@@ -55,22 +55,20 @@ class RtpPacketReceived : public RtpPacket {
     payload_type_frequency_ = value;
   }
 
-  // Additional data bound to the RTP packet for use in application code,
-  // outside of WebRTC.
-  rtc::ArrayView<const uint8_t> application_data() const {
-    return application_data_;
+  bool Parse(const uint8_t* buffer, size_t size) override;
+  bool Parse(rtc::ArrayView<const uint8_t> packet) override;
+  const uint8_t* ReadAt(size_t offset) const override { 
+    return view_.data() + offset; 
   }
-  void set_application_data(rtc::ArrayView<const uint8_t> data) {
-    application_data_.assign(data.begin(), data.end());
-  }
-
+  const uint8_t* data() const override { return view_.data(); }
  private:
   NtpTime capture_time_;
   int64_t arrival_time_ms_ = 0;
   int payload_type_frequency_ = 0;
   bool recovered_ = false;
-  std::vector<uint8_t> application_data_;
+  rtc::ArrayView<const uint8_t> view_;
 };
 
 }  // namespace webrtc
 #endif  // MODULES_RTP_RTCP_SOURCE_RTP_PACKET_RECEIVED_H_
+

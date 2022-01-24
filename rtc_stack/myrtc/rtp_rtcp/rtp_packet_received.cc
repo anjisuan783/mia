@@ -20,7 +20,10 @@
 
 namespace webrtc {
 
-RtpPacketReceived::RtpPacketReceived() = default;
+RtpPacketReceived::RtpPacketReceived(bool readonly)
+    : RtpPacket(true) {
+}
+
 RtpPacketReceived::RtpPacketReceived(const ExtensionManager* extensions)
     : RtpPacket(extensions) {}
 RtpPacketReceived::RtpPacketReceived(const RtpPacketReceived& packet) = default;
@@ -76,6 +79,19 @@ void RtpPacketReceived::GetHeader(RTPHeader* header) const {
   GetExtension<RtpMid>(&header->extension.mid);
   GetExtension<PlayoutDelayLimits>(&header->extension.playout_delay);
   header->extension.color_space = GetExtension<ColorSpaceExtension>();
+}
+
+bool RtpPacketReceived::Parse(const uint8_t* buffer, size_t buffer_size) {
+  if (!ParseBuffer(buffer, buffer_size)) {
+    return false;
+  }
+  view_ = rtc::MakeArrayView(buffer, buffer_size);
+  RTC_DCHECK_EQ(size(), buffer_size);
+  return true;
+}
+
+bool RtpPacketReceived::Parse(rtc::ArrayView<const uint8_t> packet) {
+  return Parse(packet.data(), packet.size());
 }
 
 }  // namespace webrtc

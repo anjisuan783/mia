@@ -16,7 +16,7 @@
 #include <vector>
 
 #include "api/media_types.h"
-#include "rtc_base/copy_on_write_buffer.h"
+#include "rtc_base/array_view.h"
 
 namespace webrtc {
 
@@ -29,7 +29,7 @@ class PacketReceiver {
   };
 
   virtual DeliveryStatus DeliverPacket(MediaType media_type,
-                                       rtc::CopyOnWriteBuffer packet,
+                                       rtc::ArrayView<const uint8_t> packet,
                                        int64_t packet_time_us) = 0;
 
  protected:

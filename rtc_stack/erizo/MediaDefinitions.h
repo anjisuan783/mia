@@ -25,8 +25,9 @@ enum packetType {
 
 struct DataPacket {
   static const size_t MTU_SIZE = 1500;
-  DataPacket() : buffer_{0, MTU_SIZE}, data{(char*)buffer_.data()} { }
+  DataPacket() = default;/*: buffer_{0, MTU_SIZE}, data{(char*)buffer_.data()} { }*/
   DataPacket(const DataPacket&) = delete;
+/*  
   DataPacket(DataPacket&& dpk)
       : comp{dpk.comp}, 
         type{dpk.type}, 
@@ -37,7 +38,7 @@ struct DataPacket {
     dpk.length = 0;
     dpk.data = nullptr;
   }
-
+*/
   DataPacket(int _comp, 
              const char *_data, 
              int _length, 
@@ -46,9 +47,11 @@ struct DataPacket {
              : comp{_comp},
                type{_type},
                received_time_ms{_received_time_ms},
-               buffer_{_data, (size_t)_length, MTU_SIZE},
-               length{_length},
-               data{(char*)buffer_.data()} { }
+               //buffer_{_data, (size_t)_length, MTU_SIZE},
+               length{_length}/*,
+               data{(char*)buffer_.data()}*/ {
+    memcpy(data, _data, _length);
+  }
 
   DataPacket(int _comp, const char *_data, int _length, packetType _type)
     : DataPacket(_comp, _data, _length, _type, 0) { }
@@ -64,17 +67,18 @@ struct DataPacket {
     comp = _comp;
     type = _type;
     received_time_ms = _received_time_ms;
-    buffer_.SetData(_data, _length);
+    //buffer_.SetData(_data, _length);
     length = _length;
-    data = (char*)buffer_.data();
+    memcpy(data, _data, _length);
+    //data = (char*)buffer_.data();
   }
 
   int comp{-1};         //component_id
   packetType type{VIDEO_PACKET};
   uint64_t received_time_ms{0};
-  rtc::CopyOnWriteBuffer buffer_;
+  //rtc::CopyOnWriteBuffer buffer_;
   int length{0};
-  char* data{nullptr};
+  char data[MTU_SIZE];
 };
 
 class MediaEvent {

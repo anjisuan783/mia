@@ -75,7 +75,7 @@ int WebrtcAgent::CreatePeer(TOption& options, const std::string& offer) {
   }
   
   std::shared_ptr<Worker> worker = workers_->getLessUsedWorker();
-  std::shared_ptr<IOWorker> ioworker = io_workers_->getLessUsedIOWorker();
+  std::shared_ptr<IOWorker> ioworker = io_workers_->getIOWorker(worker->id());
   pc->init(worker, ioworker, network_addresses_, stun_address_);
   pc->signalling("offer", offer);
   return wa_ok;

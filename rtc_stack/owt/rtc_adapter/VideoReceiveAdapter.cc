@@ -232,12 +232,9 @@ VideoReceiveAdapterImpl::CreateVideoDecoder(
 }
 
 int VideoReceiveAdapterImpl::onRtpData(erizo::DataPacket* pkt) {
-  if (pkt->length != (int)pkt->buffer_.size())
-    pkt->buffer_.SetSize(pkt->length);
-  
   auto rv = call()->Receiver()->DeliverPacket(
           webrtc::MediaType::VIDEO,
-          std::move(pkt->buffer_),
+          rtc::ArrayView<const uint8_t>((const uint8_t*)pkt->data, (size_t)pkt->length),
           rtc::TimeUTCMicros());
   if (webrtc::PacketReceiver::DELIVERY_OK != rv) {
     OLOG_ERROR_THIS("VideoReceiveAdapterImpl DeliverPacket failed code:" << rv);

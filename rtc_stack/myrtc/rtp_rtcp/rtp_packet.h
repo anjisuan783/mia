@@ -22,6 +22,8 @@
 namespace webrtc {
 
 class RtpPacket {
+  friend class RtcEventRtpPacketIncoming;
+  friend class RtcEventRtpPacketOutgoing;
  public:
   using ExtensionType = RTPExtensionType;
   using ExtensionManager = RtpHeaderExtensionMap;
@@ -30,20 +32,22 @@ class RtpPacket {
   // packet creating and used if available in Parse function.
   // Adding and getting extensions will fail until |extensions| is
   // provided via constructor or IdentifyExtensions function.
+ protected:
   RtpPacket();
+  RtpPacket(bool read_only);
   explicit RtpPacket(const ExtensionManager* extensions);
   RtpPacket(const RtpPacket&);
   RtpPacket(const ExtensionManager* extensions, size_t capacity);
-  ~RtpPacket();
+  virtual ~RtpPacket();
 
   RtpPacket& operator=(const RtpPacket&) = default;
-
+ public:
   // Parse and copy given buffer into Packet.
   // Does not require extension map to be registered (map is only required to
   // read or allocate extensions in methods GetExtension, AllocateExtension,
   // etc.)
-  bool Parse(const uint8_t* buffer, size_t size);
-  bool Parse(rtc::ArrayView<const uint8_t> packet);
+  virtual bool Parse(const uint8_t* buffer, size_t size);
+  virtual bool Parse(rtc::ArrayView<const uint8_t> packet);
 
   // Parse and move given buffer into Packet.
   bool Parse(rtc::CopyOnWriteBuffer packet);
@@ -69,13 +73,24 @@ class RtpPacket {
   }
 
   // Buffer.
-  rtc::CopyOnWriteBuffer Buffer() const { return buffer_; }
-  size_t capacity() const { return buffer_.capacity(); }
+  rtc::CopyOnWriteBuffer Buffer() const { 
+    RTC_CHECK(!read_only_);
+    return buffer_; 
+  }
+  
+  size_t capacity() const {
+    RTC_CHECK(!read_only_);
+    return buffer_.capacity(); 
+  }
+  
   size_t size() const {
     return payload_offset_ + payload_size_ + padding_size_;
   }
-  const uint8_t* data() const { return buffer_.cdata(); }
+  
+  virtual const uint8_t* data() const { return buffer_.cdata(); }
+  
   size_t FreeCapacity() const { return capacity() - size(); }
+  
   size_t MaxPayloadSize() const { return capacity() - headers_size(); }
 
   // Reset fields and buffer.
@@ -147,6 +162,10 @@ class RtpPacket {
   // Returns debug string of RTP packet (without detailed extension info).
   std::string ToString() const;
 
+ protected:
+  // Helper function for Parse. Fill header fields using data in given buffer,
+  // but does not touch packet own buffer, leaving packet in invalid state.
+  bool ParseBuffer(const uint8_t* buffer, size_t size);
  private:
   struct ExtensionInfo {
     explicit ExtensionInfo(uint8_t id) : ExtensionInfo(id, 0, 0) {}
@@ -156,10 +175,6 @@ class RtpPacket {
     uint8_t length;
     uint16_t offset;
   };
-
-  // Helper function for Parse. Fill header fields using data in given buffer,
-  // but does not touch packet own buffer, leaving packet in invalid state.
-  bool ParseBuffer(const uint8_t* buffer, size_t size);
 
   // Returns pointer to extension info for a given id. Returns nullptr if not
   // found.
@@ -179,9 +194,18 @@ class RtpPacket {
 
   uint16_t SetExtensionLengthMaybeAddZeroPadding(size_t extensions_offset);
 
-  uint8_t* WriteAt(size_t offset) { return buffer_.data() + offset; }
-  void WriteAt(size_t offset, uint8_t byte) { buffer_.data()[offset] = byte; }
-  const uint8_t* ReadAt(size_t offset) const { return buffer_.data() + offset; }
+  uint8_t* WriteAt(size_t offset) {
+    RTC_CHECK(!read_only_);
+    return buffer_.data() + offset; 
+  }
+  void WriteAt(size_t offset, uint8_t byte) {
+    RTC_CHECK(!read_only_);
+    buffer_.data()[offset] = byte; 
+  }
+  
+  virtual const uint8_t* ReadAt(size_t offset) const { 
+    return buffer_.data() + offset; 
+  }
 
   // Header.
   bool marker_;
@@ -197,6 +221,7 @@ class RtpPacket {
   std::vector<ExtensionInfo> extension_entries_;
   size_t extensions_size_ = 0;  // Unaligned.
   rtc::CopyOnWriteBuffer buffer_;
+  bool read_only_{false};
 };
 
 template <typename Extension>

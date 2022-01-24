@@ -365,6 +365,7 @@ int32_t RtpVideoStreamReceiver::OnReceivedPayloadData(
     }
   }
   else {
+    RTC_CHECK(false);
     uint8_t* data = new uint8_t[packet.sizeBytes];
     memcpy(data, packet.dataPtr, packet.sizeBytes);
     packet.dataPtr = data;

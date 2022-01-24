@@ -8,7 +8,7 @@
 
 #include <math.h>
 
-#include "myrtc/rtp_rtcp/rtp_packet.h"
+#include "myrtc/rtp_rtcp/rtp_packet_received.h"
 #include "owt_base/MediaUtilities.h"
 #include "utils/media_kernel_buffer.h"
 #include "utils/media_msg_chain.h"
@@ -392,7 +392,7 @@ srs_error_t MediaRtcLiveAdaptor::Trancode_audio(const owt_base::Frame& frm) {
 
   std::vector<SrsAudioFrame*> out_pkts;
 
-  webrtc::RtpPacket rtp;
+  webrtc::RtpPacketReceived rtp;
   bool ret = rtp.Parse(frm.payload, frm.length);
   MA_ASSERT_RETURN(ret, srs_error_new(ERROR_RTC_FRAME_MUXER, "rtp parse failed"));
 

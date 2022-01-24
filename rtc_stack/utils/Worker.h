@@ -32,11 +32,13 @@ class Worker final : public std::enable_shared_from_this<Worker> {
   typedef std::function<void()> Task;
   typedef std::function<bool()> ScheduledTask;
 
-  explicit Worker(webrtc::TaskQueueFactory*, 
+  explicit Worker(webrtc::TaskQueueFactory*, int id = -1,
       std::shared_ptr<Clock> the_clock = std::make_shared<SteadyClock>());
   ~Worker() = default;
 
-  void task(Task f);
+  inline void task(Task f) {
+    task_queue_->PostTask(f);
+  }
 
   void start(const std::string& name);
   void start(std::shared_ptr<std::promise<void>> start_promise,
@@ -51,6 +53,10 @@ class Worker final : public std::enable_shared_from_this<Worker> {
     return task_queue_base_;
   }
 
+  int id() {
+    return id_;
+  }
+
  private:
   void scheduleEvery(ScheduledTask f, duration period, duration next_delay);
 
@@ -59,6 +65,7 @@ class Worker final : public std::enable_shared_from_this<Worker> {
 
  private:
   webrtc::TaskQueueFactory* factory_;
+  int id_{-1};
   std::shared_ptr<Clock> clock_;
   std::atomic<bool> closed_{false};
   std::unique_ptr<rtc::TaskQueue> task_queue_;

@@ -16,7 +16,7 @@ public:
     virtual std::shared_ptr<webrtc::Call> call() = 0;
     //virtual std::shared_ptr<webrtc::TaskQueueFactory> taskQueueFactory() = 0;
     virtual std::shared_ptr<rtc::TaskQueue> taskQueue() = 0;
-    virtual std::shared_ptr<webrtc::RtcEventLog> eventLog() = 0;
+    virtual webrtc::RtcEventLog* eventLog() = 0;
 };
 
 } // namespace rtc_adaptor

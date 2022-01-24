@@ -15,6 +15,8 @@
 #include "erizo/SdpInfo.h"
 #include "utils/Clock.h"
 
+#define USER_PACKET_POOL
+
 using namespace wa;
 
 namespace erizo {
@@ -150,7 +152,7 @@ void DataPacketDeleter(DataPacket* pkt) {
 void LibNiceConnection::onData(unsigned int component_id, char* buf, int len) {
   if (checkIceState() == IceState::READY) {
     if (auto listener = getIceListener().lock()) {
-#ifdef USER_PACKET_POOL      
+#ifdef USER_PACKET_POOL
       std::shared_ptr<DataPacket> packet(
           DataPacketMaker(component_id, buf, len, VIDEO_PACKET, 0), 
           DataPacketDeleter);

@@ -44,6 +44,7 @@ VideoSendAdapterImpl::VideoSendAdapterImpl(CallOwner* callowner,
           callowner->taskQueue().get())) {
     ssrc_ = ssrcGenerator_->CreateSsrc();
     ssrcGenerator_->RegisterSsrc(ssrc_);
+    eventLog_ = callowner->eventLog();
     init();
 }
 
@@ -58,14 +59,13 @@ bool VideoSendAdapterImpl::init() {
       m_clock, 1000));
 
   //configure rtp_rtcp
-  eventLog_ = std::make_unique<webrtc::RtcEventLogNull>();
   webrtc::RtpRtcp::Configuration configuration;
   configuration.clock = m_clock;
   configuration.audio = false;
   configuration.receiver_only = false;
   configuration.outgoing_transport = this;
   configuration.intra_frame_callback = this;
-  configuration.event_log = eventLog_.get();
+  configuration.event_log = eventLog_;
   configuration.retransmission_rate_limiter = retransmissionRateLimiter_.get();
   configuration.local_media_ssrc = ssrc_;
   configuration.extmap_allow_mixed = true;

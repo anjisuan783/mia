@@ -54,6 +54,11 @@ constexpr size_t kDefaultPacketSize = 1500;
 // +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 // |               padding         | Padding size  |
 // +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+RtpPacket::RtpPacket(bool read_only)
+    : RtpPacket(nullptr, 0) {
+  read_only_ = read_only;
+}
+
 RtpPacket::RtpPacket() : RtpPacket(nullptr, kDefaultPacketSize) {}
 
 RtpPacket::RtpPacket(const ExtensionManager* extensions)
@@ -64,8 +69,10 @@ RtpPacket::RtpPacket(const RtpPacket&) = default;
 RtpPacket::RtpPacket(const ExtensionManager* extensions, size_t capacity)
     : extensions_(extensions ? *extensions : ExtensionManager()),
       buffer_(capacity) {
-  RTC_DCHECK_GE(capacity, kFixedHeaderSize);
-  Clear();
+  if (capacity) {
+    RTC_DCHECK_GE(capacity, kFixedHeaderSize);
+    Clear();
+  }
 }
 
 RtpPacket::~RtpPacket() {}
@@ -75,6 +82,7 @@ void RtpPacket::IdentifyExtensions(const ExtensionManager& extensions) {
 }
 
 bool RtpPacket::Parse(const uint8_t* buffer, size_t buffer_size) {
+  RTC_CHECK(!read_only_);
   if (!ParseBuffer(buffer, buffer_size)) {
     Clear();
     return false;
@@ -89,6 +97,7 @@ bool RtpPacket::Parse(rtc::ArrayView<const uint8_t> packet) {
 }
 
 bool RtpPacket::Parse(rtc::CopyOnWriteBuffer buffer) {
+  RTC_CHECK(!read_only_);
   if (!ParseBuffer(buffer.cdata(), buffer.size())) {
     Clear();
     return false;
@@ -111,6 +120,7 @@ std::vector<uint32_t> RtpPacket::Csrcs() const {
 }
 
 void RtpPacket::CopyHeaderFrom(const RtpPacket& packet) {
+  RTC_CHECK(!read_only_);
   RTC_DCHECK_GE(capacity(), packet.headers_size());
 
   marker_ = packet.marker_;
@@ -203,6 +213,7 @@ void RtpPacket::ZeroMutableExtensions() {
 }
 
 void RtpPacket::SetCsrcs(rtc::ArrayView<const uint32_t> csrcs) {
+  RTC_CHECK(!read_only_);
   RTC_DCHECK_EQ(extensions_size_, 0);
   RTC_DCHECK_EQ(payload_size_, 0);
   RTC_DCHECK_EQ(padding_size_, 0);
@@ -219,6 +230,7 @@ void RtpPacket::SetCsrcs(rtc::ArrayView<const uint32_t> csrcs) {
 }
 
 rtc::ArrayView<uint8_t> RtpPacket::AllocateRawExtension(int id, size_t length) {
+  RTC_CHECK(!read_only_);
   RTC_DCHECK_GE(id, RtpExtension::kMinId);
   RTC_DCHECK_LE(id, RtpExtension::kMaxId);
   RTC_DCHECK_GE(length, 1);
@@ -333,6 +345,7 @@ rtc::ArrayView<uint8_t> RtpPacket::AllocateRawExtension(int id, size_t length) {
 }
 
 void RtpPacket::PromoteToTwoByteHeaderExtension() {
+  RTC_CHECK(!read_only_);
   size_t num_csrc = data()[0] & 0x0F;
   size_t extensions_offset = kFixedHeaderSize + (num_csrc * 4) + 4;
 
@@ -390,6 +403,7 @@ uint8_t* RtpPacket::AllocatePayload(size_t size_bytes) {
 }
 
 uint8_t* RtpPacket::SetPayloadSize(size_t size_bytes) {
+  RTC_CHECK(!read_only_);
   RTC_DCHECK_EQ(padding_size_, 0);
   if (payload_offset_ + size_bytes > capacity()) {
     RTC_LOG(LS_WARNING) << "Cannot set payload, not enough space in buffer.";
@@ -401,6 +415,7 @@ uint8_t* RtpPacket::SetPayloadSize(size_t size_bytes) {
 }
 
 bool RtpPacket::SetPadding(size_t padding_bytes) {
+  RTC_CHECK(!read_only_);
   if (payload_offset_ + payload_size_ + padding_bytes > capacity()) {
     RTC_LOG(LS_WARNING) << "Cannot set padding size " << padding_bytes
                         << ", only "
@@ -423,6 +438,7 @@ bool RtpPacket::SetPadding(size_t padding_bytes) {
 }
 
 void RtpPacket::Clear() {
+  RTC_CHECK(!read_only_);
   marker_ = false;
   payload_type_ = 0;
   sequence_number_ = 0;
