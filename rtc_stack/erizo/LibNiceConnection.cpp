@@ -393,6 +393,9 @@ CandidateInfo LibNiceConnection::transformCandidate(NiceCandidate* cand, bool bL
   cand_info.hostPort = nice_address_get_port(&cand->addr);
   cand_info.mediaType = ice_config_.media_type;
   cand_info.netProtocol = "udp";
+  if (NICE_CANDIDATE_TRANSPORT_TCP_PASSIVE == cand->transport) {
+    cand_info.netProtocol = "tcp";
+  }
   cand_info.transProtocol = ice_config_.transport_name;
 
   cand_info.username = bLocal ? getLocalUsername() : getRemoteUsername();
