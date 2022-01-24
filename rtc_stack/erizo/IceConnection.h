@@ -4,7 +4,6 @@
 
 // This file is borrowed from lynckia/licode with some modifications.
 
-
 #ifndef ERIZO_SRC_ERIZO_ICECONNECTION_H_
 #define ERIZO_SRC_ERIZO_ICECONNECTION_H_
 

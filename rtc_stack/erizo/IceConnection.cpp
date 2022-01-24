@@ -1,6 +1,8 @@
-/*
- * IceConnection.cpp
- */
+// Copyright (C) <2019> Intel Corporation
+//
+// SPDX-License-Identifier: Apache-2.0
+
+// This file is borrowed from lynckia/licode with some modifications.
 
 #include <cstdio>
 #include <string>
@@ -76,7 +78,6 @@ void IceConnection::updateIceState(IceState state) {
       break;
   }
 
-  // Important: send this outside our state lock.  Otherwise, serious risk of deadlock.
   if (auto listener = this->listener_.lock()) {
     listener->updateIceState(state, this);
   }
