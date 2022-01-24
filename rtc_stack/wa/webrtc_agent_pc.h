@@ -163,7 +163,7 @@ class WrtcAgentPc final : public erizo::WebRtcConnectionEventListener,
 
   srs_error_t processOfferMedia(MediaDesc& media);
 
-  srs_error_t setupTransport(MediaDesc& media);
+  srs_error_t setupTransport(MediaDesc& media, bool& bPublish);
 
   void onVideoInfo(const std::string& videoInfoJSON) override;
 
@@ -208,7 +208,7 @@ class WrtcAgentPc final : public erizo::WebRtcConnectionEventListener,
   WaSdpInfo* local_sdp_{nullptr};
 
   struct operation {
-    std::string operation_id_;
+    std::string mid_; 
     EMediaType type_{media_unknow};
     std::string sdp_direction_;
     FormatPreference format_preference_{p_unknow, ""};
