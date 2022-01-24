@@ -149,7 +149,7 @@ TEST(WaSdpInfo, chrom_answer_91) {
   EXPECT_EQ(sdpinfo.extmapAllowMixed_, "");
 
   EXPECT_EQ(sdpinfo.msid_semantic_, "WMS");
-  EXPECT_EQ(sdpinfo.msids_[0], "UxETroWmnM");
+  EXPECT_EQ(sdpinfo.token_[0], "UxETroWmnM");
 
   //audio
   EXPECT_EQ(sdpinfo.media_descs_[0].type_, "audio");
@@ -408,7 +408,7 @@ void sdp_info_comp(wa::WaSdpInfo& sdpinfo) {
 
   EXPECT_EQ(sdpinfo.msid_semantic_, "WMS");
   
-  EXPECT_TRUE(sdpinfo.msids_.empty());
+  EXPECT_TRUE(sdpinfo.token_.empty());
 
   //audio
   EXPECT_EQ(sdpinfo.media_descs_[0].type_, "audio");
@@ -841,7 +841,7 @@ void sdp_info_comp_firefox(wa::WaSdpInfo& sdpinfo) {
     EXPECT_EQ(sdpinfo.extmapAllowMixed_, "extmap-allow-mixed");
   }
   EXPECT_EQ(sdpinfo.msid_semantic_, "WMS");
-  EXPECT_EQ(sdpinfo.msids_[0], "*");
+  EXPECT_EQ(sdpinfo.token_[0], "*");
 
   //audio
   EXPECT_EQ(sdpinfo.media_descs_[0].type_, "audio");

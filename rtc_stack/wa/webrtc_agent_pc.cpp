@@ -303,6 +303,7 @@ srs_error_t WrtcAgentPc::addTrackOperation(const std::string& mid,
   srs_error_t ret = srs_success;
 
   operation op;
+  op.mid_ = mid;
   op.type_ = type;
   op.sdp_direction_ = direction;
   op.format_preference_ = prefer;
@@ -314,7 +315,7 @@ srs_error_t WrtcAgentPc::addTrackOperation(const std::string& mid,
     ret = srs_error_new(wa_e_found, 
                         "%s has mapped operation %s", 
                         mid.c_str(), 
-                        result.first->second.operation_id_.c_str());
+                        result.first->second.mid_.c_str());
   }
   return ret;
 }
@@ -407,7 +408,7 @@ void WrtcAgentPc::processSendAnswer(const std::string& streamId,
 using namespace erizo;
 
 srs_error_t WrtcAgentPc::processOffer(const std::string& sdp, 
-                                      const std::string& stream_id) {
+                                      const std::string& stream_name) {
   srs_error_t result = srs_success;
   if (!remote_sdp_) {
     // First offer
@@ -442,8 +443,8 @@ srs_error_t WrtcAgentPc::processOffer(const std::string& sdp,
 
     try{
       local_sdp_ = remote_sdp_->answer();
-      if (!stream_id.empty()) {
-        local_sdp_->SetMsid(stream_id);
+      if (!stream_name.empty()) {
+        local_sdp_->SetToken(stream_name);
       }
     }
     catch(std::exception& ex){
@@ -452,19 +453,25 @@ srs_error_t WrtcAgentPc::processOffer(const std::string& sdp,
       return srs_error_new(wa::wa_e_parse_offer_failed, 
           "parse locad sdp from remote failed");
     }
-    
+
+    // negotiate sdp
+    // TODO optimize code
     for(auto& x : operation_map_){
       local_sdp_->filterByPayload(
           x.first, x.second.final_format_, true, false, true);
     }
-
     local_sdp_->filterExtmap();
-    
+
     // Setup transport
     for (auto& mid : local_sdp_->media_descs_) {
-      if (mid.port_ != 0 && (result = setupTransport(mid)) != srs_success) {
+      bool bPublish;
+      if (mid.port_ != 0 && (result = setupTransport(mid, bPublish)) != srs_success) {
         return srs_error_wrap(result, "setupTransport failed");
       }
+
+      // for firefoxM96 see@https://github.com/anjisuan783/mia/issues/34
+      if (bPublish) 
+        mid.clearSsrcInfo();
     }
 
   } else {
@@ -507,7 +514,7 @@ srs_error_t WrtcAgentPc::processOfferMedia(MediaDesc& media) {
         "mid[%s]:%s in offer has conflict direction with "
         "opid[%s],opd[%s]!=md[%s]", 
         mid.c_str(), media.type_.c_str(), 
-        op.operation_id_.c_str(), op.sdp_direction_.c_str(), media.direction_.c_str());
+        op.mid_.c_str(), op.sdp_direction_.c_str(), media.direction_.c_str());
   }
 
   std::string media_type{"unknow"};
@@ -521,12 +528,12 @@ srs_error_t WrtcAgentPc::processOfferMedia(MediaDesc& media) {
   if (media_type != media.type_) {
     return srs_error_new(wa_failed, 
         "%s in offer has conflict media type with %s", 
-        mid.c_str(), op.operation_id_.c_str());
+        mid.c_str(), op.mid_.c_str());
   }
   
   if (op.enabled_ && (media.port_ == 0)) {
     WLOG_WARNING("%s, %s in offer has conflict port with operation %s disabled", 
-                 id_.c_str(), mid.c_str(), op.operation_id_.c_str());
+                 id_.c_str(), mid.c_str(), op.mid_.c_str());
     op.enabled_ = false;
   }
 
@@ -536,7 +543,7 @@ srs_error_t WrtcAgentPc::processOfferMedia(MediaDesc& media) {
   return srs_success;
 }
 
-srs_error_t WrtcAgentPc::setupTransport(MediaDesc& media) {
+srs_error_t WrtcAgentPc::setupTransport(MediaDesc& media, bool& bPublish) {
   OLOG_TRACE_THIS(id_ << ", t:" << media.type_ << ", mid:" << media.mid_);
   srs_error_t result = srs_success;
   
@@ -544,8 +551,7 @@ srs_error_t WrtcAgentPc::setupTransport(MediaDesc& media) {
   operation& opSettings = op_found->second;
 
   auto& rids = media.rids_;
-  std::string direction = 
-      (opSettings.sdp_direction_ == "sendonly") ? "in" : "out";
+  bPublish = (opSettings.sdp_direction_ == "sendonly");
   MediaSetting trackSetting = media.getMediaSettings();
 
   if (rids.empty()) {
@@ -554,26 +560,33 @@ srs_error_t WrtcAgentPc::setupTransport(MediaDesc& media) {
     if (track_found == track_map_.end()) {
       WebrtcTrack* track = addTrack(media.mid_, 
                                     trackSetting, 
-                                    (direction=="in"?true:false), 
+                                    bPublish, 
                                     opSettings.request_keyframe_second_);
-     
-      uint32_t ssrc = track->ssrc(trackSetting.is_audio);
-      if (ssrc) {
-        ELOG_INFO("%s, Add ssrc %u to %s in SDP for %s", 
-                  id_.c_str(), ssrc, media.mid_.c_str(), id_.c_str());
-        
-        const std::string& opId = opSettings.operation_id_;
-        auto msid_found = msid_map_.find(opId);
-        if (msid_found != msid_map_.end()){
-          media.setSsrcs(std::vector<uint32_t>{ssrc,}, msid_found->second);
+      const std::string& opId = opSettings.mid_;
+      std::string msid = media.msid_;
+      
+      if (!bPublish) {
+        // setting ssrc info
+        uint32_t ssrc = track->ssrc(trackSetting.is_audio);
+        if (ssrc) {
+          ELOG_INFO("%s, Add ssrc %u to %s in SDP for %s", 
+                    id_.c_str(), ssrc, media.mid_.c_str(), id_.c_str());
+          
+          auto msid_found = msid_map_.find(opId);
+          if (msid_found != msid_map_.end()) {
+            media.setSsrcs(std::vector<uint32_t>{ssrc,}, msid_found->second);
+          } else {
+            msid = media.setSsrcs(std::vector<uint32_t>{ssrc,}, "");
+          }
         } else {
-          std::string msid = media.setSsrcs(std::vector<uint32_t>{ssrc,}, "");
-          msid_map_.insert(std::make_pair(opId, std::move(msid)));
+          abort();
         }
       }
+
+      msid_map_.emplace(opId, msid);
       
-      if (direction == "in") {
-        // TODO choise
+      if (bPublish) {
+        // callback frames
         track->addDestination(trackSetting.is_audio, 
             std::move(std::dynamic_pointer_cast<owt_base::FrameDestination>(
                 shared_from_this())));

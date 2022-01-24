@@ -806,15 +806,15 @@ std::string MediaDesc::setSsrcs(const std::vector<uint32_t>& ssrcs,
    *   {id: ssrc, attribute: 'cname', value: },
    *   {id: ssrc, attribute: 'msid', value: `${msid} ${mtype}0`},
    *   {id: ssrc, attribute: 'mslabel', value: msid},
-   *   {id: ssrc, attribute: 'label', value: `${msid}${mtype}0`},
+   *   {id: ssrc, attribute: 'label', value: `${mtype}0`},
    * ]
    */
   
   ssrc_infos_[0].ssrc_ = ssrc;
   ssrc_infos_[0].cname_ = "o/i14u9pJrxRKAsu";
-  ssrc_infos_[0].msid_ = msid + " " + mtype + "0";
   ssrc_infos_[0].mslabel_ = msid;
-  ssrc_infos_[0].label_ = msid + mtype + "0";
+  ssrc_infos_[0].label_ = mtype + "0";
+  ssrc_infos_[0].msid_ = msid + " " + ssrc_infos_[0].label_;
 
   JSON_TYPE jarray = JSON_ARRAY;
   ssrc_infos_[0].encode(jarray);
@@ -917,7 +917,15 @@ void MediaDesc::filterExtmap() {
   }
 }
 
+void MediaDesc::clearSsrcInfo() {
+  msid_.clear();
+  ssrc_groups_.clear();
+  ssrc_infos_.clear();
+}
+
+///////////////////////////////////////////////////////////////////////////////
 // WaSdpInfo
+///////////////////////////////////////////////////////////////////////////////
 WaSdpInfo::WaSdpInfo() = default;
 
 WaSdpInfo::WaSdpInfo(const std::string& strSdp) {
@@ -993,7 +1001,7 @@ int WaSdpInfo::init(const std::string& strSdp) {
       std::istringstream is(tmp);
       std::string word;
       while(is >> word) {
-        msids_.push_back(word);
+        token_.push_back(word);
       }
     }
   }
@@ -1087,11 +1095,11 @@ std::string WaSdpInfo::toString(const std::string& strMid) {
   if(!msid_semantic_.empty()){
     JSON_TYPE msid_semantic = JSON_OBJECT;
     
-    if(!msids_.empty()){
+    if(!token_.empty()){
       std::string token{""};
-      for(auto itor=msids_.begin(); itor!=msids_.end();){
+      for(auto itor=token_.begin(); itor!=token_.end();){
         token += *itor++;
-        if(itor != msids_.end()){
+        if(itor != token_.end()){
           token += " ";
         }
       }
@@ -1160,9 +1168,6 @@ WaSdpInfo* WaSdpInfo::answer() {
       mediaInfo.direction_ = "sendonly";
     }
     else if(mediaInfo.direction_ == "sendonly"){
-      //mediaInfo.msid_.clear();
-      //mediaInfo.ssrc_groups_.clear();
-      //mediaInfo.ssrc_infos_.clear();
       mediaInfo.direction_ = "recvonly";
     }
 
@@ -1247,9 +1252,9 @@ std::string WaSdpInfo::singleMediaSdp(const std::string& mid) {
   return toString(mid);
 }
 
-void WaSdpInfo::SetMsid(const std::string& stream_id) {
-  msids_.clear();
-  msids_.push_back(stream_id);
+void WaSdpInfo::SetToken(const std::string& str) {
+  token_.clear();
+  token_.push_back(str);
 }
 
 void WaSdpInfo::setCredentials(const WaSdpInfo& sdpInfo) {

@@ -132,6 +132,8 @@ class MediaDesc {
   bool filterByPayload(int32_t payload, bool, bool, bool);
   
   void filterExtmap();
+
+  void clearSsrcInfo();
  private:
   void parseCandidates(const JSON_TYPE& media);
 
@@ -243,7 +245,7 @@ class WaSdpInfo {
 
   void setCredentials(const WaSdpInfo&);
   
-  void SetMsid(const std::string&);
+  void SetToken(const std::string&);
 
   void setCandidates(const WaSdpInfo&);
   
@@ -286,7 +288,7 @@ class WaSdpInfo {
   std::string group_policy_;
 
   std::string msid_semantic_;
-  std::vector<std::string> msids_;
+  std::vector<std::string> token_;
 
   // m-line, media sessions  "m="
   std::vector<MediaDesc> media_descs_;
