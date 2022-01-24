@@ -44,6 +44,7 @@ class IOThreadPool {
   ~IOThreadPool();
 
   std::shared_ptr<IOWorker> getLessUsedIOWorker();
+  std::shared_ptr<IOWorker> getIOWorker(int);
   void start();
   void close();
 

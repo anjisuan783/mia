@@ -7,7 +7,7 @@
 #include <memory>
 
 #include "rtc_base/logging.h"
-#include "rtp_rtcp/rtp_packet.h"
+#include "rtp_rtcp/rtp_packet_to_send.h"
 #include "owt_base/AudioUtilitiesNew.h"
 #include "owt_base/TaskRunnerPool.h"
 #include "common/rtputils.h"
@@ -33,6 +33,7 @@ AudioSendAdapterImpl::AudioSendAdapterImpl(
           callowner->taskQueue().get())} {
   ssrc_ = ssrcGenerator_->CreateSsrc();
   ssrcGenerator_->RegisterSsrc(ssrc_);
+  eventLog_ = callowner->eventLog();
   init();
 }
 
@@ -60,7 +61,7 @@ void AudioSendAdapterImpl::onFrame(std::shared_ptr<owt_base::Frame> frame) {
     updateSeqNo(frame->payload);
     if (rtpListener_) {
       if (!mid_.empty()) {
-        webrtc::RtpPacket packet(&extensions_);
+        webrtc::RtpPacketToSend packet(&extensions_);
         packet.Parse(frame->payload, frame->length);
         packet.SetExtension<webrtc::RtpMid>(mid_);
         rtpListener_->onAdapterData(
@@ -95,14 +96,12 @@ void AudioSendAdapterImpl::onFrame(std::shared_ptr<owt_base::Frame> frame) {
 
 bool AudioSendAdapterImpl::init() {
   clock_ = webrtc::Clock::GetRealTimeClock();
-  eventLog_ = std::make_unique<webrtc::RtcEventLogNull>();
-
   webrtc::RtpRtcp::Configuration configuration;
   configuration.clock = clock_;
   configuration.audio = true; // Audio.
   configuration.receiver_only = false; //send
   configuration.outgoing_transport = this;
-  configuration.event_log = eventLog_.get();
+  configuration.event_log = eventLog_;
   configuration.local_media_ssrc = ssrc_;
   configuration.extmap_allow_mixed = true;
 

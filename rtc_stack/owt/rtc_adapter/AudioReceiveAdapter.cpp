@@ -17,7 +17,6 @@ const uint32_t kLocalSsrc = 1;
 AudioReceiveAdapterImpl::AudioReceiveAdapterImpl(
     CallOwner* owner, const RtcAdapter::Config& config)
     : config_(config), owner_(owner), rtcpListener_(config.rtp_listener) {
-  assert(owner != nullptr);
   CreateReceiveAudio();
 }
 
@@ -29,13 +28,10 @@ AudioReceiveAdapterImpl::~AudioReceiveAdapterImpl() {
   }
 }
 
-int AudioReceiveAdapterImpl::onRtpData(erizo::DataPacket* pkt) {
-  if (pkt->length != (int)pkt->buffer_.size())
-    pkt->buffer_.SetSize(pkt->length);
-  
+int AudioReceiveAdapterImpl::onRtpData(erizo::DataPacket* pkt) {  
   auto rv = call()->Receiver()->DeliverPacket(
           webrtc::MediaType::AUDIO,
-          std::move(pkt->buffer_),
+          rtc::ArrayView<const uint8_t>((const uint8_t*)pkt->data, (size_t)pkt->length),
           rtc::TimeUTCMicros());
   if (webrtc::PacketReceiver::DELIVERY_OK != rv) {
     OLOG_ERROR_THIS("AudioReceiveAdapterImpl DeliverPacket failed code:" << rv);

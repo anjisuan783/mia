@@ -41,24 +41,24 @@ public:
 
   // Implement CallOwner
   std::shared_ptr<webrtc::Call> call() override { return call_; }
-  std::shared_ptr<rtc::TaskQueue> taskQueue() override { return m_taskQueue; }
-  std::shared_ptr<webrtc::RtcEventLog> eventLog() override { return m_eventLog; }
+  std::shared_ptr<rtc::TaskQueue> taskQueue() override { return taskQueue_; }
+  webrtc::RtcEventLog* eventLog() override { return eventLog_; }
 
 private:
   void initCall();
 
   std::unique_ptr<webrtc::TaskQueueFactory> m_taskQueueFactory;
-  std::shared_ptr<rtc::TaskQueue> m_taskQueue;
-  std::shared_ptr<webrtc::RtcEventLog> m_eventLog;
+  std::shared_ptr<rtc::TaskQueue> taskQueue_;
+  webrtc::RtcEventLog* eventLog_;
   std::shared_ptr<webrtc::Call> call_;
 };
 
 RtcAdapterImpl::RtcAdapterImpl(webrtc::TaskQueueBase* p)
   : m_taskQueueFactory(createDummyTaskQueueFactory(p)),
-    m_taskQueue(std::make_shared<rtc::TaskQueue>(m_taskQueueFactory->CreateTaskQueue(
+    taskQueue_(std::make_shared<rtc::TaskQueue>(m_taskQueueFactory->CreateTaskQueue(
                 "CallTaskQueue",
                 webrtc::TaskQueueFactory::Priority::NORMAL))),
-    m_eventLog(std::make_shared<webrtc::RtcEventLogNull>()) {
+    eventLog_(nullptr) {
 }
 
 RtcAdapterImpl::~RtcAdapterImpl() {
@@ -69,11 +69,11 @@ void RtcAdapterImpl::initCall() {
     return;
   }
   
-  webrtc::Call::Config call_config(m_eventLog.get());
+  webrtc::Call::Config call_config(eventLog_);
   call_config.task_queue_factory = m_taskQueueFactory.get();
 
   std::unique_ptr<webrtc::ProcessThread> moduleThread =
-    std::make_unique<ProcessThreadMock>(m_taskQueue.get());
+    std::make_unique<ProcessThreadMock>(taskQueue_.get());
     
   call_.reset(
     webrtc::Call::Create(call_config, 

@@ -18,14 +18,10 @@ void ScheduledTaskReference::cancel() {
 ////////////////////////////////////////////////////////////////////////////////
 //Worker
 ////////////////////////////////////////////////////////////////////////////////
-Worker::Worker(webrtc::TaskQueueFactory* factory, std::shared_ptr<Clock> the_clock) 
+Worker::Worker(webrtc::TaskQueueFactory* factory, int id, std::shared_ptr<Clock> the_clock) 
     : factory_(factory),
-      clock_{the_clock} { 
-}
-
-void Worker::task(Task f) {
-  task_queue_->PostTask(f);
-}
+      id_(id),
+      clock_{the_clock} { }
 
 void Worker::start(const std::string& name) {
   auto promise = std::make_shared<std::promise<void>>();
@@ -91,8 +87,10 @@ static std::unique_ptr<webrtc::TaskQueueFactory> g_task_queue_factory =
     webrtc::CreateDefaultTaskQueueFactory();
 
 ThreadPool::ThreadPool(unsigned int num_workers) {
+  workers_.reserve(num_workers);
   for (unsigned int index = 0; index < num_workers; ++index) {
-    workers_.push_back(std::make_shared<Worker>(g_task_queue_factory.get()));
+    workers_.push_back( 
+        std::make_shared<Worker>(g_task_queue_factory.get(), index));
   }
 }
 

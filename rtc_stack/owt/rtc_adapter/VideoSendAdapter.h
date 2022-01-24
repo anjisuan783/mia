@@ -66,7 +66,7 @@ class VideoSendAdapterImpl : public VideoSendAdapter,
   webrtc::Clock* m_clock{nullptr};
   int64_t timeStampOffset_{0};
 
-  std::unique_ptr<webrtc::RtcEventLog> eventLog_;
+  webrtc::RtcEventLog* eventLog_;
   std::unique_ptr<webrtc::RTPSenderVideo> senderVideo_;
   std::unique_ptr<webrtc::PlayoutDelayOracle> playoutDelayOracle_;
   std::unique_ptr<webrtc::FieldTrialBasedConfig> fieldTrialConfig_;

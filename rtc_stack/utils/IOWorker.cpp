@@ -73,6 +73,10 @@ std::shared_ptr<IOWorker> IOThreadPool::getLessUsedIOWorker() {
   return chosen_io_worker;
 }
 
+std::shared_ptr<IOWorker> IOThreadPool::getIOWorker(int id) {
+  return io_workers_[id];
+}
+
 void IOThreadPool::start() {
   std::vector<std::shared_ptr<std::promise<void>>> promises(io_workers_.size());
   int index = 0;

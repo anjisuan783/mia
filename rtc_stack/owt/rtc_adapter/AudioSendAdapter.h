@@ -56,7 +56,7 @@ public:
   owt_base::SsrcGenerator* const ssrcGenerator_;
 
   webrtc::Clock* clock_;
-  std::unique_ptr<webrtc::RtcEventLog> eventLog_;
+  webrtc::RtcEventLog* eventLog_;
   std::unique_ptr<webrtc::RTPSenderAudio> senderAudio_;
 
   RtcAdapter::Config config_;
