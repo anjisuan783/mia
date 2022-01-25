@@ -76,7 +76,10 @@ class WrtcAgentPc final : public erizo::WebRtcConnectionEventListener,
     
     int32_t format(bool isAudio) { return isAudio?audioFormat_:videoFormat_; }
     srs_error_t trackControl(ETrackCtrl, bool isIn, bool isOn);
+    
     void requestKeyFrame();
+    void stopRequestKeyFrame();
+    
     inline bool isAudio() {
       return name_ == "audio";
     }
@@ -92,6 +95,7 @@ class WrtcAgentPc final : public erizo::WebRtcConnectionEventListener,
     WrtcAgentPc* pc_{nullptr};
     std::string mid_;
     int32_t request_kframe_period_;
+    bool stop_request_kframe_period_{false};
   
     std::shared_ptr<owt_base::AudioFramePacketizer> audioFramePacketizer_;
     std::shared_ptr<owt_base::AudioFrameConstructor> audioFrameConstructor_;
@@ -130,6 +134,8 @@ class WrtcAgentPc final : public erizo::WebRtcConnectionEventListener,
 
   void Subscribe(WEBRTC_TRACK_TYPE&);
   void unSubscribe(WEBRTC_TRACK_TYPE&);
+
+  void frameCallback(bool on);
 
   void setAudioSsrc(const std::string& mid, uint32_t ssrc);
   

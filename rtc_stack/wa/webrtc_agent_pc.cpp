@@ -141,16 +141,6 @@ void WrtcAgentPc::WebrtcTrack::addDestination(
     audioFrameConstructor_->addAudioDestination(std::move(dest));
   } else if (!isAudio && videoFrameConstructor_) {
     videoFrameConstructor_->addVideoDestination(std::move(dest));
-    if (request_kframe_period_ != -1) {
-      pc_->worker_->scheduleEvery([weak_this = weak_from_this()]() {
-          auto shared_this = weak_this.lock();
-          if (shared_this) {
-            shared_this->requestKeyFrame();
-            return true;
-          }
-          return false;
-        }, std::chrono::seconds(request_kframe_period_));
-    }
   }
 }
 
@@ -205,10 +195,30 @@ srs_error_t WrtcAgentPc::WebrtcTrack::trackControl(
   return result;
 }
 
-void WrtcAgentPc::WebrtcTrack::requestKeyFrame() { 
-  if (videoFrameConstructor_) {
-    videoFrameConstructor_->RequestKeyFrame();
+void WrtcAgentPc::WebrtcTrack::requestKeyFrame() {
+  if (!videoFrameConstructor_) {
+    return ;
   }
+
+  videoFrameConstructor_->RequestKeyFrame();
+
+  if (request_kframe_period_ != -1) {
+    stop_request_kframe_period_ = false;
+    pc_->worker_->scheduleEvery([weak_this = weak_from_this()]() {
+        auto shared_this = weak_this.lock();
+        if (shared_this && 
+            !shared_this->stop_request_kframe_period_ && 
+            shared_this->videoFrameConstructor_) {
+          shared_this->videoFrameConstructor_->RequestKeyFrame();
+          return true;
+        }
+        return false;
+      }, std::chrono::seconds(request_kframe_period_));
+  }
+}
+
+void WrtcAgentPc::WebrtcTrack::stopRequestKeyFrame() {
+  stop_request_kframe_period_ = true;
 }
 
 /////////////////////////////
@@ -585,12 +595,6 @@ srs_error_t WrtcAgentPc::setupTransport(MediaDesc& media, bool& bPublish) {
 
       msid_map_.emplace(opId, msid);
       
-      if (bPublish) {
-        // callback frames
-        track->addDestination(trackSetting.is_audio, 
-            std::move(std::dynamic_pointer_cast<owt_base::FrameDestination>(
-                shared_from_this())));
-      }
       connection_->setRemoteSdp(
           remote_sdp_->singleMediaSdp(media.mid_), media.mid_);
     } else {
@@ -653,6 +657,30 @@ void WrtcAgentPc::subscribe_i(
       }
     }
   });
+}
+
+void WrtcAgentPc::frameCallback(bool on) {
+  asyncTask([on](std::shared_ptr<WrtcAgentPc> pc) {
+      for (auto& i : pc->track_map_) {
+        WebrtcTrack* track = i.second.get();
+        bool isVideo = !track->isAudio();
+        // callback frames
+        if (on) {
+          track->addDestination(!isVideo,
+              std::move(
+                  std::dynamic_pointer_cast<owt_base::FrameDestination>(pc)));
+          if (isVideo) {
+            track->requestKeyFrame();
+          }
+        } else {
+          track->removeDestination(!isVideo, pc.get());
+          if (isVideo) {
+            track->stopRequestKeyFrame();
+          }
+        }
+      }
+    }
+ );
 }
 
 WrtcAgentPc::WebrtcTrack* WrtcAgentPc::addTrack(
@@ -721,9 +749,6 @@ void WrtcAgentPc::onFrame(std::shared_ptr<owt_base::Frame> f) {
   if (!sink) {
     return;
   }
-
-  if (!sink->on_frame_)
-    return;
 
   sink->callBack([frame = std::move(f)](std::shared_ptr<WebrtcAgentSink> pc_sink){
     pc_sink->onFrame(std::move(frame));

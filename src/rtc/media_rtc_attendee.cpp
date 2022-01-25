@@ -125,7 +125,14 @@ void MediaRtcAttendeeBase::post(Task t) {
 
 void MediaRtcAttendeeBase::ChangeOnFrame(bool on) {
   MLOG_INFO(pc_id_ << (on ? ", on" : ", off"));
-  on_frame_ = on;
+  int ret;
+  if (on) {
+    ret = rtc_->Subscribe(pc_id_, pc_id_);
+  } else {
+    ret = rtc_->Unsubscribe(pc_id_, pc_id_);
+  }
+
+  MLOG_INFO(pc_id_ << (on ? ", on" : ", off") << ", ret:" << ret);
 }
 
 //MediaRtcPublisher

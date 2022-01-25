@@ -64,7 +64,6 @@ class WebrtcAgentSink
     }
   }
 
-  std::atomic<bool> on_frame_{false};
  protected:
   typedef std::function<void()> Task;
   virtual void post(Task) { }
