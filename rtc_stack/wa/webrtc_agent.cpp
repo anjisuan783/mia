@@ -101,10 +101,17 @@ int WebrtcAgent::DestroyPeer(const std::string& connectId) {
 
 int WebrtcAgent::Subscribe(const std::string& publisher, 
                            const std::string& player) {
+  if (publisher == "" || player == "") {
+    OLOG_ERROR("call Subscribe invalid parameter publisher:" << publisher <<
+        " player: " << player);
+    return wa_e_invalid_param;
+  }
+                           
   OLOG_TRACE(player << " subscribe " << publisher);
   std::shared_ptr<WrtcAgentPc> pc_publisher;
   std::shared_ptr<WrtcAgentPc> pc_player;
   WrtcAgentPc::WEBRTC_TRACK_TYPE player_tracks;
+  bool isCallback = (publisher == player);
 
   {
     std::lock_guard<std::mutex> guard(pcLock_);
@@ -114,30 +121,41 @@ int WebrtcAgent::Subscribe(const std::string& publisher,
     }
     pc_publisher = found->second;
 
-    found = peerConnections_.find(player);
-    if(found == peerConnections_.end()){
-      return wa_e_not_found;
+    if (!isCallback) {
+      found = peerConnections_.find(player);
+      if(found == peerConnections_.end()){
+        return wa_e_not_found;
+      }
+      pc_player = found->second;
+      player_tracks = pc_player->getTracks();
     }
-    pc_player = found->second;
-
-    player_tracks = pc_player->getTracks();
   }
-  
-  if (player_tracks.empty()) {
-    OLOG_ERROR("player tracks empty!");
-    return wa_failed;
-  }
-  pc_publisher->Subscribe(player_tracks);
 
+  if (!isCallback) {
+    if (player_tracks.empty()) {
+      OLOG_ERROR("player tracks empty!");
+      return wa_failed;
+    }
+    pc_publisher->Subscribe(player_tracks);
+  } else {
+    pc_publisher->frameCallback(true);
+  }
   return wa_ok;
 }
 
 int WebrtcAgent::Unsubscribe(const std::string& publisher, 
                              const std::string& player) {
+  if (publisher == "" || player == "") {
+    OLOG_ERROR("call Unsubscribe invalid parameter publisher:" << publisher <<
+        " player: " << player);
+    return wa_e_invalid_param;
+  }
+                             
   OLOG_TRACE(player << " unsubscribe " << publisher);
   std::shared_ptr<WrtcAgentPc> pc_publisher;
   std::shared_ptr<WrtcAgentPc> pc_player;
   WrtcAgentPc::WEBRTC_TRACK_TYPE player_tracks;
+  bool isCallback = (publisher == player);
 
   {
     std::lock_guard<std::mutex> guard(pcLock_);
@@ -148,21 +166,25 @@ int WebrtcAgent::Unsubscribe(const std::string& publisher,
     }
     pc_publisher = found->second;
 
-    found = peerConnections_.find(player);
-    if(found == peerConnections_.end()){
-      return wa_e_not_found;
+    if (!isCallback) {
+      found = peerConnections_.find(player);
+      if(found == peerConnections_.end()){
+        return wa_e_not_found;
+      }
+      pc_player = found->second;
+      player_tracks = pc_player->getTracks();
     }
-    pc_player = found->second;
-
-    player_tracks = pc_player->getTracks();
   }
   
-  if (player_tracks.empty()) {
-    OLOG_ERROR("player tracks empty!");
-    return wa_failed;
+  if (!isCallback) {
+    if (player_tracks.empty()) {
+      OLOG_ERROR("player tracks empty!");
+      return wa_failed;
+    }
+    pc_publisher->unSubscribe(player_tracks);
+  } else {
+    pc_publisher->frameCallback(false);
   }
-  pc_publisher->unSubscribe(player_tracks);
-
   return wa_ok;
 }
 

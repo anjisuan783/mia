@@ -49,6 +49,8 @@ class MediaRtcAttendeeBase
   inline std::shared_ptr<MediaRequest> GetRequest() {
     return req_;
   }
+
+  // subscribe publisher media stream
   void ChangeOnFrame(bool);
 
   virtual void OnPublisherJoin(const std::string& id) = 0;
