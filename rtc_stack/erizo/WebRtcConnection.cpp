@@ -96,7 +96,6 @@ bool WebRtcConnection::createOffer(bool video_enabled, bool audioEnabled, bool b
     });
   }
 
-
   auto listener = std::dynamic_pointer_cast<TransportListener>(shared_from_this());
 
   if (bundle_) {
@@ -192,19 +191,6 @@ void WebRtcConnection::forEachMediaStream(
   std::for_each(media_streams_.begin(), media_streams_.end(), func);
 }
 
-bool WebRtcConnection::setRemoteSdpInfo(std::shared_ptr<SdpInfo> sdp, std::string stream_id) {
-  ELOG_DEBUG("%s message: setting remote SDPInfo", toLog());
-
-  if (!sending_) {
-    return false;
-  }
-
-  remote_sdp_ = sdp;
-  processRemoteSdp(stream_id);
-
-  return true;
-}
-
 std::shared_ptr<SdpInfo> WebRtcConnection::getLocalSdpInfo() {
   ELOG_DEBUG("%s message: getting local SDPInfo", toLog());
   forEachMediaStream([this] (const std::shared_ptr<MediaStream> &media_stream) {
@@ -294,7 +280,6 @@ bool WebRtcConnection::processRemoteSdp(const std::string& stream_id) {
   local_sdp_->setOfferSdp(remote_sdp_);
   extension_processor_->setSdpInfo(local_sdp_);
   local_sdp_->updateSupportedExtensionMap(extension_processor_->getSupportedExtensionMap());
-
 
   if (first_remote_sdp_processed_) {
     setRemoteSdpsToMediaStreams(stream_id);
@@ -774,7 +759,6 @@ void WebRtcConnection::write(std::shared_ptr<DataPacket> packet) {
   transport->write(packet->data, packet->length);
 }
 
-// Only for Testing purposes
 void WebRtcConnection::setTransport(std::shared_ptr<Transport> transport) {  
   video_transport_ = std::move(transport);
   bundle_ = true;

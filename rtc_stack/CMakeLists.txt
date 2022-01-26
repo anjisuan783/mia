@@ -141,6 +141,7 @@ file(
 	"${MYRTC_SOURCE_DIR}/utility/*.h" "${MYRTC_SOURCE_DIR}/utility/*.cc"
 	"${MYRTC_SOURCE_DIR}/video/*.h" "${MYRTC_SOURCE_DIR}/video/*.cc"
 	"${MYRTC_SOURCE_DIR}/network/*.h" "${MYRTC_SOURCE_DIR}/network/*.cc"
+	"${MYRTC_SOURCE_DIR}/stun/*.h" "${MYRTC_SOURCE_DIR}/stun/*.cc"
 )
 
 #message("wa source ${WA_SOURCE_FILE}")

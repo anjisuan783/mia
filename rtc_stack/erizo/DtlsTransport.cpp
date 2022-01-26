@@ -80,7 +80,6 @@ void TimeoutChecker::scheduleNext() {
       if (max_checks_-- > 0) {
         ELOG_DEBUG("Handling dtls timeout, checks left: %d", max_checks_);
         if (socket_context_) {
-          //std::lock_guard<std::mutex> guard(dtls_mutex);
           socket_context_->handleTimeout();
         }
         scheduleNext();
@@ -225,8 +224,6 @@ void DtlsTransport::onIceData(std::shared_ptr<DataPacket> packet) {
   if (srtp == NULL) {
     return;
   }
-  //auto unprotect_packet = std::make_shared<DataPacket>(
-  //    component_id, data, len, VIDEO_PACKET, packet->received_time_ms);
   
   RtcpHeader *chead = reinterpret_cast<RtcpHeader*>(data);
   if (!chead->isRtcp()) {
@@ -313,8 +310,6 @@ void DtlsTransport::onDtlsPacket(DtlsSocketContext *ctx,
     const unsigned char* data, unsigned int len) {
   bool is_rtcp = ctx == dtlsRtcp.get();
   int component_id = is_rtcp ? 2 : 1;
-
-//  packetPtr packet = std::make_shared<DataPacket>(component_id, data, len);
 
   writeDtlsPacket(ctx, component_id, data, len);
 

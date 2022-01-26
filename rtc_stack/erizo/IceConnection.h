@@ -27,7 +27,6 @@ typedef unsigned int uint;
 namespace erizo {
 
 // forward declarations
-typedef std::shared_ptr<DataPacket> packetPtr;
 class CandidateInfo;
 class WebRtcConnection;
 class IceConnection;

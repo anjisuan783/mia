@@ -80,7 +80,6 @@ class WebRtcConnection: public TransportListener,
   bool init();
   void close();
 
-  bool setRemoteSdpInfo(std::shared_ptr<SdpInfo> sdp, std::string stream_id);
   /**
    * Sets the SDP of the remote peer.
    * @param sdp The SDP.

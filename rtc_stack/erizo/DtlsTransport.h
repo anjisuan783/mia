@@ -75,7 +75,6 @@ class DtlsTransport : dtls::DtlsReceiver, public Transport {
   bool readyRtp{false}, readyRtcp{false};
   bool isServer_;
   std::unique_ptr<TimeoutChecker> rtcp_timeout_checker_, rtp_timeout_checker_;
-  packetPtr p_;
 };
 
 }  // namespace erizo
