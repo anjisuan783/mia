@@ -11,29 +11,16 @@
 #include <vector>
 #include <map>
 #include <iostream>
-#include <random>
 
 #include "libsdptransform/include/json.hpp"
 #include "h/rtc_stack_api.h"
+#include "webrtc_track_interface.h"
 
 using JSON_TYPE = nlohmann::json;
 
 namespace wa {
 
 struct FormatPreference;
-
-struct MediaSetting {
-  bool is_audio{false};
-  int32_t format;
-  std::vector<uint32_t> ssrcs;
-  std::string mid;
-  int32_t mid_ext{0};   //urn:ietf:params:rtp-hdrext:sdes:mid 
-  bool rtcp_rsize{false};
-  int red{-1};
-  int ulpfec{-1};
-  bool flexfec{false};
-  int transportcc{-1};
-};
 
 struct SessionInfo {
   int decode(const JSON_TYPE& session);
@@ -122,7 +109,7 @@ class MediaDesc {
   
   inline bool isVideo() const { return type_ == "video"; }
   
-  MediaSetting getMediaSettings();
+  TrackSetting getTrackSettings();
   
   int32_t filterMediaPayload(const FormatPreference& option);
   
@@ -149,7 +136,7 @@ class MediaDesc {
 
   void parseSsrcGroup(const JSON_TYPE& media);
 
-  void buildSettingFromExtmap(MediaSetting& settings);
+  void buildSettingFromExtmap(TrackSetting& settings);
 
  public:
   std::string type_;
@@ -249,7 +236,7 @@ class WaSdpInfo {
 
   void setCandidates(const WaSdpInfo&);
   
-  MediaSetting getMediaSettings(const std::string& mid);
+  TrackSetting getTrackSettings(const std::string& mid);
 
   void mergeMedia() {}
   

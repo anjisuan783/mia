@@ -3,9 +3,6 @@
 #include "rtmp/media_rtmp_const.h"
 
 namespace ma {
-
-MDEFINE_LOGGER(MediaMessage, "MediaMessage");
-
 void MessageHeader::initialize_audio(int size, int64_t time, int stream) {
   message_type = RTMP_MSG_AudioMessage;
   payload_length = (int32_t)size;
@@ -90,7 +87,7 @@ std::shared_ptr<MediaMessage> MediaMessage::create(
 std::shared_ptr<MediaMessage> MediaMessage::create(
     MessageHeader* pheader, std::shared_ptr<DataBlock> payload) {
 
-  MA_ASSERT(pheader->payload_length == payload->GetLength()); 
+  assert(pheader->payload_length == payload->GetLength()); 
   auto media_msg = std::make_shared<MediaMessage>(pheader, nullptr);
   
   media_msg->payload_ = new MessageChain(payload, MessageChain::DUPLICATED);

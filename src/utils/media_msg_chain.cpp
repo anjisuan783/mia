@@ -47,7 +47,7 @@ std::shared_ptr<DataBlock> DataBlock::Create(
 #endif // MEDIA_NDEBUG
 
 
-MDEFINE_LOGGER(MessageChain, "MessageChain"); 
+MDEFINE_LOGGER(MessageChain, "ma.utils"); 
 
 std::atomic<int> s_block_createcount = 0;
 std::atomic<int> s_block_destoycount = 0;

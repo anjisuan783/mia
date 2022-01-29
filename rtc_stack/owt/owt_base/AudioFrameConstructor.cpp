@@ -68,11 +68,16 @@ AudioFrameConstructor::AudioFrameConstructor(const config& config)
 }
 
 AudioFrameConstructor::~AudioFrameConstructor() {
+  close();
+}
+
+void AudioFrameConstructor::close() {
   unbindTransport();
   if (audioReceive_) {
     rtcAdapter_->destoryAudioReceiver(audioReceive_);
     audioReceive_ = nullptr;
   }
+  rtcAdapter_ = nullptr;
 }
 
 void AudioFrameConstructor::bindTransport(
@@ -180,10 +185,6 @@ void AudioFrameConstructor::onAdapterData(char* data, int len) {
     fb_sink_->deliverFeedback(
       std::make_shared<erizo::DataPacket>(0, data, len, erizo::AUDIO_PACKET));
   }
-}
-
-void AudioFrameConstructor::close() {
-  unbindTransport();
 }
 
 void AudioFrameConstructor::createAudioReceiver() {

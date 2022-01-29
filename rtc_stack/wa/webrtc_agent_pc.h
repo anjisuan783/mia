@@ -11,131 +11,98 @@
 #include <unordered_map>
 
 #include "h/rtc_stack_api.h"
+#include "rtc_base/sequence_checker.h"
+#include "wa_log.h"
 #include "srs_kernel_error.h"
 #include "erizo/WebRtcConnection.h"
-#include "erizo/MediaStream.h"
-#include "owt/owt_base/AudioFramePacketizer.h"
-#include "owt/owt_base/AudioFrameConstructor.h"
-#include "owt/owt_base/VideoFramePacketizer.h"
-#include "owt/owt_base/VideoFrameConstructor.h"
-#include "owt/owt_base/MediaFramePipeline.h"
-#include "owt/rtc_adapter/RtcAdapter.h"
 #include "utils/IOWorker.h"
 #include "utils/Worker.h"
+#include "owt/owt_base/MediaFramePipeline.h"
+#include "owt/owt_base/VideoFrameConstructor.h"
 
 namespace wa {
 
+class WebrtcTrackBase;
 class WebrtcAgentSink;
 class WebrtcAgent;
-struct MediaSetting;
+struct TrackSetting;
 class MediaDesc;
 class WaSdpInfo;
 
-class WrtcAgentPc final : public erizo::WebRtcConnectionEventListener,
+// composedId(mid) => WebrtcTrack
+typedef std::vector<std::weak_ptr<WebrtcTrackBase>> WEBRTC_TRACK_TYPE;
+
+class WrtcAgentPcBase {
+ public:
+  virtual ~WrtcAgentPcBase() { }
+
+  virtual int init(TOption& option, 
+                   WebrtcAgent& mgr,
+                   std::shared_ptr<Worker>& worker, 
+                   std::shared_ptr<IOWorker>& ioworker, 
+                   const std::vector<std::string>& ipAddresses,
+                   const std::string& stun_addr) = 0;
+  virtual void close() = 0;
+  virtual void signalling(const std::string& signal, 
+                          const std::string& content) = 0;
+
+  virtual void Subscribe(const WEBRTC_TRACK_TYPE&) = 0;
+  virtual void unSubscribe(const WEBRTC_TRACK_TYPE&) = 0;
+
+  virtual void frameCallback(bool on) = 0;
+  WEBRTC_TRACK_TYPE getTracks() {
+    WEBRTC_TRACK_TYPE weak_tracks;
+    for (auto& i : track_map_)
+      weak_tracks.emplace_back(i.second);
+    
+    return std::move(weak_tracks);
+  }
+  inline const std::string& id() {
+    return id_;
+  }
+
+  WebrtcTrackBase* getTrack(const std::string& name);
+
+ protected:
+  void subscribe_i(const WEBRTC_TRACK_TYPE&, bool isSub);
+ protected:
+  std::string id_;
+  // composedId(mid) => WebrtcTrack
+  std::unordered_map<
+    std::string, std::shared_ptr<WebrtcTrackBase>> track_map_;
+};
+
+class WrtcAgentPc final : public WrtcAgentPcBase,
+                          public erizo::WebRtcConnectionEventListener,
                           public owt_base::FrameDestination,
                           public owt_base::VideoInfoListener,
                           public std::enable_shared_from_this<WrtcAgentPc> {
- /*
- * WebrtcTrack represents a stream object
- * of WrtcAgentPc. It has media source
- * functions (addDestination) and media sink
- * functions (receiver) which will be used
- * in connection link-up. Each rtp-stream-id
- * in simulcast refers to one WebrtcTrack.
- */
-  class WebrtcTrack final : public std::enable_shared_from_this<WebrtcTrack> {
-  /*
-   * audio: { format, ssrc, mid, midExtId }
-   * video: { format, ssrc, mid, midExtId, transportcc, red, ulpfec }
-   */
-    
-   public:
-    enum ETrackCtrl {
-      e_audio,
-      e_video,
-      e_av
-    };
-  
-    WebrtcTrack(const std::string& mid,
-                WrtcAgentPc*,
-                bool isPublish,
-                const MediaSetting&,
-                erizo::MediaStream* mediaStream,
-                int32_t request_kframe_s);
-    ~WebrtcTrack();
-    
-    void close();
-    void onMediaUpdate() {}
-    
-    void addDestination(bool isAudio, 
-        std::shared_ptr<owt_base::FrameDestination> dest);
-    void removeDestination(bool isAudio, owt_base::FrameDestination* dest);
-    std::shared_ptr<owt_base::FrameDestination> receiver(bool isAudio);
-    
-    uint32_t ssrc(bool isAudio);
-    
-    int32_t format(bool isAudio) { return isAudio?audioFormat_:videoFormat_; }
-    srs_error_t trackControl(ETrackCtrl, bool isIn, bool isOn);
-    
-    void requestKeyFrame();
-    void stopRequestKeyFrame();
-    
-    inline bool isAudio() {
-      return name_ == "audio";
-    }
-
-    inline std::string getName() {
-      return name_;
-    }
-
-    inline std::string pcId() {
-      return pc_id_;
-    }
-  private:
-    WrtcAgentPc* pc_{nullptr};
-    std::string mid_;
-    int32_t request_kframe_period_;
-    bool stop_request_kframe_period_{false};
-  
-    std::shared_ptr<owt_base::AudioFramePacketizer> audioFramePacketizer_;
-    std::shared_ptr<owt_base::AudioFrameConstructor> audioFrameConstructor_;
-    std::shared_ptr<owt_base::VideoFramePacketizer> videoFramePacketizer_;
-    std::shared_ptr<owt_base::VideoFrameConstructor> videoFrameConstructor_;
-  
-    int32_t audioFormat_{0};
-    int32_t videoFormat_{0};
-    std::string name_;
-
-    std::string pc_id_;
-  };
-  
+  friend class WebrtcTrack;
  public:
-  // composedId(mid) => WebrtcTrack
-  typedef std::unordered_map<
-      std::string, std::shared_ptr<WrtcAgentPc::WebrtcTrack>> WEBRTC_TRACK_TYPE;
-  
   // Libnice collects candidates on |ipAddresses| only.
-  WrtcAgentPc(const TOption&, WebrtcAgent&);
-  ~WrtcAgentPc();
+  WrtcAgentPc();
+  ~WrtcAgentPc() override;
 
-  int init(std::shared_ptr<Worker>& worker, 
+  int init(TOption& option, 
+           WebrtcAgent& mgr,
+           std::shared_ptr<Worker>& worker, 
            std::shared_ptr<IOWorker>& ioworker, 
            const std::vector<std::string>& ipAddresses,
-           const std::string& stun_addr);
+           const std::string& stun_addr) override;
 
-  void close();
+  void close() override;
 
   void signalling(const std::string& signal, 
-                  const std::string& content);
+                  const std::string& content) override;
 
   void notifyEvent(erizo::WebRTCEvent newEvent, 
                    const std::string& message, 
                    const std::string &stream_id = "") override;
 
-  void Subscribe(WEBRTC_TRACK_TYPE&);
-  void unSubscribe(WEBRTC_TRACK_TYPE&);
+  void Subscribe(const WEBRTC_TRACK_TYPE&) override;
+  void unSubscribe(const WEBRTC_TRACK_TYPE&) override;
 
-  void frameCallback(bool on);
+  void frameCallback(bool on) override;
 
   void setAudioSsrc(const std::string& mid, uint32_t ssrc);
   
@@ -144,19 +111,12 @@ class WrtcAgentPc final : public erizo::WebRtcConnectionEventListener,
 
   //FrameDestination
   void onFrame(std::shared_ptr<owt_base::Frame>) override;
-
-  const std::string& id() {
-    return id_;
-  }
   
-  inline auto getTracks() {
-    return track_map_;
-  }
  private:
   void init_i(const std::vector<std::string>& ipAddresses, 
               const std::string& stun_addr);
   void close_i();
-  void subscribe_i(WEBRTC_TRACK_TYPE&, bool isSub);
+
   srs_error_t processOffer(const std::string& sdp, const std::string& stream_id);
 
   // call by WebrtcConnection
@@ -173,14 +133,12 @@ class WrtcAgentPc final : public erizo::WebRtcConnectionEventListener,
 
   void onVideoInfo(const std::string& videoInfoJSON) override;
 
-  WebrtcTrack* addTrack(const std::string& mid, 
-                        const MediaSetting&, 
+  WebrtcTrackBase* addTrack(const std::string& mid, 
+                        const TrackSetting&, 
                         bool isPublish,
                         int32_t kframe_s);
 
   srs_error_t removeTrack(const std::string& mid);
-
-  WebrtcTrack* getTrack(const std::string& name);
 
   srs_error_t addTrackOperation(const std::string& mid, 
                                 EMediaType type, 
@@ -202,9 +160,6 @@ class WrtcAgentPc final : public erizo::WebRtcConnectionEventListener,
 
  private:
   TOption config_;
-  std::string id_;
-  WebrtcAgent& mgr_;
-
   std::shared_ptr<WebrtcAgentSink> sink_;
 
   std::shared_ptr<Worker> worker_;
@@ -235,9 +190,6 @@ class WrtcAgentPc final : public erizo::WebRtcConnectionEventListener,
    */
   std::unordered_map<std::string, operation> operation_map_;
 
-  // composedId(mid) => WebrtcTrack
-  WEBRTC_TRACK_TYPE track_map_;
-
   // mid => msid
   std::unordered_map<std::string, std::string> msid_map_;
   
@@ -248,6 +200,41 @@ class WrtcAgentPc final : public erizo::WebRtcConnectionEventListener,
   bool ready_{false};
   
   std::unique_ptr<rtc_adapter::RtcAdapterFactory> adapter_factory_;
+
+  webrtc::SequenceChecker thread_check_;
+};
+
+class WebrtcTrackDumy;
+
+class WrtcAgentPcDummy : public WrtcAgentPcBase,
+                         public RtcPeer,
+                         public std::enable_shared_from_this<WrtcAgentPcDummy> {
+ public:
+  WrtcAgentPcDummy() = default;
+  ~WrtcAgentPcDummy() override = default;
+
+  int init(TOption& option, 
+           WebrtcAgent& mgr,
+           std::shared_ptr<Worker>& worker, 
+           std::shared_ptr<IOWorker>& ioworker, 
+           const std::vector<std::string>& ipAddresses,
+           const std::string& stun_addr) override;
+
+  void close() override { }
+  void signalling(const std::string&, const std::string&) { }
+
+  void Subscribe(const WEBRTC_TRACK_TYPE&) override;
+  void unSubscribe(const WEBRTC_TRACK_TYPE&) override;
+
+  virtual void frameCallback(bool on) override { }
+  void DeliveryFrame(std::shared_ptr<owt_base::Frame>) override;
+ private:
+  WebrtcTrackDumy* tracks_[2];
+};
+
+class WebrtcPeerFactory {
+ public:
+  std::shared_ptr<WrtcAgentPcBase> CreatePeer(PeerType);
 };
 
 } //namespace wa

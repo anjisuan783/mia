@@ -19,7 +19,7 @@ namespace ma {
   const int64_t kAccuracy_2 = 1000;
 #endif
 
-MDEFINE_LOGGER(SrsAudioTranscoder, "SrsAudioTranscoder");
+MDEFINE_LOGGER(SrsAudioTranscoder, "ma.encoder");
 
 static const char* id2codec_name(SrsAudioCodecId id) {
   switch (id) {

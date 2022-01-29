@@ -22,7 +22,7 @@
 
 namespace ma {
 
-static log4cxx::LoggerPtr logger = log4cxx::Logger::getLogger("http_stack");
+static log4cxx::LoggerPtr logger = log4cxx::Logger::getLogger("ma.http");
 
 
 /* Copyright Joyent, Inc. and other Node contributors.

@@ -43,12 +43,14 @@ class VideoFramePacketizer
       webrtc::TaskQueueBase* task_queue{nullptr};
   };
   VideoFramePacketizer(Config& config);
-  ~VideoFramePacketizer();
+  ~VideoFramePacketizer() override;
 
+  void close();
+    
   void bindTransport(erizo::MediaSink* sink);
   void unbindTransport();
   void enable(bool enabled);
-  uint32_t getSsrc() { return m_ssrc; }
+  uint32_t getSsrc() { return ssrc_; }
 
   // Implements FrameDestination.
   void onFrame(std::shared_ptr<Frame>);
@@ -63,25 +65,18 @@ class VideoFramePacketizer
 
  private:
   bool init(Config& config);
-  void close();
 
   // Implement erizo::FeedbackSink
   int deliverFeedback_(std::shared_ptr<erizo::DataPacket> data_packet);
   // Implement erizo::MediaSource
   int sendPLI() { return 0; }
 
-  bool m_enabled{true};
-  bool m_selfRequestKeyframe{false};
-
-  FrameFormat m_frameFormat{FRAME_FORMAT_UNKNOWN};
-  uint16_t m_frameWidth{0};
-  uint16_t m_frameHeight{0};
-  uint32_t m_ssrc{0};
-
-  uint16_t m_sendFrameCount{0};
-  std::shared_ptr<rtc_adapter::RtcAdapter> m_rtcAdapter;
-  rtc_adapter::VideoSendAdapter* m_videoSend{nullptr};
-
+ private:
+  bool enabled_{true};
+  uint32_t ssrc_{0};
+  uint16_t sendFrameCount_{0};
+  std::shared_ptr<rtc_adapter::RtcAdapter> rtcAdapter_;
+  rtc_adapter::VideoSendAdapter* videoSend_{nullptr};
   std::unique_ptr<rtc::TaskQueue> task_queue_;
 };
 

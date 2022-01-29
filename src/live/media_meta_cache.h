@@ -25,9 +25,7 @@ class MessageHeader;
 // Each stream have optional meta(sps/pps in sequence header and metadata).
 // This class cache and update the meta.
 class MediaMetaCache final {
-  MDECLARE_LOGGER();
-
-public:
+ public:
   MediaMetaCache();
   ~MediaMetaCache();
 

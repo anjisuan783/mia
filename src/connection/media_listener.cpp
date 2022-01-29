@@ -14,7 +14,7 @@
 #include "media_server.h"
 
 namespace ma {
-static log4cxx::LoggerPtr logger = log4cxx::Logger::getLogger("listener");
+static log4cxx::LoggerPtr logger = log4cxx::Logger::getLogger("ma.connection");
 
 void MediaListenerMgr::IMediaListener::OnNewConnectionEvent(
   rtc::AsyncPacketSocket* s, rtc::AsyncPacketSocket* c) {

@@ -8,17 +8,15 @@
 #define __NEW_MEDIA_LIVE_SOURCE_H__
 
 #include <memory>
-#include <mutex>
 #include <list>
 
 #include "utils/sigslot.h"
 #include "rtc_base/sequence_checker.h"
 #include "utils/Worker.h"
 #include "h/media_server_api.h"
-#include "common/media_log.h"
 #include "common/media_kernel_error.h"
 #include "live/media_consumer.h"
-#include "rtc/media_rtc_live_adaptor.h"
+#include "rtc/media_rtc_live_adaptor_sink.h"
 
 namespace ma {
 
@@ -26,34 +24,39 @@ class MediaMessage;
 class SrsGopCache;
 class MediaMetaCache;
 class SrsMixQueue;
+class RtmpMediaSink;
+class MediaSource;
 
 // live streaming source.
-class MediaLiveSource final : 
-    public std::enable_shared_from_this<MediaLiveSource>,
-    public RtcLiveAdapterSink {
-  MDECLARE_LOGGER();
-  
+class MediaLiveSource final : public RtcLiveAdapterSink {
+  friend class MediaSource;
+  friend class MediaLiveRtcAdaptor;
  public:
-  MediaLiveSource();
   ~MediaLiveSource();
-
-  //called by MediaSourceMgr
-  bool Initialize(wa::Worker*, bool gop, JitterAlgorithm);
-
-  void OnPublish();
+ protected:
+  MediaLiveSource(const std::string& stream_name);
   
-  void OnUnpublish();
+  //called by MediaSourceMgr
+  bool Initialize(bool gop, JitterAlgorithm algorithm, 
+      bool mix_correct_, int consumer_queue_size_);
+
+  //prepare resource for publisher
+  //can be called by rtc adaptor、local rtmp publisher and remote rtmp publisher
+  void OnPublish() override;
+  //clear resource
+  void OnUnpublish() override;
 
   std::shared_ptr<MediaConsumer> CreateConsumer();
+  void DestroyConsumer(MediaConsumer* consumer);
 
   bool ConsumerEmpty() {
     RTC_DCHECK_RUN_ON(&thread_check_);
     return consumers_.empty();
   }
-  
-  srs_error_t OnAudio(std::shared_ptr<MediaMessage>);
 
-  srs_error_t OnVideo(std::shared_ptr<MediaMessage>);
+  srs_error_t OnAudio(std::shared_ptr<MediaMessage>, bool from_adaptor) override;
+
+  srs_error_t OnVideo(std::shared_ptr<MediaMessage>, bool from_adaptor) override;
 
   srs_error_t consumer_dumps(MediaConsumer* consumer, 
                              bool dump_seq_header, 
@@ -64,23 +67,23 @@ class MediaLiveSource final :
     return jitter_algorithm_;
   }
 
+  sigslot::signal0<> signal_live_fisrt_consumer_;
   sigslot::signal0<> signal_live_no_consumer_;
+  sigslot::signal0<> signal_live_first_packet_;
 
  private:
   void on_av_i(std::shared_ptr<MediaMessage> msg);
-  void async_task(std::function<void(std::shared_ptr<MediaLiveSource>)> f);
-  void on_audio_async(std::shared_ptr<MediaMessage> shared_audio);
-  void on_video_async(std::shared_ptr<MediaMessage> shared_video);
+  void on_audio_async(std::shared_ptr<MediaMessage> shared_audio, bool);
+  void on_video_async(std::shared_ptr<MediaMessage> shared_video, bool);
   
  private:
-  wa::Worker* worker_;
-  
-  std::mutex consumer_lock_;
+  std::string stream_name_;
   std::list<std::weak_ptr<MediaConsumer>> consumers_; 
 
   // The time of the packet we just got.
   int64_t last_packet_time_{0};
 
+  // do not push any media when active is false, but consumers can join.
   bool active_{false};
 
   JitterAlgorithm jitter_algorithm_{JitterAlgorithmZERO};
@@ -100,6 +103,11 @@ class MediaLiveSource final :
   bool mix_correct_{false};
   // The mix queue to implements the mix correct algorithm.
   std::unique_ptr<SrsMixQueue> mix_queue_;
+
+  bool first_packet_{true};
+  bool first_consumer_{true};
+
+  int consumer_queue_size_{0};
   
   webrtc::SequenceChecker thread_check_;
 };

@@ -27,7 +27,7 @@ namespace ma {
 #define RTC_PLAY_HANDLER 1
 
 static log4cxx::LoggerPtr logger = 
-    log4cxx::Logger::getLogger("MediaHttpRtcServer");
+    log4cxx::Logger::getLogger("ma.rtcserver");
 
 class MediaHttpPlayHandler : public IMediaHttpHandler {
  public: 
@@ -134,9 +134,15 @@ srs_error_t MediaHttpPlayHandler::serve_http(
 
   std::string subscriber_id;
   
-  MediaSource::Config cfg{std::move(g_source_mgr_.GetWorker()), 
-                          g_server_.config_.enable_gop_,
-                          JitterAlgorithmZERO};
+  MediaSource::Config cfg = {
+      .worker = nullptr,
+      .gop = g_server_.config_.enable_gop_,
+      .jitter_algorithm = JitterAlgorithmZERO,
+      .rtc_api = nullptr,
+      .enable_rtc2rtmp_ = g_server_.config_.enable_rtc2rtmp_,
+      .enable_rtmp2rtc_ = g_server_.config_.enable_rtmp2rtc_,
+      .consumer_queue_size_ = g_server_.config_.enable_rtmp2rtc_,
+      .mix_correct_ = g_server_.config_.mix_correct_};
 
   auto rtc_source = g_source_mgr_.FetchOrCreateSource(cfg, req);
   err = rtc_source->Subscribe(
@@ -262,13 +268,22 @@ srs_error_t MediaHttpPublishHandler::serve_http(
                        req->port, 
                        req->param);
 
-  MediaSource::Config cfg{std::move(g_source_mgr_.GetWorker()), 
-                          g_server_.config_.enable_gop_,
-                          JitterAlgorithmZERO};
+  MediaSource::Config cfg = {
+      .worker = nullptr,
+      .gop = g_server_.config_.enable_gop_,
+      .jitter_algorithm = JitterAlgorithmZERO,
+      .rtc_api = nullptr,
+      .enable_rtc2rtmp_ = g_server_.config_.enable_rtc2rtmp_,
+      .enable_rtmp2rtc_ = g_server_.config_.enable_rtmp2rtc_,
+      .consumer_queue_size_ = g_server_.config_.enable_rtmp2rtc_,
+      .mix_correct_ = g_server_.config_.mix_correct_};
+
   auto ms = g_source_mgr_.FetchOrCreateSource(cfg, req);
 
   // change publisher
   if (!ms->IsPublisherJoined()) {
+    std::string publisher_id;
+    err = ms->Publish(sdp, std::move(writer), publisher_id, req);
     MLOG_INFO("publisher desc schema:" << req->schema << 
               ", host:" << req->host <<
               ", vhost:" << req->vhost << 
@@ -276,10 +291,9 @@ srs_error_t MediaHttpPublishHandler::serve_http(
               ", stream:" << req->stream << 
               ", port:" << req->port << 
               ", param:" << req->param <<
-              ", clientip:" << clientip);
-    std::string publisher_id;
-    return ms->Publish(
-        sdp, std::move(writer), publisher_id, req);
+              ", clientip:" << clientip <<
+              ", publisherid:" << publisher_id);
+    return err;
   }
 
   MLOG_WARN("publisher existed! desc schema:" << req->schema << 
@@ -336,7 +350,7 @@ srs_error_t MediaHttpRtcServeMux::serve_http(
     std::shared_ptr<IHttpResponseWriter> w, 
     std::shared_ptr<ISrsHttpMessage> m) {
   std::string path = m->path();
-  return handlers_[tcUrl2Handle(path)]->serve_http(std::move(w), m);
+  return handlers_[tcUrl2Handle(path)]->serve_http(std::move(w), std::move(m));
 }
 
 void MediaHttpRtcServeMux::conn_destroy(std::shared_ptr<IMediaConnection>) {

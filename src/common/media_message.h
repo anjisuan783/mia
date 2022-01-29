@@ -9,7 +9,6 @@
 
 #include <stdint.h>
 #include "utils/media_msg_chain.h"
-#include "common/media_log.h"
 
 namespace ma {
 
@@ -54,7 +53,6 @@ struct MessageHeader {
 };
 
 class MediaMessage final {
-  MDECLARE_LOGGER();
  public:
   MediaMessage();
   MediaMessage(const MediaMessage&);

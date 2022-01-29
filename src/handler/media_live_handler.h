@@ -11,7 +11,6 @@
 #include <map>
 #include <mutex>
 
-#include "common/media_log.h"
 #include "encoder/media_flv_encoder.h"
 #include "handler/h/media_handler.h"
 
@@ -24,9 +23,6 @@ class ISrsHttpMessage;
 class StreamEntry;
 
 class MediaFlvPlayHandler : public IMediaHttpHandler {
-
-  MDECLARE_LOGGER();
-
  public:
   MediaFlvPlayHandler();
   ~MediaFlvPlayHandler() override;

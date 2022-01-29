@@ -7,6 +7,7 @@
 
 #include "live/media_gop_cache.h"
 
+#include "common/media_log.h"
 #include "live/media_consumer.h"
 #include "common/media_message.h"
 #include "encoder/media_codec.h"
@@ -15,7 +16,7 @@ namespace ma {
 
 #define SRS_PURE_AUDIO_GUESS_COUNT 115
 
-MDEFINE_LOGGER(SrsGopCache, "SrsGopCache");
+static log4cxx::LoggerPtr logger = log4cxx::Logger::getLogger("ma.live");
 
 void SrsGopCache::dispose() {
   clear();

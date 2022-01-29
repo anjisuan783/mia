@@ -15,7 +15,7 @@
 
 namespace ma {
 
-#define __OPTIMIZE__
+#define __MIA_OPTIMIZE__
 
 #define SRS_FLV_TAG_HEADER_SIZE 11
 
@@ -217,7 +217,7 @@ srs_error_t SrsFlvTransmuxer::write_tags(std::vector<std::shared_ptr<MediaMessag
     pts = ppts = new char[SRS_FLV_PREVIOUS_TAG_SIZE * count];
   }
 
-#ifndef __OPTIMIZE__
+#ifndef __MIA_OPTIMIZE__
   // realloc the iovss.
   int nb_iovss = 3 * count;
   iovec* iovss = iovss_cache;

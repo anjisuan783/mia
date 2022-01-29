@@ -18,6 +18,7 @@
 
 #include "h/media_return_code.h"
 #include "h/media_server_api.h"
+#include "rtc_base/thread.h"
 
 int usage() {
   printf("usage: ./mia -l [log4cxx.properties] -c [mia.cfg]\n");
@@ -187,12 +188,28 @@ int main(int argc, char* argv[]) {
           continue;
         }
 
-        if (sub_setting_name[i] == "rtmp2rtc") {
+        if (sub_setting_name[i] == "rtc2rtmp") {
           if (config_setting_lookup_int(sub_item, "keyframe_interval", &i1)) {
             _config.request_keyframe_interval = i1;
           }
 
-          MIA_LOG("key:%d", _config.request_keyframe_interval);
+          if (config_setting_lookup_string(sub_item, "enable", &s1)) {
+            _config.enable_rtc2rtmp_ = (std::string(s1) == "on");
+          }
+          
+          MIA_LOG("rtc2rtmp keyframe interval:%d enable:%s", 
+                  _config.request_keyframe_interval, 
+                  _config.enable_rtc2rtmp_?"on":"off");
+          continue;
+        }
+
+        if (sub_setting_name[i] == "rtmp2rtc") {
+          if (config_setting_lookup_string(sub_item, "enable", &s1)) {
+            _config.enable_rtmp2rtc_ = (std::string(s1) == "on");
+          }
+          
+          MIA_LOG("rtmp2rtc enable:%s",
+                  _config.enable_rtmp2rtc_?"on":"off");
           continue;
         }
 
@@ -209,6 +226,25 @@ int main(int argc, char* argv[]) {
   config_destroy(&cfg);
 
   MIA_LOG("mia start");
+  
+  enum { MSG_TIMEOUT };
+
+  class ServerObject : public rtc::MessageHandler {
+   public:
+    ServerObject(ma::MediaServerApi* p, rtc::Thread* pthread) 
+      : server_{p}, thread_{pthread} {
+      thread_->PostDelayed(RTC_FROM_HERE, 5000, this, MSG_TIMEOUT, nullptr);
+    }
+    void OnMessage(rtc::Message* msg) override {
+      if (MSG_TIMEOUT == msg->message_id) {
+        server_->Dump();
+        thread_->PostDelayed(RTC_FROM_HERE, 5000, this, MSG_TIMEOUT, nullptr);
+      }
+    }
+   private:
+    ma::MediaServerApi* server_;
+    rtc::Thread*        thread_;
+  };
 
   ma::MediaServerApi* server = ma::MediaServerFactory().Create();
   int ret = server->Init(_config);
@@ -216,11 +252,12 @@ int main(int argc, char* argv[]) {
     MIA_LOG("initialize failed, code:%d", ret);
     return ret;
   }
+  
+  rtc::Thread* pthMain = rtc::Thread::Current();
+  
+  ServerObject objserver(server, pthMain);
 
-  do {
-    ::sleep(5);
-    server->Dump();
-  } while(true);
+  pthMain->Run();
 
   MIA_LOG("mia stop");
 

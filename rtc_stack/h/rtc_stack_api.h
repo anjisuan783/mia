@@ -70,16 +70,31 @@ class WebrtcAgentSink
   bool async_callback_{false};
 };
 
-struct TOption { 
+// for publisher outside
+class RtcPeer {
+ public:
+  virtual ~RtcPeer() {}
+
+  virtual void DeliveryFrame(std::shared_ptr<owt_base::Frame>) = 0;
+};
+
+enum PeerType {
+  peer_real,
+  peer_dummy
+};
+
+struct TOption {
+  PeerType type_{peer_real};
   std::string connectId_;
   std::string stream_name_;
   std::vector<TTrackInfo> tracks_; 
   std::shared_ptr<WebrtcAgentSink> call_back_;
+  std::shared_ptr<RtcPeer> pc_;
 };
 
-class rtc_api {
+class RtcApi {
  public:
-  ~rtc_api() { }
+  virtual ~RtcApi() { }
 
   /**
    * network_addresses{ip:port}
@@ -105,7 +120,7 @@ class AgentFactory {
   AgentFactory() = default;
   ~AgentFactory() = default;
  
-  std::unique_ptr<rtc_api> create_agent();
+  std::unique_ptr<RtcApi> create_agent();
 };
 
 }

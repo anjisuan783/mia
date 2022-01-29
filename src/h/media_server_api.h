@@ -44,6 +44,10 @@ class MediaServerApi {
     std::string https_hostname;
 
     //for rtmp2rtc
+    bool enable_rtmp2rtc_{true};
+
+    //for rtc2rtmp
+    bool enable_rtc2rtmp_{true};
     int32_t request_keyframe_interval{5}; // second
 
     //for vhost
@@ -53,6 +57,8 @@ class MediaServerApi {
     std::string path{"."};
 
     std::vector<std::string> listen_addr_;   // [schema://ip:port]
+
+    
   };
  
   virtual ~MediaServerApi() { }

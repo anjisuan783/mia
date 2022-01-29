@@ -4,7 +4,6 @@
 
 #include "owt_base/VideoFrameConstructor.h"
 
-#include <iostream>
 #include <future>
 #include <random>
 #include <math.h>
@@ -28,11 +27,16 @@ VideoFrameConstructor::VideoFrameConstructor(
 }
 
 VideoFrameConstructor::~VideoFrameConstructor() {
+  close();
+}
+
+void VideoFrameConstructor::close() {
   unbindTransport();
   if (videoReceive_) {
     rtcAdapter_->destoryVideoReceiver(videoReceive_);
     videoReceive_ = nullptr;
   }
+  rtcAdapter_ = nullptr;
 }
 
 void VideoFrameConstructor::bindTransport(
@@ -59,6 +63,7 @@ int32_t VideoFrameConstructor::RequestKeyFrame() {
   if (!enable_) {
     return 0;
   }
+  
   if (videoReceive_) {
     videoReceive_->requestKeyFrame();
   }
@@ -160,10 +165,6 @@ void VideoFrameConstructor::onFeedback(const FeedbackMsg& msg) {
       }      
     }
   });
-}
-
-void VideoFrameConstructor::close() {
-  unbindTransport();
 }
 
 void VideoFrameConstructor::createReceiveVideo(uint32_t ssrc) {

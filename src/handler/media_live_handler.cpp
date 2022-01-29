@@ -9,6 +9,7 @@
 #include <chrono>
 #include <iostream>
 
+#include "common/media_log.h"
 #include "rtc_base/sequence_checker.h"
 #include "http/http_consts.h"
 #include "utils/protocol_utility.h"
@@ -28,11 +29,12 @@
 #include "media_statistics.h"
 
 namespace ma {
+  
+static log4cxx::LoggerPtr logger = 
+    log4cxx::Logger::getLogger("ma.liveserver");
 
 class StreamEntry final 
     : public std::enable_shared_from_this<StreamEntry> {
-
-  MDECLARE_LOGGER();
 
   struct customer {
     customer(std::shared_ptr<MediaConsumer> consumer,
@@ -95,8 +97,6 @@ class StreamEntry final
 
   webrtc::SequenceChecker thread_check_;
 };
-
-MDEFINE_LOGGER(StreamEntry, "StreamEntry");
 
 StreamEntry::StreamEntry(std::shared_ptr<MediaSource> s, 
                          std::shared_ptr<MediaRequest> r) 
@@ -338,8 +338,6 @@ void StreamEntry::async_task(std::function<void()> f) {
 }
 
 //MediaFlvPlayHandler
-MDEFINE_LOGGER(MediaFlvPlayHandler, "MediaFlvPlayHandler");
-
 MediaFlvPlayHandler::MediaFlvPlayHandler() = default;
 
 MediaFlvPlayHandler::~MediaFlvPlayHandler() = default;

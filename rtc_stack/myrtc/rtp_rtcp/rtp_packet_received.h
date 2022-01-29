@@ -62,6 +62,10 @@ class RtpPacketReceived : public RtpPacket {
   }
   const uint8_t* data() const override { return view_.data(); }
  private:
+  size_t capacity() const override {
+    return view_.size(); 
+  }
+ 
   NtpTime capture_time_;
   int64_t arrival_time_ms_ = 0;
   int payload_type_frequency_ = 0;

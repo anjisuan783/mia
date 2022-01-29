@@ -25,7 +25,8 @@ cd $CURRENT_DIR
 
 rm -f mia
 
-g++ -o mia -g3 -ggdb -std=gnu++17 ./demo/media_server_main.cpp  -I./src \
+g++ -o mia -g3 -ggdb -std=gnu++17 -DWEBRTC_POSIX -DWEBRTC_LINUX -DDCHECK_ALWAYS_ON \
+	./demo/media_server_main.cpp  -I./src -I./rtc_stack/myrtc \
 	./build/ma/libma.a \
 	$PREFIX_DIR/lib/libavcodec.a \
 	$PREFIX_DIR/lib/libswresample.a \

@@ -10,7 +10,7 @@
 #include <sstream>
 #include <string.h>
 #include <string_view>
-
+#include <random>
 
 #include "common_define.h"
 #include "h/rtc_stack_api.h"
@@ -680,7 +680,7 @@ void MediaDesc::encode(JSON_TYPE& media) {
   }
 }
 
-void MediaDesc::buildSettingFromExtmap(MediaSetting& settings) {
+void MediaDesc::buildSettingFromExtmap(TrackSetting& settings) {
   // Video ulpfec red transport-cc
   std::for_each(rtp_maps_.begin(), 
                 rtp_maps_.end(), 
@@ -704,8 +704,8 @@ void MediaDesc::buildSettingFromExtmap(MediaSetting& settings) {
   });
 }
 
-MediaSetting MediaDesc::getMediaSettings() {
-  MediaSetting settings;
+TrackSetting MediaDesc::getTrackSettings() {
+  TrackSetting settings;
   if (type_ == "audio") {
     settings.is_audio = true;
     // Audio ssrc
@@ -1284,17 +1284,17 @@ void WaSdpInfo::setCandidates(const WaSdpInfo& sdpInfo) {
   }
 }
 
-MediaSetting WaSdpInfo::getMediaSettings(const std::string& mid) {
+TrackSetting WaSdpInfo::getTrackSettings(const std::string& mid) {
   auto found = std::find_if(media_descs_.begin(), media_descs_.end(), 
       [mid](auto& item) {
     return item.mid_ == mid;
   });
 
   if (found != media_descs_.end()) {
-    return (*found).getMediaSettings();
+    return (*found).getTrackSettings();
   }
 
-  return MediaSetting();
+  return TrackSetting();
 }
 
 } //namespace wa

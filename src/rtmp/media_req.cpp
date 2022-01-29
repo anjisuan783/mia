@@ -1,5 +1,6 @@
 #include "rtmp/media_req.h"
 
+#include "common/media_log.h"
 #include "utils/protocol_utility.h"
 #include "http/http_consts.h"
 #include "rtmp/media_amf0.h"
@@ -8,7 +9,7 @@ namespace ma {
 
 #define RTMP_SIG_AMF0_VER   0
 
-MDEFINE_LOGGER(MediaRequest, "MediaRequest");
+static log4cxx::LoggerPtr logger = log4cxx::Logger::getLogger("ma.rtmp");
 
 MediaRequest::MediaRequest()
 {

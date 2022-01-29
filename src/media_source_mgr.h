@@ -32,12 +32,12 @@ class MediaSourceMgr {
 
   // MediaSource wiil be destroyed on nobody.
   void RemoveSource(std::shared_ptr<MediaRequest> req);
-
+ private:
   std::shared_ptr<wa::Worker> GetWorker();
  private:
   std::mutex source_lock_;
   std::map<std::string, std::shared_ptr<MediaSource>> sources_;
-  std::unique_ptr<wa::rtc_api> rtc_api_;
+  std::unique_ptr<wa::RtcApi> rtc_api_;
 };
 
 extern MediaSourceMgr g_source_mgr_;

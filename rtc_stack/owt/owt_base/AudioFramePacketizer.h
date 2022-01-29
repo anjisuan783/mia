@@ -36,7 +36,9 @@ class AudioFramePacketizer
       webrtc::TaskQueueBase* task_queue = nullptr;
   };
   AudioFramePacketizer(Config& config);
-  ~AudioFramePacketizer();
+  ~AudioFramePacketizer() override;
+
+  void close();
 
   void bindTransport(erizo::MediaSink* sink);
   void unbindTransport();
@@ -56,7 +58,6 @@ class AudioFramePacketizer
 
  private:
   bool init(Config& config);
-  void close();
 
   // Implement erizo::FeedbackSink
   int deliverFeedback_(std::shared_ptr<erizo::DataPacket> data_packet);

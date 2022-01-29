@@ -16,7 +16,7 @@
 
 namespace ma {
 
-static log4cxx::LoggerPtr logger = log4cxx::Logger::getLogger("MediaConsumer");
+static log4cxx::LoggerPtr logger = log4cxx::Logger::getLogger("ma.live");
 
 #define CONST_MAX_JITTER_MS         250
 #define CONST_MAX_JITTER_MS_NEG         -250

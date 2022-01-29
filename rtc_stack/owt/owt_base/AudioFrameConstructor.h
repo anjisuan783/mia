@@ -35,7 +35,9 @@ class AudioFrameConstructor final : public erizo::MediaSink,
   };
   
   AudioFrameConstructor(const config&);
-  virtual ~AudioFrameConstructor();
+  ~AudioFrameConstructor() override;
+
+  void close();
 
   void bindTransport(erizo::MediaSource* source, erizo::FeedbackSink* fbSink);
   void unbindTransport();
@@ -51,7 +53,7 @@ class AudioFrameConstructor final : public erizo::MediaSink,
   int deliverEvent_(erizo::MediaEventPtr event) override;
 
   void onAdapterData(char* data, int len) override;
-  void close();
+  
   void createAudioReceiver();
 
   void onSr(erizo::RtcpHeader *chead);

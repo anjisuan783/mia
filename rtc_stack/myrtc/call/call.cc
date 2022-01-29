@@ -337,7 +337,6 @@ Call::Call(Clock* clock,
       task_queue_(task_queue_factory->CreateTaskQueue(
           "rtp_send_controller",
           TaskQueueFactory::Priority::NORMAL)) {
-  RTC_DCHECK(config.event_log != nullptr);
   worker_sequence_checker_.Detach();
 
   call_stats_->RegisterStatsObserver(&receive_side_cc_);

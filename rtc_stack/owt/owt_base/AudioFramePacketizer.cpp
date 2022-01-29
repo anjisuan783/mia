@@ -22,11 +22,16 @@ AudioFramePacketizer::AudioFramePacketizer(AudioFramePacketizer::Config& config)
 
 AudioFramePacketizer::~AudioFramePacketizer() {
   close();
+}
+
+void AudioFramePacketizer::close() {
+  unbindTransport();
   if (audioSend_) {
     rtcAdapter_->destoryAudioSender(audioSend_);
     rtcAdapter_.reset();
     audioSend_ = nullptr;
   }
+  rtcAdapter_ = nullptr;
 }
 
 void AudioFramePacketizer::bindTransport(erizo::MediaSink* sink) {
@@ -107,10 +112,6 @@ void AudioFramePacketizer::onAdapterData(char* data, int len) {
     audio_sink_->deliverAudioData(
         std::make_shared<erizo::DataPacket>(0, data, len, erizo::AUDIO_PACKET));
   }
-}
-
-void AudioFramePacketizer::close() {
-  unbindTransport();
 }
 
 int AudioFramePacketizer::sendPLI() {

@@ -9,6 +9,7 @@
 
 #include <sstream>
 
+#include "common/media_log.h"
 #include "common/media_message.h"
 #include "encoder/media_codec.h"
 #include "rtmp/media_rtmp_format.h"
@@ -16,7 +17,7 @@
 
 namespace ma {
 
-MDEFINE_LOGGER(MediaMetaCache, "MediaMetaCache");
+static log4cxx::LoggerPtr logger = log4cxx::Logger::getLogger("ma.live");
 
 MediaMetaCache::MediaMetaCache()
   : vformat{std::make_unique<SrsRtmpFormat>()},

@@ -12,7 +12,7 @@
 
 namespace ma {
 
-static log4cxx::LoggerPtr logger = log4cxx::Logger::getLogger("media_codec");
+static log4cxx::LoggerPtr logger = log4cxx::Logger::getLogger("ma.encoder");
 
 std::string srs_audio_codec_id2str(SrsAudioCodecId codec) {
   switch (codec) {
