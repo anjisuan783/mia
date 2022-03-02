@@ -22,6 +22,7 @@ namespace ma {
 class MediaSourceMgr {
  public:
   int Init(unsigned int);
+  void Close();
   
   std::shared_ptr<MediaSource> 
       FetchOrCreateSource(MediaSource::Config& cfg,

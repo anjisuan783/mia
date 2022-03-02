@@ -41,6 +41,7 @@ void VideoFrameConstructor::close() {
 
 void VideoFrameConstructor::bindTransport(
     erizo::MediaSource* source, erizo::FeedbackSink* fbSink) {
+  if (!source) return ;
   transport_ = source;
   transport_->setVideoSink(this);
   transport_->setEventSink(this);
@@ -166,7 +167,8 @@ void VideoFrameConstructor::onFeedback(const FeedbackMsg& msg) {
     }
   });
 }
-
+
+
 void VideoFrameConstructor::createReceiveVideo(uint32_t ssrc) {
   if (videoReceive_) {
     return;

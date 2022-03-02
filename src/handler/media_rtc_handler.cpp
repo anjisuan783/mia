@@ -123,8 +123,9 @@ srs_error_t MediaHttpPlayHandler::serve_http(
                        req->stream,
                        req->port, 
                        req->param);
-
-  MLOG_INFO("subscriber desc schema:" << req->schema << 
+  req->vhost = g_server_.config_.vhost;
+  MLOG_INFO("subscriber desc tcUrl:" << req->tcUrl << 
+            ", schema:" << req->schema << 
             ", host:" << req->host <<
             ", vhost:" << req->vhost << 
             ", app:" << req->app << 
@@ -267,6 +268,7 @@ srs_error_t MediaHttpPublishHandler::serve_http(
                        req->stream,
                        req->port, 
                        req->param);
+  req->vhost = g_server_.config_.vhost;
 
   MediaSource::Config cfg = {
       .worker = nullptr,
@@ -284,7 +286,8 @@ srs_error_t MediaHttpPublishHandler::serve_http(
   if (!ms->IsPublisherJoined()) {
     std::string publisher_id;
     err = ms->Publish(sdp, std::move(writer), publisher_id, req);
-    MLOG_INFO("publisher desc schema:" << req->schema << 
+    MLOG_INFO("publisher desc tcUrl:" << req->tcUrl << 
+              ", schema:" << req->schema << 
               ", host:" << req->host <<
               ", vhost:" << req->vhost << 
               ", app:" << req->app << 
@@ -296,7 +299,8 @@ srs_error_t MediaHttpPublishHandler::serve_http(
     return err;
   }
 
-  MLOG_WARN("publisher existed! desc schema:" << req->schema << 
+  MLOG_WARN("publisher existed! desc tcUrl:" << req->tcUrl << 
+            ", schema:" << req->schema << 
             ", host:" << req->host <<
             ", vhost:" << req->vhost << 
             ", app:" << req->app << 

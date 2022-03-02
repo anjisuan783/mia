@@ -48,8 +48,8 @@ class MediaRtcSource final : public sigslot::has_slots<>,
   void Close();
   
   // for local publish
-  void OnLocalPublish(const std::string& streamName) override;
-  void OnLocalUnpublish() override;
+  srs_error_t OnLocalPublish(const std::string& streamName) override;
+  srs_error_t OnLocalUnpublish() override;
 
   void SetMediaSink(RtcMediaSink* s);
 
@@ -74,6 +74,7 @@ class MediaRtcSource final : public sigslot::has_slots<>,
   void TurnOnFrameCallback(bool);
  private:
   void OnPublisherJoin(std::shared_ptr<MediaRtcAttendeeBase>);
+  void NotifyPublisherJoin();
  public:
   sigslot::signal0<> signal_rtc_first_suber_;
   sigslot::signal0<> signal_rtc_nobody_;

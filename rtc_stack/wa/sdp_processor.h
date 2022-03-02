@@ -22,6 +22,8 @@ namespace wa {
 
 struct FormatPreference;
 
+int32_t get_pt_by_preference(EFormatPreference t);
+
 struct SessionInfo {
   int decode(const JSON_TYPE& session);
   void encode(JSON_TYPE& session);

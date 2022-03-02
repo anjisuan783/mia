@@ -60,13 +60,13 @@ std::shared_ptr<MediaConsumer> MediaSource::CreateConsumer() {
   return live_source_->CreateConsumer();
 }
 
-srs_error_t MediaSource::consumer_dumps(
+srs_error_t MediaSource::ConsumerDumps(
     MediaConsumer* consumer, 
     bool dump_seq_header, 
     bool dump_meta, 
     bool dump_gop) {
   RTC_DCHECK_RUN_ON(&thread_check_);
-  return live_source_->consumer_dumps(
+  return live_source_->ConsumerDumps(
       consumer, dump_seq_header, dump_meta, dump_gop);
 }
 
@@ -110,7 +110,11 @@ void MediaSource::OnPublish(PublisherType t) {
     publiser_type_ = t;
 
     if (eLocalRtc == t) {
-      rtc_source_->OnLocalPublish(req_->get_stream_url());
+      srs_error_t err = rtc_source_->OnLocalPublish(req_->get_stream_url());
+      if (err != nullptr) {
+        MLOG_ERROR("rtc local publish failed, desc:" << srs_error_desc(err));
+        delete err;
+      }
     }
 
     if (isRtmp(t)) {
@@ -144,7 +148,11 @@ void MediaSource::OnUnpublish() {
     }
     
     if (eLocalRtc == publiser_type_) {
-      rtc_source_->OnLocalUnpublish();
+      srs_error_t err = rtc_source_->OnLocalUnpublish();
+      if (err != nullptr) {
+        MLOG_ERROR("rtc local unpublish failed, desc:" << srs_error_desc(err));
+        delete err;
+      }
     }
 
     if (isRtmp(publiser_type_)) {
@@ -201,7 +209,7 @@ void MediaSource::OnRtcFirstSubscriber() {
 void MediaSource::OnRtcNobody() {
   RTC_DCHECK_RUN_ON(&thread_check_);
 
-  MLOG_INFO("onbody, destroy rtc adaptor:" << req_->get_stream_url());
+  MLOG_INFO("rtc onbody:" << req_->get_stream_url());
   auto self = shared_from_this();  
   // no players destroy rtc adaptor
   if (isRtmp(publiser_type_)) {
@@ -211,14 +219,15 @@ void MediaSource::OnRtcNobody() {
 
 void MediaSource::OnRtmpNoConsumer() {
   RTC_DCHECK_RUN_ON(&thread_check_);
-  MLOG_INFO("onbody, destroy rtmp adaptor:" << req_->get_stream_url());
+  MLOG_INFO("rtmp onbody:" << req_->get_stream_url());
   // no players destroy rtmp adaptor
   if (isRtc(publiser_type_)) {
     UnactiveRtmpAdapter();
   }
 }
 
-void MediaSource::OnRtmpFirstConsumer() {
+void MediaSource::OnRtmpFirstConsumer() {
+
   RTC_DCHECK_RUN_ON(&thread_check_);
   // transform media from rtc to rtmp
   if (isRtc(publiser_type_)) {
@@ -303,8 +312,15 @@ void MediaSource::ActiveRtcAdapter() {
     return;
   }
 
-  rtc_adapter_.reset(new MediaLiveRtcAdaptor(req_->get_stream_url()));
-  rtc_adapter_->Open(live_source_.get(), rtc_source_.get());
+  rtc_adapter_ = std::make_shared<MediaLiveRtcAdaptor>(req_->get_stream_url());
+  srs_error_t err = 
+      rtc_adapter_->Open(worker_, live_source_.get(), rtc_source_.get());
+  if (err != nullptr) {
+    MLOG_ERROR("rtc_adapter open failed, desc:" << srs_error_desc(err));
+    delete err;
+    rtc_adapter_->Close();
+    rtc_adapter_ = nullptr;
+  }
 }
 
 void MediaSource::UnactiveRtcAdapter() {
@@ -315,7 +331,7 @@ void MediaSource::UnactiveRtcAdapter() {
   }
 
   rtc_adapter_->Close();
-  rtc_adapter_.reset(nullptr);
+  rtc_adapter_ = nullptr;
 }
 
 void MediaSource::ActiveRtmpAdapter() {

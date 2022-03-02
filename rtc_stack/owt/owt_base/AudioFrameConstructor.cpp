@@ -82,6 +82,7 @@ void AudioFrameConstructor::close() {
 
 void AudioFrameConstructor::bindTransport(
     erizo::MediaSource* source, erizo::FeedbackSink* fbSink) {
+  if (!source) return ;
   transport_ = source;
   transport_->setAudioSink(this);
   transport_->setEventSink(this);
@@ -194,7 +195,8 @@ void AudioFrameConstructor::createAudioReceiver() {
   ssrc_ = config_.ssrc;
 
   //audio do not support twcc
-  if (-1 == config_.transportcc)
+  if (-1 == config_.transportcc)
+
     return;
   
   // Create Receive audio Stream for transport-cc

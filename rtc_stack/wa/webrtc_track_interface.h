@@ -7,6 +7,9 @@
 #include "srs_kernel_error.h"
 #include "h/rtc_media_frame.h"
 #include "owt/owt_base/MediaFramePipeline.h"
+#include "erizo/MediaStream.h"
+#include "owt/owt_base/VideoFrameConstructor.h"
+#include "owt/owt_base/AudioFrameConstructor.h"
 
 namespace wa {
 
@@ -35,9 +38,10 @@ class WebrtcTrackBase {
     e_av
   };
  
-  WebrtcTrackBase(const std::string& mid, 
-      WrtcAgentPcBase* pc, const std::string& trackname);
-  virtual void close() = 0;
+  WebrtcTrackBase(const std::string& mid, WrtcAgentPcBase* pc, bool isPublish, 
+      const TrackSetting& setting, erizo::MediaStream* ms);
+  virtual ~WebrtcTrackBase() { }
+  virtual void close();
   
   virtual void addDestination(bool isAudio, 
       std::shared_ptr<owt_base::FrameDestination> dest) = 0;
@@ -48,7 +52,7 @@ class WebrtcTrackBase {
 
   virtual uint32_t ssrc(bool isAudio) = 0;
   
-  virtual srs_error_t trackControl(ETrackCtrl, bool isIn, bool isOn) = 0;
+  virtual srs_error_t trackControl(ETrackCtrl, bool isIn, bool isOn) = 0;
 
   virtual void requestKeyFrame() = 0;
   virtual void stopRequestKeyFrame() = 0;
@@ -75,9 +79,11 @@ class WebrtcTrackBase {
   int32_t audioFormat_{0};
   int32_t videoFormat_{0};
   std::string name_;
+
+  std::shared_ptr<owt_base::AudioFrameConstructor> audioFrameConstructor_;  
+  std::shared_ptr<owt_base::VideoFrameConstructor> videoFrameConstructor_;
 };
 
 }; //namespace wa
 
 #endif //!__WA_WEBRTC_TRACK_INTERFACE_H__
-

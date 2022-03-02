@@ -71,7 +71,7 @@ void MediaRtcSource::Open(wa::RtcApi* rtc, wa::Worker* worker) {
 void MediaRtcSource::Close() {
 }
 
-void MediaRtcSource::OnLocalPublish(const std::string& streamName) {
+srs_error_t MediaRtcSource::OnLocalPublish(const std::string& streamName) {
   if (stream_name_.empty())
     stream_name_ = streamName;
 
@@ -79,6 +79,7 @@ void MediaRtcSource::OnLocalPublish(const std::string& streamName) {
   std::string publisher_id = GenerateId();
   MLOG_TRACE_THIS("stream:" << streamName << ", publisher_id:" << publisher_id);
   wa::TOption  t;
+  t.type_ = wa::peer_dummy;
   t.connectId_ = publisher_id; // random
   t.stream_name_ = streamName;
 
@@ -103,15 +104,23 @@ void MediaRtcSource::OnLocalPublish(const std::string& streamName) {
   }
 
   publisher_id_ = publisher_id;
-
   dummy_publisher_ = std::move(t.pc_);
+  NotifyPublisherJoin();
+  return err;
 }
 
-void MediaRtcSource::OnLocalUnpublish() {
+srs_error_t MediaRtcSource::OnLocalUnpublish() {
   RTC_DCHECK_RUN_ON(&thread_check_);
   MLOG_TRACE_THIS("stream:" << stream_name_ << ", publisher_id:" << publisher_id_);
   publisher_id_.clear();
+
+  int rv = rtc_->DestroyPeer(publisher_id_);
+  srs_error_t err = srs_success;
+  if (rv != wa::wa_ok) {
+    err = srs_error_wrap(err, "rtc unpublish failed, code:%d", rv);
+  }
   dummy_publisher_ = nullptr;
+  return err;
 }
 
 srs_error_t MediaRtcSource::Publish(std::string_view sdp, 
@@ -290,12 +299,7 @@ void MediaRtcSource::OnPublisherJoin(std::shared_ptr<MediaRtcAttendeeBase> p) {
   publisher_->ChangeOnFrame(frame_on_);
   p->SetSink(media_sink_);
 
-  {
-    std::lock_guard<std::mutex> guard(attendees_lock_);
-    for (auto& i : attendees_) {
-      i.second->OnPublisherJoin(publisher_id_);
-    }
-  }
+  NotifyPublisherJoin();
 
   signal_rtc_publisher_join_();
 }
@@ -316,5 +320,11 @@ void MediaRtcSource::OnFrame(std::shared_ptr<owt_base::Frame> frm) {
   dummy_publisher_->DeliveryFrame(std::move(frm));
 }
 
-} //namespace ma
+void MediaRtcSource::NotifyPublisherJoin() {
+  std::lock_guard<std::mutex> guard(attendees_lock_);
+  for (auto& i : attendees_) {
+    i.second->OnPublisherJoin(publisher_id_);
+  }
+}
 
+} //namespace ma

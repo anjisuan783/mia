@@ -73,7 +73,7 @@ void FillTrack(const std::string& sdp,
 
 static log4cxx::LoggerPtr logger = log4cxx::Logger::getLogger("ma.rtc");
 
-///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////
 //MediaRtcAttendeeBase
 ///////////////////////////////////////////////////////////////////////////////
 srs_error_t MediaRtcAttendeeBase::Open(wa::RtcApi* rtc, 
@@ -250,8 +250,8 @@ void MediaRtcPublisher::onFrame(std::shared_ptr<owt_base::Frame> frm) {
 MediaRtcSubscriber::MediaRtcSubscriber(const std::string& id) 
     : MediaRtcAttendeeBase(id) {
   MLOG_TRACE(id);
-}
-  
+}
+
 MediaRtcSubscriber::~MediaRtcSubscriber() {
   MLOG_TRACE(pc_id_);
 }

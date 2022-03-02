@@ -172,12 +172,10 @@ void MediaRtcLiveAdaptor::OnMediaFrame(std::shared_ptr<owt_base::Frame> f) {
       to.codec = SrsAudioCodecIdAAC;
 
       from.samplerate = frm.additionalInfo.audio.sampleRate;  
-      from.bitpersample = 16;
       from.channels = frm.additionalInfo.audio.channels;
-      from.bitrate = from.samplerate * from.bitpersample * from.channels;
+      //from.bitrate = from.samplerate * from.bitpersample * from.channels;
       
       to.samplerate = 44100; // The output audio sample rate in hz.
-      to.bitpersample = 16;
       to.channels = 2;       //stero
       to.bitrate = 48000; // The output audio bitrate in bps.
 

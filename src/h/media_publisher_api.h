@@ -27,12 +27,6 @@ class MediaRtcPublisherApi {
 
 class MediaRtcPublisherFactory {
  public:
-  /*
-   * rtmp : true local rtmp publisher will be created.
-   *        rtmp publisher need aac(44.1khz 16bit stero), h264(without B frame)
-   * rtmp : false local webrrtc publisher will be created.
-            webrtc publisher need opus(48khz 16bit stero), h264(without B frame)
-   */
   std::shared_ptr<MediaRtcPublisherApi> Create();
 };
 
@@ -50,16 +44,17 @@ class MediaRtmpPublisherApi {
 
 class MediaRtmpPublisherFactory {
  public:
-  /*
-   * rtmp : true local rtmp publisher will be created.
-   *        rtmp publisher need aac(44.1khz 16bit stero), h264(without B frame)
-   * rtmp : false local webrrtc publisher will be created.
-            webrtc publisher need opus(48khz 16bit stero), h264(without B frame)
-   */
   std::shared_ptr<MediaRtmpPublisherApi> Create();
 };
 
+/*
+ * rtmp : true local rtmp publisher will be created.
+ *        rtmp publisher need aac(44.1khz 16bit stero), h264(without B frame)
+ * rtmp : false local webrrtc publisher will be created.
+          webrtc publisher need opus(48khz 16bit stero), h264(without B frame)
+ */
 
 }
 
 #endif //!__MEDIA_PUBLISHER_H__
+

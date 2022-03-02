@@ -14,37 +14,32 @@
 
 #define gettid() syscall(__NR_gettid)
 
-bool srs_is_system_control_error(srs_error_t err)
-{
+bool srs_is_system_control_error(srs_error_t err) {
   int error_code = srs_error_code(err);
   return error_code == ERROR_CONTROL_RTMP_CLOSE
       || error_code == ERROR_CONTROL_REPUBLISH
       || error_code == ERROR_CONTROL_REDIRECT;
 }
 
-bool srs_is_client_gracefully_close(srs_error_t err)
-{
+bool srs_is_client_gracefully_close(srs_error_t err) {
   int error_code = srs_error_code(err);
   return error_code == ERROR_SOCKET_READ
       || error_code == ERROR_SOCKET_READ_FULLY
       || error_code == ERROR_SOCKET_WRITE;
 }
 
-bool srs_is_server_gracefully_close(srs_error_t err)
-{
+bool srs_is_server_gracefully_close(srs_error_t err) {
   int code = srs_error_code(err);
   return code == ERROR_HTTP_STREAM_EOF;
 }
 
-SrsCplxError::SrsCplxError()
-{
+SrsCplxError::SrsCplxError() {
   code = ERROR_SUCCESS;
   wrapped = NULL;
   rerrno = line = 0;
 }
 
-SrsCplxError::~SrsCplxError()
-{
+SrsCplxError::~SrsCplxError() {
   srs_freep(wrapped);
 }
 
@@ -153,8 +148,7 @@ SrsCplxError* SrsCplxError::success() {
   return NULL;
 }
 
-SrsCplxError* SrsCplxError::copy(SrsCplxError* from)
-{
+SrsCplxError* SrsCplxError::copy(SrsCplxError* from) {
   if (from == srs_success) {
     return srs_success;
   }
@@ -174,18 +168,15 @@ SrsCplxError* SrsCplxError::copy(SrsCplxError* from)
   return err;
 }
 
-std::string SrsCplxError::description(SrsCplxError* err)
-{
+std::string SrsCplxError::description(SrsCplxError* err) {
   return err? err->description() : "Success";
 }
 
-std::string SrsCplxError::summary(SrsCplxError* err)
-{
+std::string SrsCplxError::summary(SrsCplxError* err) {
   return err? err->summary() : "Success";
 }
 
-int SrsCplxError::error_code(SrsCplxError* err)
-{
+int SrsCplxError::error_code(SrsCplxError* err) {
   return err? err->code : ERROR_SUCCESS;
 }
 

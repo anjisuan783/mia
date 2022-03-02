@@ -31,9 +31,10 @@ public:
   
   ~WebrtcAgent() override;
 
-  int initiate(uint32_t num_workers, 
-               const std::vector<std::string>& ip_addresses, 
-               const std::string& service_addr);
+  int Open(uint32_t num_workers, 
+           const std::vector<std::string>& ip_addresses, 
+           const std::string& service_addr) override;
+  void Close() override;
 
   int CreatePeer(TOption&, const std::string& offer) override;
 

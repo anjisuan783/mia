@@ -8,6 +8,7 @@
 
 namespace ma {
 
+/*
 class RtmpMediaSink {
  public:
   virtual ~RtmpMediaSink() = default;
@@ -16,6 +17,7 @@ class RtmpMediaSink {
   virtual srs_error_t OnVideo(
       std::shared_ptr<MediaMessage>, bool from_adaptor) = 0;
 };
+*/
 
 }
 

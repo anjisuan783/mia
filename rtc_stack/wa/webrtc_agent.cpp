@@ -29,9 +29,9 @@ WebrtcAgent::WebrtcAgent() = default;
 
 WebrtcAgent::~WebrtcAgent() = default;
 
-int WebrtcAgent::initiate(uint32_t num_workers, 
-                          const std::vector<std::string>& ip_addresses, 
-                          const std::string& service_addr) {
+int WebrtcAgent::Open(uint32_t num_workers, 
+                      const std::vector<std::string>& ip_addresses, 
+                      const std::string& service_addr) {
   if(ip_addresses.empty()){
     return wa_e_invalid_param;
   }
@@ -61,6 +61,16 @@ int WebrtcAgent::initiate(uint32_t num_workers,
   stun_address_ = service_addr;
 
   return wa_ok;
+}
+
+void WebrtcAgent::Close() {
+  if (global_init_) {
+    erizo::erizo_global_release();
+    event_set_log_callback(nullptr);
+    workers_->close();
+    io_workers_->close();
+    global_init_ = false;
+  }
 }
 
 int WebrtcAgent::CreatePeer(TOption& options, const std::string& offer) {

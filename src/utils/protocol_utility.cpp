@@ -362,7 +362,7 @@ void srs_vhost_resolve(string& vhost, string& app, string& param) {
   // get original param
   size_t pos = 0;
   if ((pos = app.find("?")) != std::string::npos) {
-      param = app.substr(pos);
+    param = app.substr(pos);
   }
   
   // filter tcUrl

@@ -137,7 +137,7 @@ void StreamEntry::initialize() {
       return;
     }
 
-    if (srs_success != (result = source_->consumer_dumps(
+    if (srs_success != (result = source_->ConsumerDumps(
             consumer.get(), true, true, !encoder->has_cache()))) {
       MLOG_ERROR("dumps consumer, desc:" << srs_error_desc(result));
       delete result;
@@ -177,7 +177,7 @@ void StreamEntry::add_customer(IMediaConnection* conn,
   static constexpr auto TIME_OUT = std::chrono::milliseconds(SRS_PERF_MW_SLEEP);
 
   //TODO timer push need optimizing
-  std::weak_ptr<StreamEntry> weak_this = shared_from_this();
+  auto weak_this = weak_from_this();
   worker_->scheduleEvery([weak_this]() {
     if (auto stream = weak_this.lock()) {
       return stream->on_timer();
@@ -281,7 +281,7 @@ srs_error_t StreamEntry::serve_http(std::shared_ptr<IHttpResponseWriter> writer,
     
     auto consumer = source_->CreateConsumer();
 
-    if ((err = source_->consumer_dumps(
+    if ((err = source_->ConsumerDumps(
         consumer.get(), true, true, !encoder->has_cache())) != srs_success) {
       MLOG_CERROR("dumps consumer, desc:%s", srs_error_desc(err));
       delete err;

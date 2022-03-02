@@ -169,9 +169,6 @@ bool OpenSSLAdapter::CleanupSSL() {
   CONF_modules_unload(1);
   ERR_free_strings();
   EVP_cleanup();
-  sk_SSL_COMP_free(SSL_COMP_get_compression_methods());
-  CRYPTO_cleanup_all_ex_data();
-
   return true;
 }
 

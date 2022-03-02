@@ -1,6 +1,7 @@
 #include "owt_base/AudioFramePacketizer.h"
+
 #include "owt_base/AudioUtilitiesNew.h"
-#include "myrtc/api/task_queue_base.h"
+#include "myrtc/api/task_queue_base.h"
 #include "rtc_adapter/thread/StaticTaskQueueFactory.h"
 
 using namespace rtc_adapter;
@@ -35,6 +36,8 @@ void AudioFramePacketizer::close() {
 }
 
 void AudioFramePacketizer::bindTransport(erizo::MediaSink* sink) {
+  if (!sink) return ;
+
   audio_sink_ = sink;
   audio_sink_->setAudioSinkSSRC(audioSend_->ssrc());
   erizo::FeedbackSource* fbSource = audio_sink_->getFeedbackSource();
@@ -70,7 +73,7 @@ void AudioFramePacketizer::onFrame(std::shared_ptr<Frame> f) {
   if (f->length <= 0) {
     return;
   }
- 
+
   task_queue_->PostTask([this, weak_ptr = weak_from_this(), frame = std::move(f)] () {
     if (auto shared_this = weak_ptr.lock()) {
       if (!enable_) {

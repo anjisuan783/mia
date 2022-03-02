@@ -21,9 +21,13 @@ srs_error_t SrsRtmpFormat::on_metadata(SrsOnMetaDataPacket*) {
 
 srs_error_t SrsRtmpFormat::on_audio(
     std::shared_ptr<MediaMessage> shared_audio) {
-  std::string msg = shared_audio->payload_->FlattenChained();
-  char* data = const_cast<char*>(msg.c_str());
-  int size = msg.length();
+  // TODO: FIXME: don't copy
+  //std::string msg = shared_audio->payload_->FlattenChained();
+  //char* data = const_cast<char*>(msg.c_str());
+  //int size = msg.length();
+
+  char* data = const_cast<char*>(shared_audio->payload_->GetFirstMsgReadPtr());
+  int size = shared_audio->size_;
   
   return SrsFormat::on_audio(shared_audio->timestamp_, data, size);
 }
@@ -34,9 +38,13 @@ srs_error_t SrsRtmpFormat::on_audio(int64_t timestamp, char* data, int size) {
 
 srs_error_t SrsRtmpFormat::on_video(
     std::shared_ptr<MediaMessage> shared_video) {
-  std::string msg = shared_video->payload_->FlattenChained();
-  char* data = const_cast<char*>(msg.c_str());
-  int size = msg.length();
+  // TODO: FIXME: don't copy
+  //std::string msg = shared_video->payload_->FlattenChained();
+  //char* data = const_cast<char*>(msg.c_str());
+  //int size = msg.length();
+
+  char* data = const_cast<char*>(shared_video->payload_->GetFirstMsgReadPtr());
+  int size = shared_video->size_;
   
   return SrsFormat::on_video(shared_video->timestamp_, data, size);
 }

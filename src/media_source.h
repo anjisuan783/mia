@@ -74,10 +74,10 @@ class MediaSource final : public sigslot::has_slots<>,
   void Close();
 
   std::shared_ptr<MediaConsumer> CreateConsumer();
-  srs_error_t consumer_dumps(MediaConsumer* consumer, 
-                             bool dump_seq_header, 
-                             bool dump_meta, 
-                             bool dump_gop);
+  srs_error_t ConsumerDumps(MediaConsumer* consumer, 
+                            bool dump_seq_header, 
+                            bool dump_meta, 
+                            bool dump_gop);
 
   JitterAlgorithm jitter();
   
@@ -147,7 +147,7 @@ class MediaSource final : public sigslot::has_slots<>,
   std::unique_ptr<MediaRtcLiveAdaptor> live_adapter_;
   
   std::unique_ptr<MediaRtcSource> rtc_source_;
-  std::unique_ptr<MediaLiveRtcAdaptor> rtc_adapter_;
+  std::shared_ptr<MediaLiveRtcAdaptor> rtc_adapter_;
 
   std::atomic<bool> rtc_publisher_in_{false};
 

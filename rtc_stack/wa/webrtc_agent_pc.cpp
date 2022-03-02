@@ -19,7 +19,8 @@ namespace wa {
 static log4cxx::LoggerPtr logger = log4cxx::Logger::getLogger("wa.pc");
 
 ///////////////////////////////////////////////////////////////////////////////
-//WebrtcTrackBase
+//WebrtcTrackBase
+
 ///////////////////////////////////////////////////////////////////////////////
 WebrtcTrackBase* WrtcAgentPcBase::getTrack(const std::string& name) {
   WebrtcTrackBase* result = nullptr;
@@ -30,6 +31,10 @@ WebrtcTrackBase* WrtcAgentPcBase::getTrack(const std::string& name) {
     }
   }
   return result;
+}
+
+void WrtcAgentPcBase::onVideoInfo(const std::string& videoInfoJSON) {
+  OLOG_INFO_THIS(id_ << ", video info changed :" << videoInfoJSON);
 }
 
 void WrtcAgentPcBase::subscribe_i(
@@ -76,7 +81,7 @@ void WrtcAgentPcBase::subscribe_i(
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-//WrtcAgentPc
+//WrtcAgentPc
 ///////////////////////////////////////////////////////////////////////////////
 WrtcAgentPc::WrtcAgentPc() { 
   thread_check_.Detach();
@@ -93,7 +98,8 @@ int WrtcAgentPc::init(TOption& config,
                       std::shared_ptr<Worker>& worker, 
                       std::shared_ptr<IOWorker>& ioworker, 
                       const std::vector<std::string>& ipAddresses,
-                      const std::string& stun_addr) {
+                      const std::string& stun_addr) {
+
   id_ = config.connectId_;
   OLOG_TRACE_THIS(id_ << ", init");
   config_ = config;
@@ -111,7 +117,8 @@ int WrtcAgentPc::init(TOption& config,
 }
 
 void WrtcAgentPc::init_i(const std::vector<std::string>& ipAddresses, 
-                         const std::string&) {
+                         const std::string&) {
+
   RTC_DCHECK_RUN_ON(&thread_check_);
   erizo::IceConfig ice_config;
   ice_config.ip_addresses = ipAddresses;
@@ -560,7 +567,7 @@ void WrtcAgentPc::setAudioSsrc(const std::string& mid, uint32_t ssrc) {
 }
 
 void WrtcAgentPc::setVideoSsrcList(const std::string& mid, 
-                                   std::vector<uint32_t> ssrc_list) {
+                                   const std::vector<uint32_t>& ssrc_list) {
   connection_->getLocalSdpInfo()->video_ssrc_map[mid] = ssrc_list;
 }
 
@@ -573,10 +580,6 @@ void WrtcAgentPc::onFrame(std::shared_ptr<owt_base::Frame> f) {
   sink->callBack([frame = std::move(f)](std::shared_ptr<WebrtcAgentSink> pc_sink){
     pc_sink->onFrame(std::move(frame));
   });
-}
-
-void WrtcAgentPc::onVideoInfo(const std::string& videoInfoJSON) {
-  OLOG_INFO_THIS(id_ << ", video info changed :" << videoInfoJSON);
 }
 
 void WrtcAgentPc::callBack(E_SINKID id, const std::string& message) {
@@ -619,24 +622,42 @@ void WrtcAgentPc::asyncTask(
 ///////////////////////////////////////////////////////////////////////////////
 int WrtcAgentPcDummy::init(TOption& option, 
                            WebrtcAgent&,
-                           std::shared_ptr<Worker>&, 
+                           std::shared_ptr<Worker>& worker, 
                            std::shared_ptr<IOWorker>&, 
                            const std::vector<std::string>&,
                            const std::string&) {
   id_ = option.connectId_;
   OLOG_TRACE_THIS(id_ << ", init");
+  worker_ = worker;
+
+  adapter_factory_ = std::move(std::make_unique<rtc_adapter::RtcAdapterFactory>(
+      worker->getTaskQueue()));
 
   for (int i = 0; i < 2; ++i) {
+    TrackSetting setting;
+    setting.is_audio = (option.tracks_[i].type_ == media_audio);
+    setting.format = 
+        get_pt_by_preference(option.tracks_[i].preference_.format_);
+    setting.ssrcs.push_back(123456);
+    setting.mid = option.tracks_[i].mid_;
     auto track = std::make_shared<WebrtcTrackDumy>(
-        option.tracks_[i].mid_, 
-        this, 
-        (option.tracks_[i].type_ == media_audio ? "audio" : "video"));
-    track_map_.emplace(option.tracks_[i].mid_, track);
+        setting.mid, this, true, setting);
+    track_map_.emplace(setting.mid, track);
     tracks_[i] = track.get();
   }
 
   option.pc_ = std::dynamic_pointer_cast<RtcPeer>(shared_from_this());
   return wa_ok;
+}
+
+void WrtcAgentPcDummy::close_i() {
+  adapter_factory_.reset(nullptr);
+}
+
+void WrtcAgentPcDummy::close() {
+  worker_->task([shared_this = shared_from_this()] {
+    shared_this->close_i();
+  });
 }
 
 void WrtcAgentPcDummy::Subscribe(const WEBRTC_TRACK_TYPE& dest_tracks) {

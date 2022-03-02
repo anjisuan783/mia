@@ -32,6 +32,8 @@ class MediaConnMgr {
   };
 
   int Init(uint32_t, const std::vector<std::string>& addr);
+
+  void Close();
  
   std::shared_ptr<IMediaConnection>CreateConnection(ConnType, 
       std::unique_ptr<IHttpProtocalFactory> factory);

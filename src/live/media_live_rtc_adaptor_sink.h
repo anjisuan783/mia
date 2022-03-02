@@ -10,8 +10,8 @@ namespace ma {
 class LiveRtcAdapterSink {
  public:
   virtual ~LiveRtcAdapterSink() = default;
-  virtual void OnLocalPublish(const std::string& streamName) = 0;
-  virtual void OnLocalUnpublish() = 0;
+  virtual srs_error_t OnLocalPublish(const std::string& streamName) = 0;
+  virtual srs_error_t OnLocalUnpublish() = 0;
   virtual void OnFrame(std::shared_ptr<owt_base::Frame>) = 0;
 };
 

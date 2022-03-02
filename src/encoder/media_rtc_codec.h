@@ -31,19 +31,18 @@ extern "C" {
 
 namespace ma {
 
-class SrsAudioTranscoder {
+class SrsAudioTranscoder final {
   MDECLARE_LOGGER();
  public:
   struct AudioFormat {
     SrsAudioCodecId codec;
-    uint16_t samplerate;   //The sample_rate specifies the sample rate of encoder, for example, 48000.
-    uint16_t bitpersample; //current only suport signed 16bit per sample
-    uint16_t channels;     //1: mono  2: stereo
-    uint32_t bitrate;      //The bit_rate specifies the bitrate of encoder, for example, 48000
+    uint16_t samplerate; //The sample_rate specifies the sample rate of encoder, for example, 48000(hz).
+    uint16_t channels;   //1: mono  2: stereo
+    uint32_t bitrate;    //The bit_rate specifies the bitrate of encoder, for example, 48000(bit/s)
   };
  
   SrsAudioTranscoder();
-  virtual ~SrsAudioTranscoder();
+  ~SrsAudioTranscoder();
 
   // Initialize the transcoder, transcode from codec as to codec.
   srs_error_t initialize(const AudioFormat& from, const AudioFormat& to);

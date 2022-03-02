@@ -32,7 +32,7 @@ class WaSdpInfo;
 // composedId(mid) => WebrtcTrack
 typedef std::vector<std::weak_ptr<WebrtcTrackBase>> WEBRTC_TRACK_TYPE;
 
-class WrtcAgentPcBase {
+class WrtcAgentPcBase : public owt_base::VideoInfoListener {
  public:
   virtual ~WrtcAgentPcBase() { }
 
@@ -48,6 +48,11 @@ class WrtcAgentPcBase {
 
   virtual void Subscribe(const WEBRTC_TRACK_TYPE&) = 0;
   virtual void unSubscribe(const WEBRTC_TRACK_TYPE&) = 0;
+
+  virtual void setAudioSsrc(const std::string& mid, uint32_t ssrc) = 0;
+  
+  virtual void setVideoSsrcList(const std::string& mid, 
+                                const std::vector<uint32_t>& ssrc_list) = 0;
 
   virtual void frameCallback(bool on) = 0;
   WEBRTC_TRACK_TYPE getTracks() {
@@ -65,19 +70,22 @@ class WrtcAgentPcBase {
 
  protected:
   void subscribe_i(const WEBRTC_TRACK_TYPE&, bool isSub);
+ private:
+  void onVideoInfo(const std::string& videoInfoJSON) override;
  protected:
   std::string id_;
   // composedId(mid) => WebrtcTrack
   std::unordered_map<
     std::string, std::shared_ptr<WebrtcTrackBase>> track_map_;
+ public:
+  std::unique_ptr<rtc_adapter::RtcAdapterFactory> adapter_factory_;
+  std::shared_ptr<Worker> worker_;
 };
 
 class WrtcAgentPc final : public WrtcAgentPcBase,
                           public erizo::WebRtcConnectionEventListener,
                           public owt_base::FrameDestination,
-                          public owt_base::VideoInfoListener,
                           public std::enable_shared_from_this<WrtcAgentPc> {
-  friend class WebrtcTrack;
  public:
   // Libnice collects candidates on |ipAddresses| only.
   WrtcAgentPc();
@@ -104,10 +112,10 @@ class WrtcAgentPc final : public WrtcAgentPcBase,
 
   void frameCallback(bool on) override;
 
-  void setAudioSsrc(const std::string& mid, uint32_t ssrc);
+  void setAudioSsrc(const std::string& mid, uint32_t ssrc) override;
   
   void setVideoSsrcList(const std::string& mid, 
-                        std::vector<uint32_t> ssrc_list);
+                        const std::vector<uint32_t>& ssrc_list) override;
 
   //FrameDestination
   void onFrame(std::shared_ptr<owt_base::Frame>) override;
@@ -130,8 +138,6 @@ class WrtcAgentPc final : public WrtcAgentPcBase,
   srs_error_t processOfferMedia(MediaDesc& media);
 
   srs_error_t setupTransport(MediaDesc& media, bool& bPublish);
-
-  void onVideoInfo(const std::string& videoInfoJSON) override;
 
   WebrtcTrackBase* addTrack(const std::string& mid, 
                         const TrackSetting&, 
@@ -162,7 +168,6 @@ class WrtcAgentPc final : public WrtcAgentPcBase,
   TOption config_;
   std::shared_ptr<WebrtcAgentSink> sink_;
 
-  std::shared_ptr<Worker> worker_;
   std::shared_ptr<IOWorker> ioworker_;
   
   WaSdpInfo* remote_sdp_{nullptr};
@@ -199,8 +204,6 @@ class WrtcAgentPc final : public WrtcAgentPcBase,
 
   bool ready_{false};
   
-  std::unique_ptr<rtc_adapter::RtcAdapterFactory> adapter_factory_;
-
   webrtc::SequenceChecker thread_check_;
 };
 
@@ -220,15 +223,22 @@ class WrtcAgentPcDummy : public WrtcAgentPcBase,
            const std::vector<std::string>& ipAddresses,
            const std::string& stun_addr) override;
 
-  void close() override { }
+  void close() override;
   void signalling(const std::string&, const std::string&) { }
 
   void Subscribe(const WEBRTC_TRACK_TYPE&) override;
   void unSubscribe(const WEBRTC_TRACK_TYPE&) override;
 
+  void setAudioSsrc(const std::string& mid, uint32_t ssrc) override { }
+  
+  void setVideoSsrcList(const std::string& mid, 
+                        const std::vector<uint32_t>& ssrc_list) override { }
+
   virtual void frameCallback(bool on) override { }
   void DeliveryFrame(std::shared_ptr<owt_base::Frame>) override;
  private:
+  void close_i();
+
   WebrtcTrackDumy* tracks_[2];
 };
 

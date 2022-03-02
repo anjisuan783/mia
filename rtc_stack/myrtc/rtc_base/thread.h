@@ -186,9 +186,6 @@ class RTC_EXPORT RTC_LOCKABLE Thread : public MessageQueue {
   bool Start();
 
   // Tells the thread to stop and waits until it is joined.
-  // Never call Stop on the current thread.  Instead use the inherited Quit
-  // function which will exit the base MessageQueue without terminating the
-  // underlying OS thread.
   virtual void Stop();
 
   // By default, Thread::Run() calls ProcessMessages(kForever).  To do other

@@ -12,10 +12,7 @@
 #include <string>
 
 #include "owt/owt_base/AudioFramePacketizer.h"
-#include "owt/owt_base/AudioFrameConstructor.h"
 #include "owt/owt_base/VideoFramePacketizer.h"
-#include "owt/owt_base/VideoFrameConstructor.h"
-#include "erizo/MediaStream.h"
 #include "webrtc_track_interface.h"
 
 namespace wa {
@@ -28,22 +25,22 @@ namespace wa {
  * in connection link-up. Each rtp-stream-id
  * in simulcast refers to one WebrtcTrack.
  */
-class WebrtcTrack final : public std::enable_shared_from_this<WebrtcTrack>,
-                          public WebrtcTrackBase {
+class WebrtcTrack final : public WebrtcTrackBase,
+                          public std::enable_shared_from_this<WebrtcTrack> {
 /*
  * audio: { format, ssrc, mid, midExtId }
  * video: { format, ssrc, mid, midExtId, transportcc, red, ulpfec }
  */
  public:
   WebrtcTrack(const std::string& mid,
-              WrtcAgentPc*,
+              WrtcAgentPcBase*,
               bool isPublish,
               const TrackSetting&,
               erizo::MediaStream* mediaStream,
               int32_t request_kframe_s);
-  ~WebrtcTrack();
+  ~WebrtcTrack() override;
   
-  void close();
+  void close() override;
 
   void addDestination(bool isAudio, 
       std::shared_ptr<owt_base::FrameDestination> dest) override;
@@ -62,9 +59,7 @@ class WebrtcTrack final : public std::enable_shared_from_this<WebrtcTrack>,
   bool stop_request_kframe_period_{false};
 
   std::shared_ptr<owt_base::AudioFramePacketizer> audioFramePacketizer_;
-  std::shared_ptr<owt_base::AudioFrameConstructor> audioFrameConstructor_;
   std::shared_ptr<owt_base::VideoFramePacketizer> videoFramePacketizer_;
-  std::shared_ptr<owt_base::VideoFrameConstructor> videoFrameConstructor_;
 };
 
 class WrtcAgentPcDummy;
@@ -72,9 +67,11 @@ class WrtcAgentPcDummy;
 class WebrtcTrackDumy : public WebrtcTrackBase, public owt_base::FrameSource {
  public:
   WebrtcTrackDumy(const std::string& mid, 
-      WrtcAgentPcDummy* pc, const std::string& trackname);
+                  WrtcAgentPcBase* pc,
+                  bool isPublish,
+                  const TrackSetting& setting);
   ~WebrtcTrackDumy() override = default;
-  void close() override { }
+  void close() override;
   
   void addDestination(bool isAudio, 
       std::shared_ptr<owt_base::FrameDestination> dest) override;

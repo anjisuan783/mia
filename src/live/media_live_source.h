@@ -54,17 +54,24 @@ class MediaLiveSource final : public RtcLiveAdapterSink {
     return consumers_.empty();
   }
 
-  srs_error_t OnAudio(std::shared_ptr<MediaMessage>, bool from_adaptor) override;
+  srs_error_t OnAudio(std::shared_ptr<MediaMessage>, 
+                      bool from_adaptor) override;
 
-  srs_error_t OnVideo(std::shared_ptr<MediaMessage>, bool from_adaptor) override;
+  srs_error_t OnVideo(std::shared_ptr<MediaMessage>, 
+                      bool from_adaptor) override;
 
-  srs_error_t consumer_dumps(MediaConsumer* consumer, 
-                             bool dump_seq_header, 
-                             bool dump_meta, 
-                             bool dump_gop);
+  srs_error_t ConsumerDumps(MediaConsumer* consumer,
+                            bool dump_seq_header,
+                            bool dump_meta,
+                            bool dump_gop);
 
   JitterAlgorithm jitter() {
     return jitter_algorithm_;
+  }
+
+  const std::string& StreamName() {
+
+    return stream_name_;
   }
 
   sigslot::signal0<> signal_live_fisrt_consumer_;
@@ -72,10 +79,9 @@ class MediaLiveSource final : public RtcLiveAdapterSink {
   sigslot::signal0<> signal_live_first_packet_;
 
  private:
-  void on_av_i(std::shared_ptr<MediaMessage> msg);
-  void on_audio_async(std::shared_ptr<MediaMessage> shared_audio, bool);
-  void on_video_async(std::shared_ptr<MediaMessage> shared_video, bool);
-  
+  void OnAudio_i(std::shared_ptr<MediaMessage> shared_audio, bool);
+  void OnVideo_i(std::shared_ptr<MediaMessage> shared_video, bool);
+  void CheckConsumerNotify();
  private:
   std::string stream_name_;
   std::list<std::weak_ptr<MediaConsumer>> consumers_; 
@@ -106,6 +112,8 @@ class MediaLiveSource final : public RtcLiveAdapterSink {
 
   bool first_packet_{true};
   bool first_consumer_{true};
+
+  bool no_consumer_notify_{false}; //notified no consumers flag
 
   int consumer_queue_size_{0};
   

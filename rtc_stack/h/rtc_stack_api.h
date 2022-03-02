@@ -100,9 +100,10 @@ class RtcApi {
    * network_addresses{ip:port}
    * service_addr{udp://ip:port} "udp://192.168.1.156:9000"
    */
-  virtual int initiate(uint32_t num_workers, 
+  virtual int Open(uint32_t num_workers, 
       const std::vector<std::string>& network_addresses,
       const std::string& service_addr) = 0;
+  virtual void Close() = 0;
 
   virtual int CreatePeer(TOption&, const std::string& offer) = 0;
   virtual int DestroyPeer(const std::string& connectId) = 0;

@@ -108,17 +108,19 @@ void VideoFramePacketizer::onFrame(std::shared_ptr<Frame> f) {
     return ;
   }
   
-  task_queue_->PostTask([this, weak_ptr = weak_from_this(), frame = std::move(f)] () {
-    if (auto shared_this = weak_ptr.lock()) {
-      if (!enabled_) {
-        return;
-      }
+  task_queue_->PostTask(
+      [this, weak_ptr = weak_from_this(), frame = std::move(f)] () {
+        if (auto shared_this = weak_ptr.lock()) {
+          if (!enabled_) {
+            return;
+          }
 
-      if (videoSend_) {
-        videoSend_->onFrame(std::move(frame));
+          if (videoSend_) {
+            videoSend_->onFrame(std::move(frame));
+          }
+        }
       }
-    }
-  });
+  );
 }
 
 void VideoFramePacketizer::onVideoSourceChanged() {

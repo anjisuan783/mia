@@ -7,6 +7,7 @@
 #include "live/media_live_source.h"
 
 #include <inttypes.h>
+#include <iostream>
 
 #include "common/media_log.h"
 #include "common/media_message.h"
@@ -167,6 +168,8 @@ std::shared_ptr<MediaConsumer> MediaLiveSource::CreateConsumer() {
     first_consumer_ = false;
     signal_live_fisrt_consumer_();
   }
+
+  no_consumer_notify_ = false;
   return consumer;
 }
 
@@ -180,13 +183,17 @@ void MediaLiveSource::DestroyConsumer(MediaConsumer* consumer) {
   }
 }
 
-void MediaLiveSource::on_audio_async(
+void MediaLiveSource::OnAudio_i(
     std::shared_ptr<MediaMessage> shared_audio, bool from_adaptor) {
   srs_error_t err = srs_success;
-  
+
   bool is_sequence_header = 
         SrsFlvAudio::sh(shared_audio->payload_->GetFirstMsgReadPtr(),
                         shared_audio->payload_->GetFirstMsgLength());
+
+  //std::cout << "ts:" << shared_audio->timestamp_  << ". len:" << 
+  //    shared_audio->size_ << 
+  //    (is_sequence_header?", seq":"") <<  std::endl;
 
   // whether consumer should drop for the duplicated sequence header.
   bool drop_for_reduce = false;
@@ -214,9 +221,6 @@ void MediaLiveSource::on_audio_async(
         ++i;
       } else {
         consumers_.erase(i++);
-        if (consumers_.empty()) {
-          signal_live_no_consumer_();
-        }
       }
     }
   }
@@ -240,6 +244,8 @@ void MediaLiveSource::on_audio_async(
       meta_->data()->timestamp_ = shared_audio->timestamp_;
     }
   }
+
+  CheckConsumerNotify();
 }
 
 srs_error_t MediaLiveSource::OnAudio(
@@ -279,11 +285,11 @@ srs_error_t MediaLiveSource::OnAudio(
     fix_msg = std::move(shared_audio);
   }
 
-  on_audio_async(std::move(*fix_msg), from_adaptor);
+  OnAudio_i(std::move(*fix_msg), from_adaptor);
   return err;
 }
 
-void MediaLiveSource::on_video_async(
+void MediaLiveSource::OnVideo_i(
     std::shared_ptr<MediaMessage> shared_video, bool from_adaptor) {
   srs_error_t err = srs_success;
 
@@ -362,9 +368,7 @@ void MediaLiveSource::on_video_async(
     }
   }
 
-  if (consumers_.empty()) {
-    signal_live_no_consumer_();
-  }
+  CheckConsumerNotify();
 }
 
 srs_error_t MediaLiveSource::OnVideo(
@@ -391,7 +395,6 @@ srs_error_t MediaLiveSource::OnVideo(
   last_packet_time_ = shared_video->timestamp_;
   
   // drop any unknown header video.
-  // @see https://github.com/ossrs/srs/issues/421
   if (!SrsFlvVideo::acceptable(shared_video->payload_->GetFirstMsgReadPtr(), 
                                shared_video->payload_->GetFirstMsgLength())) {
     char b0 = 0x00;
@@ -418,14 +421,12 @@ srs_error_t MediaLiveSource::OnVideo(
     fix_msg = std::move(shared_video);
   }
 
-  on_video_async(std::move(*fix_msg), from_adaptor);
+  OnVideo_i(std::move(*fix_msg), from_adaptor);
   return err;
 }
 
-srs_error_t MediaLiveSource::consumer_dumps(MediaConsumer* consumer, 
-                                        bool dump_seq_header, 
-                                        bool dump_meta, 
-                                        bool dump_gop) {
+srs_error_t MediaLiveSource::ConsumerDumps(MediaConsumer* consumer, 
+    bool dump_seq_header, bool dump_meta, bool dump_gop) {
   RTC_DCHECK_RUN_ON(&thread_check_);
 
   srs_error_t err = srs_success;
@@ -475,6 +476,20 @@ srs_error_t MediaLiveSource::consumer_dumps(MediaConsumer* consumer,
   }
 
   return err;
+}
+
+void MediaLiveSource::CheckConsumerNotify() {
+  if (first_consumer_)
+    return ;
+  
+  if (!consumers_.empty())
+    return ;
+
+  if (no_consumer_notify_)
+    return ;
+  
+  no_consumer_notify_ = true;
+  signal_live_no_consumer_();
 }
 
 } //namespace ma

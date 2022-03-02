@@ -544,7 +544,7 @@ std::string MessageChain::FlattenChained() {
   for (MessageChain *i = this; nullptr != i; i = i->next_) {
     strRet.append(i->GetFirstMsgReadPtr(), i->GetFirstMsgLength());
   }
-  return strRet;
+  return std::move(strRet);
 }
 
 void MessageChain::Reset(std::shared_ptr<DataBlock> aDb) {

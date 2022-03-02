@@ -441,7 +441,8 @@ srs_error_t SrsFlvStreamEncoder::initialize(SrsFileWriter* w, SrsBufferCache* /*
   return err;
 }
 
-srs_error_t SrsFlvStreamEncoder::write_audio(int64_t timestamp, char* data, int size) {
+srs_error_t SrsFlvStreamEncoder::write_audio(
+    int64_t timestamp, char* data, int size) {
   srs_error_t err = srs_success;
 
   if ((err = write_header())  != srs_success) {
@@ -451,7 +452,8 @@ srs_error_t SrsFlvStreamEncoder::write_audio(int64_t timestamp, char* data, int 
   return enc->write_audio(timestamp, data, size);
 }
 
-srs_error_t SrsFlvStreamEncoder::write_video(int64_t timestamp, char* data, int size) {
+srs_error_t SrsFlvStreamEncoder::write_video(
+    int64_t timestamp, char* data, int size) {
   srs_error_t err = srs_success;
 
   if ((err = write_header())  != srs_success) {
@@ -461,7 +463,8 @@ srs_error_t SrsFlvStreamEncoder::write_video(int64_t timestamp, char* data, int 
   return enc->write_video(timestamp, data, size);
 }
 
-srs_error_t SrsFlvStreamEncoder::write_metadata(int64_t timestamp, char* data, int size) {
+srs_error_t SrsFlvStreamEncoder::write_metadata(
+    int64_t timestamp, char* data, int size) {
   srs_error_t err = srs_success;
 
   if ((err = write_header())  != srs_success) {

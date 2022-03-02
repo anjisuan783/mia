@@ -24,14 +24,10 @@ static log4cxx::LoggerPtr logger = log4cxx::Logger::getLogger("ma.push");
 
 
 ///////////////////////////////////////////////////////////////////////////////
-// MediaRtcPublisher
+// MediaRtcPublisherImp
 ///////////////////////////////////////////////////////////////////////////////
-MediaRtcPublisher::MediaRtcPublisher() { }
-
-MediaRtcPublisher::~MediaRtcPublisher() { }
-
-void MediaRtcPublisher::OnPublish(const std::string& tcUrl, 
-                                  const std::string& stream) {
+void MediaRtcPublisherImp::OnPublish(const std::string& tcUrl, 
+                                     const std::string& stream) {
   MLOG_INFO(tcUrl << ";" << stream);
 
   if (active_) {
@@ -79,13 +75,12 @@ void MediaRtcPublisher::OnPublish(const std::string& tcUrl,
   req_ = req;
 }
 
-void MediaRtcPublisher::OnUnpublish() {
+void MediaRtcPublisherImp::OnUnpublish() {
   if (!active_) {
     MLOG_ERROR("not pushed, " << req_->get_stream_url());
     return;
   }
   
-
   // local rtc publisher
   source_->OnUnpublish();
   source_ = nullptr;
@@ -94,16 +89,16 @@ void MediaRtcPublisher::OnUnpublish() {
   active_ = false;
 }
 
-void MediaRtcPublisher::OnFrame(owt_base::Frame& frm) {
+void MediaRtcPublisherImp::OnFrame(owt_base::Frame& frm) {
   if (active_) {
     source_->OnFrame(std::make_shared<owt_base::Frame>(frm));
   }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-// MediaRtmpPublisher
+// MediaRtmpPublisherImp
 ///////////////////////////////////////////////////////////////////////////////
-void MediaRtmpPublisher::OnPublish(
+void MediaRtmpPublisherImp::OnPublish(
     const std::string& tcUrl, const std::string& stream) {
   MLOG_INFO(tcUrl << ";" << stream);
 
@@ -127,7 +122,8 @@ void MediaRtmpPublisher::OnPublish(
                        req->port, 
                        req->param);
   req->vhost = g_server_.config_.vhost;
-  MLOG_INFO("schema:" << req->schema << 
+  MLOG_INFO("tcurl:" << req->tcUrl <<
+            ", schema:" << req->schema << 
             ", host:" << req->host <<
             ", vhost:" << req->vhost << 
             ", app:" << req->app << 
@@ -154,7 +150,7 @@ void MediaRtmpPublisher::OnPublish(
   ToFile();
 }
 
-void MediaRtmpPublisher::OnUnpublish() {
+void MediaRtmpPublisherImp::OnUnpublish() {
   if (!active_) {
     MLOG_ERROR("not pushed, " << req_->get_stream_url());
     return;
@@ -165,7 +161,7 @@ void MediaRtmpPublisher::OnUnpublish() {
   active_ = false;
 }
 
-void MediaRtmpPublisher::OnVideo(
+void MediaRtmpPublisherImp::OnVideo(
     const uint8_t* data, uint32_t len, uint32_t timestamp) {
 
   MessageHeader header;
@@ -195,7 +191,7 @@ void MediaRtmpPublisher::OnVideo(
   source_->OnMessage(std::move(msg));
 }
 
-void MediaRtmpPublisher::OnAudio(
+void MediaRtmpPublisherImp::OnAudio(
     const uint8_t* data, uint32_t len, uint32_t timestamp) {
   MessageHeader header;
 
@@ -222,14 +218,15 @@ void MediaRtmpPublisher::OnAudio(
   source_->OnMessage(std::move(msg));
 }
 
-void MediaRtmpPublisher::ToFile() {
+void MediaRtmpPublisherImp::ToFile() {
   if (!debug_) {
     return;
   }
   
   file_writer_.reset(new SrsFileWriter);
   
-   std::string file_writer_path = "/tmp/" + req_->get_stream_url() + "_d.flv";
+   std::string file_writer_path = "/tmp/rtmppush" + 
+        srs_string_replace(req_->get_stream_url(), "/", "_") + "_d.flv";
    srs_error_t result = srs_success;
    if (srs_success != (result = file_writer_->open(file_writer_path))) {
      MLOG_CFATAL("open file writer failed, code:%d, desc:%s", 
@@ -252,12 +249,12 @@ void MediaRtmpPublisher::ToFile() {
 ///////////////////////////////////////////////////////////////////////////////
 std::shared_ptr<MediaRtcPublisherApi> MediaRtcPublisherFactory::Create() {
   return std::dynamic_pointer_cast<MediaRtcPublisherApi>(
-      std::make_shared<MediaRtcPublisher>());
+      std::make_shared<MediaRtcPublisherImp>());
 }
 
 std::shared_ptr<MediaRtmpPublisherApi> MediaRtmpPublisherFactory::Create() {
   return std::dynamic_pointer_cast<MediaRtmpPublisherApi>(
-      std::make_shared<MediaRtmpPublisher>());
+      std::make_shared<MediaRtmpPublisherImp>());
 }
 
 

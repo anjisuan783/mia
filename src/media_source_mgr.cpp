@@ -10,9 +10,21 @@ int MediaSourceMgr::Init(unsigned int num) {
   workers_ = std::make_shared<wa::ThreadPool>(num);
   workers_->start("live");
   rtc_api_ = std::move(wa::AgentFactory().create_agent());
-  return rtc_api_->initiate(g_server_.config_.rtc_workers_,
+  return rtc_api_->Open(g_server_.config_.rtc_workers_,
                             g_server_.config_.candidates_,
                             "");
+}
+
+void MediaSourceMgr::Close() {
+  {
+    std::lock_guard<std::mutex> guard(source_lock_);
+    for(auto& i : sources_)
+      i.second->Close();
+  }
+
+  rtc_api_->Close();
+  workers_->close();
+  workers_ = nullptr;
 }
 
 std::shared_ptr<MediaSource>

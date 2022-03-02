@@ -22,6 +22,16 @@ int MediaConnMgr::Init(uint32_t ioworkers,
   return listener_->Init(addrs);
 }
 
+void MediaConnMgr::Close() {
+  listener_->Close();
+
+  std::lock_guard<std::mutex> guard(source_lock_);
+  for(auto& i : connections_) {
+    i.second->Disconnect();
+  }
+  connections_.clear();
+}
+
 std::shared_ptr<IMediaConnection> MediaConnMgr::CreateConnection(
     ConnType type, std::unique_ptr<IHttpProtocalFactory> factory) {
 

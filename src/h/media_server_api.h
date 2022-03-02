@@ -69,6 +69,8 @@ class MediaServerApi {
    */
   virtual int Init(const Config&) = 0;
 
+  virtual void Close() = 0;
+
   virtual void Dump() = 0;
 };
 

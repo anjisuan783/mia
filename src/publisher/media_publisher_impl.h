@@ -18,10 +18,10 @@ class SrsFileWriter;
 class SrsFlvStreamEncoder;
 class MediaSource;
 
-class MediaRtcPublisher : public MediaRtcPublisherApi {
+class MediaRtcPublisherImp : public MediaRtcPublisherApi {
  public:
-  MediaRtcPublisher();
-  ~MediaRtcPublisher() override;
+  MediaRtcPublisherImp() = default;
+  ~MediaRtcPublisherImp() override = default;
   
  private:
   void OnPublish(const std::string& tcUrl, 
@@ -34,10 +34,10 @@ class MediaRtcPublisher : public MediaRtcPublisherApi {
   std::shared_ptr<MediaRequest> req_;
 };
 
-class MediaRtmpPublisher : public MediaRtmpPublisherApi {
+class MediaRtmpPublisherImp : public MediaRtmpPublisherApi {
  public:
-  MediaRtmpPublisher() = default;
-  ~MediaRtmpPublisher() override = default;
+  MediaRtmpPublisherImp() = default;
+  ~MediaRtmpPublisherImp() override = default;
   
  private:
   void OnPublish(const std::string& tcUrl, 

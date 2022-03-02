@@ -6,28 +6,14 @@
 #include "webrtc_agent_pc.h"
 
 namespace wa {
-/////////////////////////////
-//WebrtcTrack
 static log4cxx::LoggerPtr logger = log4cxx::Logger::getLogger("wa.track");
 
 ///////////////////////////////////////////////////////////////////////////////
-//WebrtcTrack
+//WebrtcTrackBase
 ///////////////////////////////////////////////////////////////////////////////
-WebrtcTrackBase::WebrtcTrackBase(const std::string& mid, 
-    WrtcAgentPcBase* pc, const std::string& trackname) 
-    : mid_(mid),  pc_(pc), pc_id_(pc_->id()), name_(trackname) { }
-
-///////////////////////////////////////////////////////////////////////////////
-//WebrtcTrack
-///////////////////////////////////////////////////////////////////////////////
-WebrtcTrack::WebrtcTrack(const std::string& mid, 
-                         WrtcAgentPc* pc, 
-                         bool isPublish, 
-                         const TrackSetting& setting,
-                         erizo::MediaStream* ms,
-                         int32_t request_kframe_s)
-  : WebrtcTrackBase(mid, pc, setting.is_audio?"audio":"video"), 
-    request_kframe_period_(request_kframe_s) {
+WebrtcTrackBase::WebrtcTrackBase(const std::string& mid, WrtcAgentPcBase* pc, 
+    bool isPublish, const TrackSetting& setting, erizo::MediaStream* ms) 
+    : mid_(mid),  pc_(pc), pc_id_(pc_->id()), name_(setting.is_audio?"audio":"video") {
   if (isPublish) {
     if (setting.is_audio) {
       audioFormat_ = setting.format;
@@ -65,7 +51,32 @@ WebrtcTrack::WebrtcTrack(const std::string& mid,
           dynamic_cast<erizo::FeedbackSink*>(ms));
       pc->setVideoSsrcList(mid_, setting.ssrcs);
     }
-  } else {
+  }
+}
+
+void WebrtcTrackBase::close() {
+  if (audioFrameConstructor_) {
+    audioFrameConstructor_->close();
+    audioFrameConstructor_ = nullptr;
+  }
+
+  if (videoFrameConstructor_) {
+    videoFrameConstructor_->close();
+    videoFrameConstructor_ = nullptr;
+  }
+}
+///////////////////////////////////////////////////////////////////////////////
+//WebrtcTrack
+///////////////////////////////////////////////////////////////////////////////
+WebrtcTrack::WebrtcTrack(const std::string& mid, 
+                         WrtcAgentPcBase* pc,
+                         bool isPublish,
+                         const TrackSetting& setting,
+                         erizo::MediaStream* ms,
+                         int32_t request_kframe_s)
+  : WebrtcTrackBase(mid, pc, isPublish, setting, ms), 
+    request_kframe_period_(request_kframe_s) {
+  if (!isPublish) {
     //subscribe
     if (setting.is_audio) {
       owt_base::AudioFramePacketizer::Config config;
@@ -93,7 +104,6 @@ WebrtcTrack::WebrtcTrack(const std::string& mid,
       videoFormat_ = setting.format;
     }
   }
-
   OLOG_TRACE_THIS(pc_->id() << ", track ctor mid:" << mid << "," << name_);
 }
 
@@ -107,20 +117,12 @@ void WebrtcTrack::close() {
     audioFramePacketizer_ = nullptr;
   }
 
-  if (audioFrameConstructor_) {
-    audioFrameConstructor_->close();
-    audioFrameConstructor_ = nullptr;
-  }
-
-  if (videoFramePacketizer_) {
+  if (videoFramePacketizer_) {
     videoFramePacketizer_->close();
     videoFramePacketizer_ = nullptr;
   }
 
-  if (videoFrameConstructor_) {
-    videoFrameConstructor_->close();
-    videoFrameConstructor_ = nullptr;
-  }
+  WebrtcTrackBase::close();
 }
 
 uint32_t WebrtcTrack::ssrc(bool isAudio) {
@@ -224,8 +226,14 @@ void WebrtcTrack::stopRequestKeyFrame() {
 //WebrtcTrackDumy
 ///////////////////////////////////////////////////////////////////////////////
 WebrtcTrackDumy::WebrtcTrackDumy(const std::string& mid, 
-    WrtcAgentPcDummy* pc, const std::string& name)
-  : WebrtcTrackBase(mid, pc, name) { }
+                                 WrtcAgentPcBase* pc,
+                                 bool isPublish,
+                                 const TrackSetting& setting)
+  : WebrtcTrackBase(mid, pc, isPublish, setting, nullptr) { }
+
+void WebrtcTrackDumy::close() {
+  WebrtcTrackBase::close();
+}
 
 void WebrtcTrackDumy::addDestination(bool isAudio, 
     std::shared_ptr<owt_base::FrameDestination> dest) {
@@ -245,7 +253,7 @@ void WebrtcTrackDumy::removeDestination(
   }    
 }
 
-void WebrtcTrackDumy::onFrame(std::shared_ptr<owt_base::Frame> frm) {
+void WebrtcTrackDumy::onFrame(std::shared_ptr<owt_base::Frame> frm) {  
   deliverFrame(std::move(frm));
 }
 
