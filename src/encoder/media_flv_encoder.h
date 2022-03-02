@@ -25,8 +25,7 @@ class SrsBufferCache {
 class SrsFileWriter;
 
 // The encoder to transmux RTMP stream.
-class ISrsBufferEncoder
-{
+class ISrsBufferEncoder {
  public:
   virtual ~ISrsBufferEncoder() = default;
 
@@ -37,7 +36,8 @@ class ISrsBufferEncoder
   // Write rtmp video/audio/metadata.
   virtual srs_error_t write_audio(int64_t timestamp, char* data, int size) = 0;
   virtual srs_error_t write_video(int64_t timestamp, char* data, int size) = 0;
-  virtual srs_error_t write_metadata(int64_t timestamp, char* data, int size) = 0;
+  virtual srs_error_t write_metadata(
+      int64_t timestamp, char* data, int size) = 0;
  public:
   // For some stream, for example, mp3 and aac, the audio stream,
   // we use large gop cache in encoder, for the gop cache of SrsLiveSource is ignore audio.
@@ -50,8 +50,7 @@ class ISrsBufferEncoder
 class SrsFlvTransmuxer;
 
 // Transmux RTMP to HTTP Live Streaming.
-class SrsFlvStreamEncoder : public ISrsBufferEncoder
-{
+class SrsFlvStreamEncoder : public ISrsBufferEncoder {
   MDECLARE_LOGGER();
 
  public:

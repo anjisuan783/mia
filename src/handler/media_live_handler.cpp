@@ -9,6 +9,7 @@
 #include <chrono>
 #include <iostream>
 
+#include "common/media_log.h"
 #include "rtc_base/sequence_checker.h"
 #include "http/http_consts.h"
 #include "utils/protocol_utility.h"
@@ -28,11 +29,12 @@
 #include "media_statistics.h"
 
 namespace ma {
+  
+static log4cxx::LoggerPtr logger = 
+    log4cxx::Logger::getLogger("ma.liveserver");
 
 class StreamEntry final 
     : public std::enable_shared_from_this<StreamEntry> {
-
-  MDECLARE_LOGGER();
 
   struct customer {
     customer(std::shared_ptr<MediaConsumer> consumer,
@@ -96,8 +98,6 @@ class StreamEntry final
   webrtc::SequenceChecker thread_check_;
 };
 
-MDEFINE_LOGGER(StreamEntry, "StreamEntry");
-
 StreamEntry::StreamEntry(std::shared_ptr<MediaSource> s, 
                          std::shared_ptr<MediaRequest> r) 
   : source_{s},  
@@ -137,7 +137,7 @@ void StreamEntry::initialize() {
       return;
     }
 
-    if (srs_success != (result = source_->consumer_dumps(
+    if (srs_success != (result = source_->ConsumerDumps(
             consumer.get(), true, true, !encoder->has_cache()))) {
       MLOG_ERROR("dumps consumer, desc:" << srs_error_desc(result));
       delete result;
@@ -177,7 +177,7 @@ void StreamEntry::add_customer(IMediaConnection* conn,
   static constexpr auto TIME_OUT = std::chrono::milliseconds(SRS_PERF_MW_SLEEP);
 
   //TODO timer push need optimizing
-  std::weak_ptr<StreamEntry> weak_this = shared_from_this();
+  auto weak_this = weak_from_this();
   worker_->scheduleEvery([weak_this]() {
     if (auto stream = weak_this.lock()) {
       return stream->on_timer();
@@ -281,7 +281,7 @@ srs_error_t StreamEntry::serve_http(std::shared_ptr<IHttpResponseWriter> writer,
     
     auto consumer = source_->CreateConsumer();
 
-    if ((err = source_->consumer_dumps(
+    if ((err = source_->ConsumerDumps(
         consumer.get(), true, true, !encoder->has_cache())) != srs_success) {
       MLOG_CERROR("dumps consumer, desc:%s", srs_error_desc(err));
       delete err;
@@ -338,8 +338,6 @@ void StreamEntry::async_task(std::function<void()> f) {
 }
 
 //MediaFlvPlayHandler
-MDEFINE_LOGGER(MediaFlvPlayHandler, "MediaFlvPlayHandler");
-
 MediaFlvPlayHandler::MediaFlvPlayHandler() = default;
 
 MediaFlvPlayHandler::~MediaFlvPlayHandler() = default;

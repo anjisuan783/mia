@@ -271,6 +271,8 @@ public:
 */
 //extern int srs_aac_srates[];
 
+int GetAacSampleRate(uint8_t index);
+
 // The number of aac samplerates, size for srs_aac_srates.
 //#define SrsAAcSampleRateNumbers 16
 
@@ -488,8 +490,8 @@ std::string srs_avc_level2str(SrsAvcLevel level);
 * It's the whole AAC raw data for AAC.
 * @remark Neither SPS/PPS or ASC is sample unit, it's codec sequence header.
 */
-class SrsSample {
-public:
+class SrsSample final {
+ public:
   // The size of unit.
   int size;
   // The ptr of unit, user must free it.
@@ -499,7 +501,7 @@ public:
 
   // delete bytes
   bool own; 
-public:
+ public:
   SrsSample();
   SrsSample(char* b, int s);
   ~SrsSample();
@@ -517,7 +519,7 @@ public:
 * parsed to detail info.
 */
 class SrsCodecConfig {
-public:
+ public:
   SrsCodecConfig();
   virtual ~SrsCodecConfig();
 };
@@ -525,9 +527,9 @@ public:
 /**
 * The audio codec info.
 */
-class SrsAudioCodecConfig : public SrsCodecConfig {
+class SrsAudioCodecConfig final : public SrsCodecConfig {
   // In FLV specification.
-public:
+ public:
   // The audio codec id; for FLV, it's SoundFormat.
   SrsAudioCodecId id;
   // The audio sample rate; for FLV, it's SoundRate.
@@ -539,7 +541,7 @@ public:
   SrsAudioChannels sound_type;
   int audio_data_rate; // in bps
   // In AAC specification.
-public:
+
   /**
    * audio specified
    * audioObjectType, in 1.6.2.1 AudioSpecificConfig, page 33,
@@ -556,39 +558,38 @@ public:
    */
   uint8_t aac_channels;
   // Sequence header payload.
-public:
+
   /**
    * the aac extra data, the AAC sequence header,
    * without the flv codec header,
    * @see: ffmpeg, AVCodecContext::extradata
    */
   std::vector<char> aac_extra_data;
-public:
+ public:
   SrsAudioCodecConfig();
   virtual ~SrsAudioCodecConfig();
-public:
   virtual bool is_aac_codec_ok();
 };
 
 /**
 * The video codec info.
 */
-class SrsVideoCodecConfig : public SrsCodecConfig {
-public:
+class SrsVideoCodecConfig final : public SrsCodecConfig {
+ public:
   SrsVideoCodecId id;
   int video_data_rate; // in bps
   double frame_rate;
   double duration;
   int width;
   int height;
-public:
+ public:
   /**
    * the avc extra data, the AVC sequence header,
    * without the flv codec header,
    * @see: ffmpeg, AVCodecContext::extradata
    */
   std::vector<char> avc_extra_data;
-public:
+ public:
   /**
    * video specified
    */
@@ -601,35 +602,34 @@ public:
   // Note that we may resize the vector, so the under-layer bytes may change.
   std::vector<char> sequenceParameterSetNALUnit;
   std::vector<char> pictureParameterSetNALUnit;
-public:
+ public:
   // the avc payload format.
   SrsAvcPayloadFormat payload_format;
-public:
+ public:
   SrsVideoCodecConfig();
   virtual ~SrsVideoCodecConfig();
-public:
   virtual bool is_avc_codec_ok();
 };
 
 // A frame, consists of a codec and a group of samples.
 // TODO: FIXME: Rename to packet to follow names of FFmpeg, which means before decoding or after decoding.
 class SrsFrame {
-public:
+ public:
   // The DTS/PTS in milliseconds, which is TBN=1000.
   int64_t dts{0};
   // PTS = DTS + CTS.
   int32_t cts{0};
-public:
+  
   // The codec info of frame.
   SrsCodecConfig* codec{nullptr};
   // The actual parsed number of samples.
   int nb_samples{0};
   // The sampels cache.
   SrsSample samples[SrsMaxNbSamples];
-public:
+ public:
   SrsFrame();
   virtual ~SrsFrame();
-public:
+
   // Initialize the frame, to parse sampels.
   virtual srs_error_t initialize(SrsCodecConfig* c);
   // Add a sample to frame.
@@ -638,20 +638,19 @@ public:
 
 // A audio frame, besides a frame, contains the audio frame info, such as frame type.
 // TODO: FIXME: Rename to packet to follow names of FFmpeg, which means before decoding or after decoding.
-class SrsAudioFrame : public SrsFrame {
-public:
+class SrsAudioFrame final : public SrsFrame {
+ public:
   SrsAudioAacFrameTrait aac_packet_type;
-public:
+ public:
   SrsAudioFrame();
-  virtual ~SrsAudioFrame();
-public:
-  virtual SrsAudioCodecConfig* acodec();
+  ~SrsAudioFrame() override;
+  SrsAudioCodecConfig* acodec();
 };
 
 // A video frame, besides a frame, contains the video frame info, such as frame type.
 // TODO: FIXME: Rename to packet to follow names of FFmpeg, which means before decoding or after decoding.
-class SrsVideoFrame : public SrsFrame {
-public:
+class SrsVideoFrame final : public SrsFrame {
+ public:
   // video specified
   SrsVideoAvcFrameType frame_type;
   SrsVideoAvcFrameTrait avc_packet_type;
@@ -663,16 +662,16 @@ public:
   bool has_sps_pps;
   // The first nalu type.
   SrsAvcNaluType first_nalu_type;
-public:
+ public:
   SrsVideoFrame();
-  virtual ~SrsVideoFrame();
-public:
+  ~SrsVideoFrame() override;
+
   // Initialize the frame, to parse sampels.
-  virtual srs_error_t initialize(SrsCodecConfig* c);
+  srs_error_t initialize(SrsCodecConfig* c) override;
   // Add the sample without ANNEXB or IBMF header, or RAW AAC or MP3 data.
-  virtual srs_error_t add_sample(char* bytes, int size);
-public:
-  virtual SrsVideoCodecConfig* vcodec();
+  srs_error_t add_sample(char* bytes, int size) override;
+
+  SrsVideoCodecConfig* vcodec();
 };
 
 /**
@@ -681,22 +680,20 @@ public:
 * Maybe some RTMP stream only has a audio stream, for instance, redio application.
 */
 class SrsFormat {
-public:
+ public:
   SrsAudioFrame* audio;
   SrsAudioCodecConfig* acodec;
   SrsVideoFrame* video;
   SrsVideoCodecConfig* vcodec;
-public:
   char* raw;
   int nb_raw;
-public:
   // for sequence header, whether parse the h.264 sps.
   // TODO: FIXME: Refine it.
   bool avc_parse_sps;
-public:
+ public:
   SrsFormat();
   virtual ~SrsFormat();
-public:
+
   // Initialize the format.
   virtual srs_error_t initialize();
   // When got a parsed audio packet.
@@ -707,34 +704,33 @@ public:
   virtual srs_error_t on_video(int64_t timestamp, char* data, int size);
   // When got a audio aac sequence header.
   virtual srs_error_t on_aac_sequence_header(char* data, int size);
-public:
-  virtual bool is_aac_sequence_header();
-  virtual bool is_avc_sequence_header();
-private:
+  bool is_aac_sequence_header();
+  bool is_avc_sequence_header();
+ private:
   // Demux the video packet in H.264 codec.
   // The packet is muxed in FLV format, defined in flv specification.
   //          Demux the sps/pps from sequence header.
   //          Demux the samples from NALUs.
   virtual srs_error_t video_avc_demux(SrsBuffer* stream, int64_t timestamp);
-private:
+
   // Parse the H.264 SPS/PPS.
   virtual srs_error_t avc_demux_sps_pps(SrsBuffer* stream);
   virtual srs_error_t avc_demux_sps();
   virtual srs_error_t avc_demux_sps_rbsp(char* rbsp, int nb_rbsp);
-private:
+
   // Parse the H.264 NALUs.
   virtual srs_error_t video_nalu_demux(SrsBuffer* stream);
   // Demux the avc NALU in "AnnexB" from ISO_IEC_14496-10-AVC-2003.pdf, page 211.
   virtual srs_error_t avc_demux_annexb_format(SrsBuffer* stream);
   // Demux the avc NALU in "ISO Base Media File Format" from ISO_IEC_14496-15-AVC-format-2012.pdf, page 20
   virtual srs_error_t avc_demux_ibmf_format(SrsBuffer* stream);
-private:
+
   // Demux the audio packet in AAC codec.
   //          Demux the asc from sequence header.
   //          Demux the sampels from RAW data.
   virtual srs_error_t audio_aac_demux(SrsBuffer* stream, int64_t timestamp);
   virtual srs_error_t audio_mp3_demux(SrsBuffer* stream, int64_t timestamp);
-public:
+ public:
   // Directly demux the sequence header, without RTMP packet header.
   virtual srs_error_t audio_aac_sequence_header_demux(char* data, int size);
 };

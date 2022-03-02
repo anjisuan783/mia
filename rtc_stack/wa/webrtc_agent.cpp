@@ -8,7 +8,7 @@
 
 #include "h/rtc_return_value.h"
 #include "webrtc_agent_pc.h"
-
+#include "webrtc_track.h"
 #include "erizo/global_init.h"
 #include "event.h"
 
@@ -29,9 +29,9 @@ WebrtcAgent::WebrtcAgent() = default;
 
 WebrtcAgent::~WebrtcAgent() = default;
 
-int WebrtcAgent::initiate(uint32_t num_workers, 
-                          const std::vector<std::string>& ip_addresses, 
-                          const std::string& service_addr) {
+int WebrtcAgent::Open(uint32_t num_workers, 
+                      const std::vector<std::string>& ip_addresses, 
+                      const std::string& service_addr) {
   if(ip_addresses.empty()){
     return wa_e_invalid_param;
   }
@@ -63,8 +63,18 @@ int WebrtcAgent::initiate(uint32_t num_workers,
   return wa_ok;
 }
 
+void WebrtcAgent::Close() {
+  if (global_init_) {
+    erizo::erizo_global_release();
+    event_set_log_callback(nullptr);
+    workers_->close();
+    io_workers_->close();
+    global_init_ = false;
+  }
+}
+
 int WebrtcAgent::CreatePeer(TOption& options, const std::string& offer) {
-  auto pc = std::make_shared<WrtcAgentPc>(options, *this);
+  auto pc = WebrtcPeerFactory().CreatePeer(options.type_);
   
   {
     std::lock_guard<std::mutex> guard(pcLock_);
@@ -76,13 +86,14 @@ int WebrtcAgent::CreatePeer(TOption& options, const std::string& offer) {
   
   std::shared_ptr<Worker> worker = workers_->getLessUsedWorker();
   std::shared_ptr<IOWorker> ioworker = io_workers_->getIOWorker(worker->id());
-  pc->init(worker, ioworker, network_addresses_, stun_address_);
+  pc->init(options, *this, worker, ioworker, network_addresses_, stun_address_);
   pc->signalling("offer", offer);
+
   return wa_ok;
 }
 
 int WebrtcAgent::DestroyPeer(const std::string& connectId) {
-  std::shared_ptr<WrtcAgentPc> pc;
+  std::shared_ptr<WrtcAgentPcBase> pc;
   {
     std::lock_guard<std::mutex> guard(pcLock_);
     auto found = peerConnections_.find(connectId);
@@ -103,14 +114,14 @@ int WebrtcAgent::Subscribe(const std::string& publisher,
                            const std::string& player) {
   if (publisher == "" || player == "") {
     OLOG_ERROR("call Subscribe invalid parameter publisher:" << publisher <<
-        " player: " << player);
+        ", player: " << player);
     return wa_e_invalid_param;
   }
                            
   OLOG_TRACE(player << " subscribe " << publisher);
-  std::shared_ptr<WrtcAgentPc> pc_publisher;
-  std::shared_ptr<WrtcAgentPc> pc_player;
-  WrtcAgentPc::WEBRTC_TRACK_TYPE player_tracks;
+  std::shared_ptr<WrtcAgentPcBase> pc_publisher;
+  std::shared_ptr<WrtcAgentPcBase> pc_player;
+  WEBRTC_TRACK_TYPE player_tracks;
   bool isCallback = (publisher == player);
 
   {
@@ -147,14 +158,14 @@ int WebrtcAgent::Unsubscribe(const std::string& publisher,
                              const std::string& player) {
   if (publisher == "" || player == "") {
     OLOG_ERROR("call Unsubscribe invalid parameter publisher:" << publisher <<
-        " player: " << player);
+        ", player: " << player);
     return wa_e_invalid_param;
   }
                              
   OLOG_TRACE(player << " unsubscribe " << publisher);
-  std::shared_ptr<WrtcAgentPc> pc_publisher;
-  std::shared_ptr<WrtcAgentPc> pc_player;
-  WrtcAgentPc::WEBRTC_TRACK_TYPE player_tracks;
+  std::shared_ptr<WrtcAgentPcBase> pc_publisher;
+  std::shared_ptr<WrtcAgentPcBase> pc_player;
+  WEBRTC_TRACK_TYPE player_tracks;
   bool isCallback = (publisher == player);
 
   {
@@ -188,7 +199,7 @@ int WebrtcAgent::Unsubscribe(const std::string& publisher,
   return wa_ok;
 }
 
-std::unique_ptr<rtc_api> AgentFactory::create_agent() {
+std::unique_ptr<RtcApi> AgentFactory::create_agent() {
   return std::make_unique<WebrtcAgent>();
 }
 

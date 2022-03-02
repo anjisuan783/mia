@@ -15,7 +15,7 @@
 
 namespace ma {
 
-#define __OPTIMIZE__
+#define __MIA_OPTIMIZE__
 
 #define SRS_FLV_TAG_HEADER_SIZE 11
 
@@ -217,7 +217,7 @@ srs_error_t SrsFlvTransmuxer::write_tags(std::vector<std::shared_ptr<MediaMessag
     pts = ppts = new char[SRS_FLV_PREVIOUS_TAG_SIZE * count];
   }
 
-#ifndef __OPTIMIZE__
+#ifndef __MIA_OPTIMIZE__
   // realloc the iovss.
   int nb_iovss = 3 * count;
   iovec* iovss = iovss_cache;
@@ -441,7 +441,8 @@ srs_error_t SrsFlvStreamEncoder::initialize(SrsFileWriter* w, SrsBufferCache* /*
   return err;
 }
 
-srs_error_t SrsFlvStreamEncoder::write_audio(int64_t timestamp, char* data, int size) {
+srs_error_t SrsFlvStreamEncoder::write_audio(
+    int64_t timestamp, char* data, int size) {
   srs_error_t err = srs_success;
 
   if ((err = write_header())  != srs_success) {
@@ -451,7 +452,8 @@ srs_error_t SrsFlvStreamEncoder::write_audio(int64_t timestamp, char* data, int 
   return enc->write_audio(timestamp, data, size);
 }
 
-srs_error_t SrsFlvStreamEncoder::write_video(int64_t timestamp, char* data, int size) {
+srs_error_t SrsFlvStreamEncoder::write_video(
+    int64_t timestamp, char* data, int size) {
   srs_error_t err = srs_success;
 
   if ((err = write_header())  != srs_success) {
@@ -461,7 +463,8 @@ srs_error_t SrsFlvStreamEncoder::write_video(int64_t timestamp, char* data, int 
   return enc->write_video(timestamp, data, size);
 }
 
-srs_error_t SrsFlvStreamEncoder::write_metadata(int64_t timestamp, char* data, int size) {
+srs_error_t SrsFlvStreamEncoder::write_metadata(
+    int64_t timestamp, char* data, int size) {
   srs_error_t err = srs_success;
 
   if ((err = write_header())  != srs_success) {

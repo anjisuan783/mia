@@ -19,7 +19,7 @@ endif()
 set(EVENT_CMAKE_C_FLAGS "${WA_CMAKE_C_FLAGS} -DHAVE_CONFIG_H -D__linux__")
 
 if(${WA_BUILD_TYPE} STREQUAL "debug")
-  set(CMAKE_C_FLAGS "-O0 -ggdb ${EVENT_CMAKE_C_FLAGS} -DUSE_DEBUG")
+  set(CMAKE_C_FLAGS "-O0 -ggdb ${EVENT_CMAKE_C_FLAGS}")
   message("Generating event DEBUG project with ${EVENT_CMAKE_C_FLAGS}")
 else()
   set(CMAKE_C_FLAGS "-O3 ${EVENT_CMAKE_C_FLAGS}")

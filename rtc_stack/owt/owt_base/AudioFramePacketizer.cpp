@@ -1,6 +1,7 @@
 #include "owt_base/AudioFramePacketizer.h"
+
 #include "owt_base/AudioUtilitiesNew.h"
-#include "myrtc/api/task_queue_base.h"
+#include "myrtc/api/task_queue_base.h"
 #include "rtc_adapter/thread/StaticTaskQueueFactory.h"
 
 using namespace rtc_adapter;
@@ -22,14 +23,21 @@ AudioFramePacketizer::AudioFramePacketizer(AudioFramePacketizer::Config& config)
 
 AudioFramePacketizer::~AudioFramePacketizer() {
   close();
+}
+
+void AudioFramePacketizer::close() {
+  unbindTransport();
   if (audioSend_) {
     rtcAdapter_->destoryAudioSender(audioSend_);
     rtcAdapter_.reset();
     audioSend_ = nullptr;
   }
+  rtcAdapter_ = nullptr;
 }
 
 void AudioFramePacketizer::bindTransport(erizo::MediaSink* sink) {
+  if (!sink) return ;
+
   audio_sink_ = sink;
   audio_sink_->setAudioSinkSSRC(audioSend_->ssrc());
   erizo::FeedbackSource* fbSource = audio_sink_->getFeedbackSource();
@@ -65,7 +73,7 @@ void AudioFramePacketizer::onFrame(std::shared_ptr<Frame> f) {
   if (f->length <= 0) {
     return;
   }
- 
+
   task_queue_->PostTask([this, weak_ptr = weak_from_this(), frame = std::move(f)] () {
     if (auto shared_this = weak_ptr.lock()) {
       if (!enable_) {
@@ -107,10 +115,6 @@ void AudioFramePacketizer::onAdapterData(char* data, int len) {
     audio_sink_->deliverAudioData(
         std::make_shared<erizo::DataPacket>(0, data, len, erizo::AUDIO_PACKET));
   }
-}
-
-void AudioFramePacketizer::close() {
-  unbindTransport();
 }
 
 int AudioFramePacketizer::sendPLI() {

@@ -9,33 +9,32 @@
 
 #include <string>
 #include <memory>
-#include "h/rtc_media_frame.h"
+
 #include "common/media_kernel_error.h"
 #include "common/media_log.h"
 #include "encoder/media_rtc_codec.h"
 #include "common/media_io.h"
+#include "rtc/media_rtc_source_sink.h"
 
 namespace ma {
   
 class StapPackage;
 class MediaMessage;
+class RtcLiveAdapterSink;
+class MediaRtcSource;
 
-class RtcLiveAdapterSink {
- public:
-  virtual ~RtcLiveAdapterSink() = default;
-  virtual srs_error_t OnAudio(std::shared_ptr<MediaMessage>) = 0;
-  virtual srs_error_t OnVideo(std::shared_ptr<MediaMessage>) = 0;
-};
-
-class MediaRtcLiveAdaptor {
+class MediaRtcLiveAdaptor : public RtcMediaSink {
   MDECLARE_LOGGER();
  public:
   MediaRtcLiveAdaptor(const std::string& stream_id);
   ~MediaRtcLiveAdaptor();
-  void onFrame(std::shared_ptr<owt_base::Frame> frm);
-  void SetSink(RtcLiveAdapterSink* s) {
-    sink_ = s;
-  }
+
+  void Open(MediaRtcSource*, RtcLiveAdapterSink*);
+  void Close();
+
+  //RtcMediaSink
+  void OnMediaFrame(std::shared_ptr<owt_base::Frame> frm) override;
+
  private:
   srs_error_t PacketVideoKeyFrame(StapPackage& nalus);
   srs_error_t PacketVideoRtmp(StapPackage& nalus) ;
@@ -49,7 +48,8 @@ class MediaRtcLiveAdaptor {
   void dump_video(uint8_t * buf, uint32_t count);
  private:
   std::string stream_id_;
-  RtcLiveAdapterSink* sink_{nullptr};
+  RtcLiveAdapterSink* live_source_{nullptr};
+  MediaRtcSource* rtc_source_{nullptr};
   std::unique_ptr<SrsAudioTranscoder> codec_;
   bool is_first_audio_{true};
   bool is_first_keyframe_{false};

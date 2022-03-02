@@ -27,6 +27,7 @@ class MediaListenerMgr {
     virtual ~IMediaListener() = default;
     virtual int Listen(const rtc::SocketAddress&, 
                        rtc::PacketSocketFactory*) = 0;
+    virtual void Stop() = 0;
     virtual void OnNewConnectionEvent(
       rtc::AsyncPacketSocket*, rtc::AsyncPacketSocket*);
    protected:
@@ -37,6 +38,7 @@ class MediaListenerMgr {
  
   MediaListenerMgr();
   int Init(const std::vector<std::string>& addr);
+  void Close();
 
  private:
   std::unique_ptr<MediaListenerMgr::IMediaListener> 

@@ -56,8 +56,6 @@ void AudioSendAdapterImpl::onFrame(std::shared_ptr<owt_base::Frame> frame) {
   }
 
   if (frame->additionalInfo.audio.isRtpPacket) {
-    // FIXME: Temporarily use Frame to carry rtp-packets
-    // due to the premature AudioFrameConstructor implementation.
     updateSeqNo(frame->payload);
     if (rtpListener_) {
       if (!mid_.empty()) {
@@ -82,8 +80,7 @@ void AudioSendAdapterImpl::onFrame(std::shared_ptr<owt_base::Frame> frame) {
         // TODO: The frame type information is lost.
         // We treat every frame a kAudioFrameSpeech frame for now.
         if (!senderAudio_->SendAudio(webrtc::AudioFrameType::kAudioFrameSpeech,
-                payloadType, rtp_timestamp,
-                frame->payload, frame->length)) {
+                payloadType, rtp_timestamp, frame->payload, frame->length)) {
           RTC_DLOG(LS_ERROR) << 
               "ChannelSend failed to send data to RTP/RTCP module";
         }
@@ -176,7 +173,6 @@ bool AudioSendAdapterImpl::SendRtp(const uint8_t* packet,
 bool AudioSendAdapterImpl::SendRtcp(const uint8_t* packet, size_t length) {
   const RTCPHeader* chead = reinterpret_cast<const RTCPHeader*>(packet);
   uint8_t packetType = chead->getPacketType();
-  RTC_DLOG_F(LS_WARNING) << "pt:" << packetType;
   if (packetType == RTCP_Sender_PT) {
     if (rtpListener_) {
       rtpListener_->onAdapterData(

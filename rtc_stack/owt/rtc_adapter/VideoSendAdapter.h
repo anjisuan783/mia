@@ -63,7 +63,7 @@ class VideoSendAdapterImpl : public VideoSendAdapter,
   uint32_t ssrc_{0};
   owt_base::SsrcGenerator* const ssrcGenerator_;
 
-  webrtc::Clock* m_clock{nullptr};
+  webrtc::Clock* clock_{nullptr};
   int64_t timeStampOffset_{0};
 
   webrtc::RtcEventLog* eventLog_;

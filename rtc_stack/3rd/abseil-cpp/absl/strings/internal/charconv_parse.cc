@@ -409,7 +409,7 @@ strings_internal::ParsedFloat ParseFloat(const char* begin, const char* end,
     if (post_decimal_digits >= DigitLimit<base>()) {
       // refuse to parse pathological inputs
       return result;
-    } else if (post_decimal_digits > digits_left) {
+    } else if (post_decimal_digits > (size_t)digits_left) {
       exponent_adjustment -= digits_left;
     } else {
       exponent_adjustment -= post_decimal_digits;

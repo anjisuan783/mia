@@ -78,7 +78,7 @@ class RtpPacket {
     return buffer_; 
   }
   
-  size_t capacity() const {
+  virtual size_t capacity() const {
     RTC_CHECK(!read_only_);
     return buffer_.capacity(); 
   }

@@ -14,10 +14,12 @@
 #include "utils/media_msg_chain.h"
 #include "common/media_define.h"
 #include "common/media_message.h"
+#include "rtc/media_rtc_live_adaptor_sink.h"
+#include "rtc/media_rtc_source.h"
 
 namespace ma {
 
-MDEFINE_LOGGER(MediaRtcLiveAdaptor, "MediaRtcLiveAdaptor");
+MDEFINE_LOGGER(MediaRtcLiveAdaptor, "ma.rtc");
 
 // StapPackage STAP-A, for multiple NALUs.
 class StapPackage final {
@@ -135,7 +137,22 @@ MediaRtcLiveAdaptor::~MediaRtcLiveAdaptor() {
   MLOG_TRACE_THIS(stream_id_);
 }
 
-void MediaRtcLiveAdaptor::onFrame(std::shared_ptr<owt_base::Frame> f) {
+void MediaRtcLiveAdaptor::Open(MediaRtcSource* rtcSource, 
+                               RtcLiveAdapterSink* liveSource) {
+  rtc_source_ = rtcSource;
+  rtc_source_->SetMediaSink(this);
+  rtc_source_->TurnOnFrameCallback(true);
+  live_source_ = liveSource;
+  live_source_->OnPublish();
+}
+
+void MediaRtcLiveAdaptor::Close() {
+  rtc_source_->TurnOnFrameCallback(false);
+  rtc_source_->SetMediaSink(nullptr);
+  live_source_->OnUnpublish();
+}
+
+void MediaRtcLiveAdaptor::OnMediaFrame(std::shared_ptr<owt_base::Frame> f) {
   static constexpr int64_t report_interval = 10000;
   static constexpr int64_t av_differ = 200;
 
@@ -155,12 +172,10 @@ void MediaRtcLiveAdaptor::onFrame(std::shared_ptr<owt_base::Frame> f) {
       to.codec = SrsAudioCodecIdAAC;
 
       from.samplerate = frm.additionalInfo.audio.sampleRate;  
-      from.bitpersample = 16;
       from.channels = frm.additionalInfo.audio.channels;
-      from.bitrate = from.samplerate * from.bitpersample * from.channels;
+      //from.bitrate = from.samplerate * from.bitpersample * from.channels;
       
       to.samplerate = 44100; // The output audio sample rate in hz.
-      to.bitpersample = 16;
       to.channels = 2;       //stero
       to.bitrate = 48000; // The output audio bitrate in bps.
 
@@ -286,7 +301,8 @@ srs_error_t MediaRtcLiveAdaptor::PacketVideoKeyFrame(StapPackage& pkg) {
     header.initialize_video(nb_payload, pkg.time_stamp_, 1);
     auto rtmp = std::make_shared<MediaMessage>();
     rtmp->create(&header, &mc);
-    if (sink_ && (err = sink_->OnVideo(rtmp)) != srs_success) {
+    if (live_source_ && 
+        (err = live_source_->OnVideo(std::move(rtmp), true)) != srs_success) {
       return err;
     }
   }
@@ -314,7 +330,8 @@ srs_error_t MediaRtcLiveAdaptor::PacketVideoRtmp(StapPackage& pkg) {
   header.initialize_video(nb_payload, pkg.time_stamp_, 1);
   auto rtmp = std::make_shared<MediaMessage>();
   rtmp->create(&header, &mc);
-  if (sink_ && (err = sink_->OnVideo(rtmp)) != srs_success) {
+  if (live_source_ && (
+      err = live_source_->OnVideo(std::move(rtmp), true)) != srs_success) {
      MLOG_WARN("rtc on video");
   }
   return err;
@@ -383,7 +400,8 @@ srs_error_t MediaRtcLiveAdaptor::Trancode_audio(const owt_base::Frame& frm) {
 
     auto out_rtmp = PacketAudio((char*)header, header_len, ts, is_first_audio_);
 
-    if (sink_ && (err = sink_->OnAudio(out_rtmp)) != srs_success) {
+    if (live_source_ && 
+        (err = live_source_->OnAudio(std::move(out_rtmp), true)) != srs_success) {
       return srs_error_wrap(err, "source on audio");
     }
 
@@ -426,7 +444,8 @@ srs_error_t MediaRtcLiveAdaptor::Trancode_audio(const owt_base::Frame& frm) {
                                 ts, 
                                 is_first_audio_);
 
-    if (sink_ && (err = sink_->OnAudio(out_rtmp)) != srs_success) {
+    if (live_source_ && 
+        (err = live_source_->OnAudio(std::move(out_rtmp), true)) != srs_success) {
       err = srs_error_wrap(err, "source on audio");
       break;
     }

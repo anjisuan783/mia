@@ -22,18 +22,19 @@
 
 namespace wa {
 
-class WrtcAgentPc;
+class WrtcAgentPcBase;
 
-class WebrtcAgent final : public rtc_api {
+class WebrtcAgent final : public RtcApi {
   DECLARE_LOGGER();
 public:
   WebrtcAgent();
   
-  ~WebrtcAgent();
+  ~WebrtcAgent() override;
 
-  int initiate(uint32_t num_workers, 
-               const std::vector<std::string>& ip_addresses, 
-               const std::string& service_addr);
+  int Open(uint32_t num_workers, 
+           const std::vector<std::string>& ip_addresses, 
+           const std::string& service_addr) override;
+  void Close() override;
 
   int CreatePeer(TOption&, const std::string& offer) override;
 
@@ -54,8 +55,8 @@ private:
   using track_id = std::string;
 
   std::mutex pcLock_;
-  std::unordered_map<connection_id, std::shared_ptr<WrtcAgentPc>> peerConnections_;
-  //std::map<track_id, TTrackInfo> mediaTracks_;
+  std::unordered_map<connection_id, std::shared_ptr<WrtcAgentPcBase>> 
+      peerConnections_;
 
   static std::shared_ptr<ThreadPool>  workers_;
   static std::shared_ptr<IOThreadPool> io_workers_;

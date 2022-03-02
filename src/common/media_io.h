@@ -19,10 +19,10 @@ namespace ma {
  * The seeker to seek with a device.
  */
 class ISrsSeeker {
-public:
+ public:
   ISrsSeeker() = default;
   virtual ~ISrsSeeker() = default;
-public:
+ public:
   /**
    * The lseek() function repositions the offset of the file descriptor fildes to the argument offset, according to the
    * directive whence. lseek() repositions the file pointer fildes as follows:
@@ -41,10 +41,10 @@ class MessageChain;
 * The writer to write stream data to channel.
 */
 class ISrsStreamWriter {
-public:
+ public:
   ISrsStreamWriter() = default;
   virtual ~ISrsStreamWriter() = default;
-public:
+ public:
   /**
    * write bytes over writer.
    * @nwrite the actual written bytes. NULL to ignore.
@@ -65,7 +65,7 @@ public:
 * The generally writer, stream and vector writer.
 */
 class ISrsWriter : public ISrsStreamWriter {
-public:
+ public:
   ISrsWriter() = default;
   virtual ~ISrsWriter() = default;
 };
@@ -75,19 +75,18 @@ public:
 * The writer and seeker.
 */
 class ISrsWriteSeeker : public ISrsWriter, public ISrsSeeker {
-public:
+ public:
   ISrsWriteSeeker() = default;
   virtual ~ISrsWriteSeeker() = default;
 };
 
 class SrsFileWriter : public ISrsWriteSeeker {
-private:
+ private:
   std::string path;
   int fd;
-public:
+ public:
   SrsFileWriter();
   virtual ~SrsFileWriter();
-public:
   /**
    * open file writer, in truncate mode.
    * @param p a string indicates the path of file to open.
@@ -103,12 +102,12 @@ public:
    * @remark user can reopen again.
    */
   virtual void close();
-public:
+
   virtual bool is_open();
   virtual void seek2(int64_t offset);
   virtual int64_t tellg();
-// Interface ISrsWriteSeeker
-public:
+
+  // Interface ISrsWriteSeeker
   srs_error_t write(void* buf, size_t count, ssize_t* pnwrite) override;
   srs_error_t write(MessageChain*, ssize_t* nwrite) override;
   srs_error_t writev(const iovec* iov, int iovcnt, ssize_t* pnwrite) override;
@@ -119,18 +118,18 @@ class IHttpResponseWriter;
 
 // Write stream to http response direclty.
 class SrsBufferWriter : public SrsFileWriter {
-private:
+ private:
   std::shared_ptr<IHttpResponseWriter> writer_;
-public:
+ public:
   SrsBufferWriter(std::shared_ptr<IHttpResponseWriter> w);
   virtual ~SrsBufferWriter() = default;
-public:
+
   srs_error_t open(const std::string& file) override;
   void close() override;
-public:
+
   bool is_open() override;
   int64_t tellg() override;
-public:
+ 
   srs_error_t write(void* buf, size_t count, ssize_t* pnwrite) override;
   srs_error_t write(MessageChain*, ssize_t* pnwrite) override;
   srs_error_t writev(const iovec* iov, int iovcnt, ssize_t* pnwrite) override;
@@ -140,10 +139,10 @@ public:
  * The reader to read data from channel.
  */
 class ISrsReader {
-public:
+ public:
   ISrsReader() = default;
   virtual ~ISrsReader() = default;
-public:
+ public:
   /**
    * Read bytes from reader.
    * @param nread How many bytes read from channel. NULL to ignore.
@@ -155,7 +154,7 @@ public:
  * The reader and seeker.
  */
 class ISrsReadSeeker : public ISrsReader, public ISrsSeeker {
-public:
+ public:
   ISrsReadSeeker() = default;
   virtual ~ISrsReadSeeker() = default;
 };
@@ -167,10 +166,10 @@ class SrsFileReader : public ISrsReadSeeker {
 private:
   std::string path;
   int fd{-1};
-public:
+ public:
   SrsFileReader() = default;
   virtual ~SrsFileReader();
-public:
+ public:
   /**
    * open file reader.
    * @param p a string indicates the path of file to open.
@@ -181,7 +180,7 @@ public:
    * @remark user can reopen again.
    */
   virtual void close();
-public:
+ public:
   // TODO: FIXME: extract interface.
   virtual bool is_open();
   virtual int64_t tellg();
@@ -189,17 +188,16 @@ public:
   virtual int64_t seek2(int64_t offset);
   virtual int64_t filesize();
 // Interface ISrsReadSeeker
-public:
+ public:
   srs_error_t read(void* buf, size_t size, ssize_t* nread) override;
   srs_error_t lseek(off_t offset, int whence, off_t* seeked) override;
 };
 
 // The file reader factory.
 class ISrsFileReaderFactory final {
-public:
+ public:
   SrsFileReader* create_file_reader();
 };
 
 }
 #endif //!__MEDIA_IO_H__
-

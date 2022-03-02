@@ -20,7 +20,7 @@ using namespace std;
 
 namespace ma {
 
-static log4cxx::LoggerPtr logger = log4cxx::Logger::getLogger("protocol_utility");
+static log4cxx::LoggerPtr logger = log4cxx::Logger::getLogger("ma.utils");
 
 void srs_parse_hostport(std::string_view hostport, std::string_view& host, int& port) {
   // No host or port.
@@ -94,10 +94,10 @@ bool srs_bytes_equals(void* pa, void* pb, int size) {
 }
 
 
-string srs_string_replace(const string& str, 
+string srs_string_replace(string_view str, 
                           const string& old_str, 
                           const string& new_str) {
-  std::string ret = str;
+  std::string ret(str.data(), str.length());
   
   if (old_str == new_str) {
     return std::move(ret);
@@ -362,7 +362,7 @@ void srs_vhost_resolve(string& vhost, string& app, string& param) {
   // get original param
   size_t pos = 0;
   if ((pos = app.find("?")) != std::string::npos) {
-      param = app.substr(pos);
+    param = app.substr(pos);
   }
   
   // filter tcUrl

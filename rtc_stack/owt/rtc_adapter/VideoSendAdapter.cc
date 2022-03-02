@@ -23,11 +23,12 @@ namespace rtc_adapter {
 static void dump(void* index, FrameFormat format, uint8_t* buf, int len) {
   char dumpFileName[128];
 
-  snprintf(dumpFileName, 128, "/tmp/prePacketizer-%p.%s", index, getFormatStr(format));
+  snprintf(dumpFileName, 128, 
+      "/tmp/prePacketizer-%p.%s", index, getFormatStr(format));
   FILE* bsDumpfp = fopen(dumpFileName, "ab");
   if (bsDumpfp) {
-      fwrite(buf, 1, len, bsDumpfp);
-      fclose(bsDumpfp);
+    fwrite(buf, 1, len, bsDumpfp);
+    fclose(bsDumpfp);
   }
 }
 
@@ -35,32 +36,32 @@ static void dump(void* index, FrameFormat format, uint8_t* buf, int len) {
 VideoSendAdapterImpl::VideoSendAdapterImpl(CallOwner* callowner, 
                                            const RtcAdapter::Config& config)
     : config_(config),
-      frameFormat_(FRAME_FORMAT_UNKNOWN),
-      ssrcGenerator_(SsrcGenerator::GetSsrcGenerator()),
-      feedbackListener_(config.feedback_listener),
-      dataListener_(config.rtp_listener),
-      statsListener_(config.stats_listener),
-      taskRunner_(std::make_unique<ProcessThreadMock>(
-          callowner->taskQueue().get())) {
-    ssrc_ = ssrcGenerator_->CreateSsrc();
-    ssrcGenerator_->RegisterSsrc(ssrc_);
-    eventLog_ = callowner->eventLog();
-    init();
+    frameFormat_(FRAME_FORMAT_UNKNOWN),
+    ssrcGenerator_(SsrcGenerator::GetSsrcGenerator()),
+    feedbackListener_(config.feedback_listener),
+    dataListener_(config.rtp_listener),
+    statsListener_(config.stats_listener),
+    taskRunner_(std::make_unique<ProcessThreadMock>(
+        callowner->taskQueue().get())) {
+  ssrc_ = ssrcGenerator_->CreateSsrc();
+  ssrcGenerator_->RegisterSsrc(ssrc_);
+  eventLog_ = callowner->eventLog();
+  init();
 }
 
 VideoSendAdapterImpl::~VideoSendAdapterImpl() {
-    taskRunner_->DeRegisterModule(rtpRtcp_.get());
-    ssrcGenerator_->ReturnSsrc(ssrc_);
+  taskRunner_->DeRegisterModule(rtpRtcp_.get());
+  ssrcGenerator_->ReturnSsrc(ssrc_);
 }
 
 bool VideoSendAdapterImpl::init() {
-  m_clock = webrtc::Clock::GetRealTimeClock();
-  retransmissionRateLimiter_ = std::move(std::make_unique<webrtc::RateLimiter>(
-      m_clock, 1000));
+  clock_ = webrtc::Clock::GetRealTimeClock();
+  retransmissionRateLimiter_ = 
+      std::move(std::make_unique<webrtc::RateLimiter>(clock_, 1000));
 
   //configure rtp_rtcp
   webrtc::RtpRtcp::Configuration configuration;
-  configuration.clock = m_clock;
+  configuration.clock = clock_;
   configuration.audio = false;
   configuration.receiver_only = false;
   configuration.outgoing_transport = this;
@@ -129,17 +130,19 @@ void VideoSendAdapterImpl::reset() {
 }
 
 void VideoSendAdapterImpl::onFrame(std::shared_ptr<owt_base::Frame> f) {
-  if (f->format != FRAME_FORMAT_H264) {
+  Frame& frame = *f.get();
+  if (frame.format != FRAME_FORMAT_H264) {
     assert(false);
     return;
   }
-  Frame& frame = *f.get();
+  
   using namespace webrtc;
 
   if (!keyFrameArrived_) {
     if (!frame.additionalInfo.video.isKeyFrame) {
       if (feedbackListener_) {
-        FeedbackMsg feedback = {.type = VIDEO_FEEDBACK, .cmd = REQUEST_KEY_FRAME };
+        FeedbackMsg feedback = 
+            {.type = VIDEO_FEEDBACK, .cmd = REQUEST_KEY_FRAME };
         feedbackListener_->onFeedback(feedback);
       }
       return;
@@ -148,21 +151,21 @@ void VideoSendAdapterImpl::onFrame(std::shared_ptr<owt_base::Frame> f) {
     // Recalculate timestamp offset
     static constexpr uint32_t kMsToRtpTimestamp = 90;
     timeStampOffset_ = 
-        kMsToRtpTimestamp * m_clock->TimeInMilliseconds() - frame.timeStamp;
+        kMsToRtpTimestamp * clock_->TimeInMilliseconds() - frame.timeStamp;
     keyFrameArrived_ = true;
   }
 
   // Recalculate timestamp for stream substitution
   uint32_t timeStamp = frame.timeStamp + timeStampOffset_;
   webrtc::RTPVideoHeader h;
-  memset(&h, 0, sizeof(webrtc::RTPVideoHeader));
+  //memset(&h, 0, sizeof(webrtc::RTPVideoHeader));
 
   if (frame.format != frameFormat_
       || frame.additionalInfo.video.width != frameWidth_
       || frame.additionalInfo.video.height != frameHeight_) {
-      frameFormat_ = frame.format;
-      frameWidth_ = frame.additionalInfo.video.width;
-      frameHeight_ = frame.additionalInfo.video.height;
+    frameFormat_ = frame.format;
+    frameWidth_ = frame.additionalInfo.video.width;
+    frameHeight_ = frame.additionalInfo.video.height;
   }
 
   h.frame_type = frame.additionalInfo.video.isKeyFrame ? 

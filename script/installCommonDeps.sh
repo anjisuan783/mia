@@ -33,7 +33,7 @@ install_libnice(){
   if [ -d $LIB_DIR ]; then
     cd $LIB_DIR
     rm -f ./build/lib64/libnice.*
-    rm -rf libnice-0.1.*
+    rm -rf libnice-0.1.18
     cp ${THIRD_PARTY_DEPTH}/libnice-0.1.18.tar.gz ./
     tar -zxvf libnice-0.1.18.tar.gz
     cd libnice-0.1.18
@@ -52,8 +52,8 @@ install_libsrtp2(){
 
   if [ -d $LIB_DIR ]; then
     cd $LIB_DIR
+    rm -f ./build/lib/libsrtp2.*
     rm -rf libsrtp-2.1.0
-    #curl -o libsrtp-2.1.0.tar.gz https://codeload.github.com/cisco/libsrtp/tar.gz/v2.1.0
     cp ${THIRD_PARTY_DEPTH}/libsrtp-2.1.0.tar.gz ./
     tar -zxvf libsrtp-2.1.0.tar.gz
     cd libsrtp-2.1.0
@@ -72,15 +72,17 @@ install_ffmpeg(){
 
   if [ -d $LIB_DIR ]; then
     cd $LIB_DIR
-    rm -rf ffmpeg-4-fit
-    cp ${THIRD_PARTY_DEPTH}/ffmpeg-4-fit.tar.gz ./
-    tar -zxvf ffmpeg-4-fit.tar.gz
-    cd ffmpeg-4-fit
+    rm -f ./build/lib/libav*
+    rm -f ./build/lib/libsw*
+    rm -rf FFmpeg-release-4.4
+    cp ${THIRD_PARTY_DEPTH}/FFmpeg-release-4.4.zip ./
+    unzip FFmpeg-release-4.4.zip
+    cd FFmpeg-release-4.4
     FFMPEG_OPTIONS="--disable-asm --disable-x86asm --disable-inline-asm"
     ./configure --prefix=$PREFIX_DIR \
       --pkg-config-flags="--static" --extra-libs="-lpthread" --extra-libs="-lm" ${FFMPEG_OPTIONS} \
       --disable-programs --disable-doc --disable-htmlpages --disable-manpages --disable-podpages --disable-txtpages \
-      --disable-avdevice --disable-avformat --disable-swscale --disable-postproc --disable-avfilter --disable-network \
+      --disable-postproc --disable-network \
       --disable-dct --disable-dwt --disable-error-resilience --disable-lsp --disable-lzo --disable-faan --disable-pixelutils \
       --disable-hwaccels --disable-devices --disable-audiotoolbox --disable-videotoolbox  --disable-cuvid \
       --disable-d3d11va --disable-dxva2 --disable-ffnvcodec --disable-nvdec --disable-nvenc --disable-v4l2-m2m --disable-vaapi \
@@ -101,6 +103,7 @@ install_opus(){
 
   if [ -d $LIB_DIR ]; then
     cd $LIB_DIR
+    rm -f ./build/lib/libopus.*
     rm -rf opus-1.3.1
     cp ${THIRD_PARTY_DEPTH}/opus-1.3.1.tar.gz ./
     tar -zxvf opus-1.3.1.tar.gz
@@ -120,6 +123,8 @@ install_gtest(){
 
   if [ -d $LIB_DIR ]; then
     cd $LIB_DIR
+    rm -f ./build/lib/libgmock*
+    rm -f ./build/lib/libgtest*
     rm -rf gtest
     cp ${THIRD_PARTY_DEPTH}/googletest.tar.gz ./
     tar -zxvf googletest.tar.gz
@@ -131,18 +136,6 @@ install_gtest(){
   else
     mkdir -p $LIB_DIR
     install_gtest
-  fi
-}
-
-cleanup_common(){
-  if [ -d $LIB_DIR ]; then
-    cd $LIB_DIR
-    rm -r openssl*
-    rm -r libnice*
-    rm -r libav*
-    rm -r libvpx*
-    rm -f libva-utils*
-    cd $CURRENT_DIR
   fi
 }
 

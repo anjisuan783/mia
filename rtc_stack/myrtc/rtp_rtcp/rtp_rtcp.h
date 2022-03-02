@@ -166,8 +166,7 @@ class RtpRtcp : public Module, public RtcpFeedbackSenderInterface {
   // (De)registers RTP header extension type and id.
   // Returns -1 on failure else 0.
   RTC_DEPRECATED virtual int32_t RegisterSendRtpHeaderExtension(
-      RTPExtensionType type,
-      uint8_t id) = 0;
+      RTPExtensionType type, uint8_t id) = 0;
   // Register extension by uri, triggers CHECK on falure.
   virtual void RegisterRtpHeaderExtension(std::string_view uri, int id) = 0;
 

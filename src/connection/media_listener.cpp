@@ -14,7 +14,7 @@
 #include "media_server.h"
 
 namespace ma {
-static log4cxx::LoggerPtr logger = log4cxx::Logger::getLogger("listener");
+static log4cxx::LoggerPtr logger = log4cxx::Logger::getLogger("ma.connection");
 
 void MediaListenerMgr::IMediaListener::OnNewConnectionEvent(
   rtc::AsyncPacketSocket* s, rtc::AsyncPacketSocket* c) {
@@ -35,11 +35,15 @@ MediaListenerMgr::IMediaListener::GetSocketType() {
   return op;
 }
 
+///////////////////////////////////////////////////////////////////////////////
 //MediaRtmpListener
+///////////////////////////////////////////////////////////////////////////////
 class MediaRtmpListener : public MediaListenerMgr::IMediaListener {
  public:
   int Listen(const rtc::SocketAddress&, 
              rtc::PacketSocketFactory*) override;
+
+  void Stop() override;
   void OnNewConnectionEvent(rtc::AsyncPacketSocket*, 
                             rtc::AsyncPacketSocket*) override;
 };
@@ -67,11 +71,19 @@ int MediaRtmpListener::Listen(const rtc::SocketAddress& address,
   return kma_ok;
 }
 
+void MediaRtmpListener::Stop() {
+  listen_socket_->SignalNewConnection.disconnect(this);
+  listen_socket_->Close();
+}
+
+///////////////////////////////////////////////////////////////////////////////
 //MediaHttpListener
+///////////////////////////////////////////////////////////////////////////////
 class MediaHttpListener : public MediaListenerMgr::IMediaListener {
  public:
   int Listen(const rtc::SocketAddress&, 
              rtc::PacketSocketFactory*) override;
+  void Stop() override;
   void OnNewConnectionEvent(rtc::AsyncPacketSocket*, 
                             rtc::AsyncPacketSocket*) override;
 };
@@ -93,6 +105,11 @@ int MediaHttpListener::Listen(const rtc::SocketAddress& address,
   return kma_ok;
 }
 
+void MediaHttpListener::Stop() {
+  listen_socket_->SignalNewConnection.disconnect(this);
+  listen_socket_->Close();
+}
+
 void MediaHttpListener::OnNewConnectionEvent(rtc::AsyncPacketSocket* s, 
                                              rtc::AsyncPacketSocket* c) {
   MLOG_TRACE("new peer:" << c->GetRemoteAddress().ToString() << 
@@ -100,7 +117,9 @@ void MediaHttpListener::OnNewConnectionEvent(rtc::AsyncPacketSocket* s,
   IMediaListener::OnNewConnectionEvent(s, c);
 }
 
+///////////////////////////////////////////////////////////////////////////////
 //MediaHttpsListener
+///////////////////////////////////////////////////////////////////////////////
 class MediaHttpsListener : public MediaListenerMgr::IMediaListener {
  public:
   MediaHttpsListener();
@@ -108,6 +127,7 @@ class MediaHttpsListener : public MediaListenerMgr::IMediaListener {
   
   int Listen(const rtc::SocketAddress&, 
              rtc::PacketSocketFactory*) override;
+  void Stop() override;
   void OnNewConnectionEvent(rtc::AsyncPacketSocket*, 
                             rtc::AsyncPacketSocket*) override;
  private:
@@ -144,6 +164,12 @@ int MediaHttpsListener::Listen(const rtc::SocketAddress& address,
   return kma_ok;
 }
 
+void MediaHttpsListener::Stop() {
+  listen_socket_->SignalNewConnection.disconnect(this);
+  listen_socket_->Close();
+  CheckClean();
+}
+
 void MediaHttpsListener::OnNewConnectionEvent(rtc::AsyncPacketSocket* s, 
                                               rtc::AsyncPacketSocket* c) {
   MLOG_TRACE("new peer:" << c->GetRemoteAddress().ToString() << 
@@ -177,7 +203,9 @@ void MediaHttpsListener::CheckClean() {
   }
 }
 
-//MediaListenerMgr
+///////////////////////////////////////////////////////////////////////////////
+//MediaHttpsListener
+///////////////////////////////////////////////////////////////////////////////
 MediaListenerMgr::MediaListenerMgr() = default;
 
 int MediaListenerMgr::Init(const std::vector<std::string>& addr) {
@@ -217,6 +245,15 @@ int MediaListenerMgr::Init(const std::vector<std::string>& addr) {
   }
 
   return kma_ok;
+}
+
+void MediaListenerMgr::Close() {
+  for(auto& i : listeners_) {
+    i->Stop();
+  }
+  listeners_.clear();
+
+  worker_->Stop();
 }
 
 std::unique_ptr<MediaListenerMgr::IMediaListener> 

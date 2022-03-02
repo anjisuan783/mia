@@ -9,10 +9,11 @@
 
 #include "common/media_log.h"
 #include "utils/media_kernel_buffer.h"
+#include "encoder/media_codec.h"
 
 namespace ma {
 
-static log4cxx::LoggerPtr logger = log4cxx::Logger::getLogger("media_codec");
+static log4cxx::LoggerPtr logger = log4cxx::Logger::getLogger("ma.encoder");
 
 std::string srs_audio_codec_id2str(SrsAudioCodecId codec) {
   switch (codec) {
@@ -75,13 +76,15 @@ srs_error_t srs_avc_nalu_read_uev(SrsBitBuffer* stream, int32_t& v) {
   }
   
   if (leadingZeroBits >= 31) {
-    return srs_error_new(ERROR_AVC_NALU_UEV, "%dbits overflow 31bits", leadingZeroBits);
+    return srs_error_new(ERROR_AVC_NALU_UEV, 
+        "%dbits overflow 31bits", leadingZeroBits);
   }
   
   v = (1 << leadingZeroBits) - 1;
   for (int i = 0; i < (int)leadingZeroBits; i++) {
     if (stream->empty()) {
-      return srs_error_new(ERROR_AVC_NALU_UEV, "no bytes for leadingZeroBits=%d", leadingZeroBits);
+      return srs_error_new(ERROR_AVC_NALU_UEV, 
+          "no bytes for leadingZeroBits=%d", leadingZeroBits);
     }
     
     int32_t b = stream->read_bit();
@@ -226,23 +229,18 @@ bool SrsFlvAudio::aac(const char* data, int size) {
   return sound_format == SrsAudioCodecIdAAC;
 }
 
-/**
-* the public data, event HLS disable, others can use it.
-*/
-// 0 = 5.5 kHz = 5512 Hz
-// 1 = 11 kHz = 11025 Hz
-// 2 = 22 kHz = 22050 Hz
-// 3 = 44 kHz = 44100 Hz
-int srs_flv_srates[] = {5512, 11025, 22050, 44100, 0};
-
 // the sample rates in the codec,
 // in the sequence header.
-int srs_aac_srates[] = {
+static int srs_aac_srates[] = {
   96000, 88200, 64000, 48000,
   44100, 32000, 24000, 22050,
   16000, 12000, 11025,  8000,
   7350,     0,     0,    0
 };
+
+int GetAacSampleRate(uint8_t index) {
+  return srs_aac_srates[index];
+}
 
 std::string srs_audio_sample_bits2str(SrsAudioSampleBits v) {
   switch (v) {
@@ -387,7 +385,9 @@ srs_error_t SrsSample::parse_bframe() {
   uint8_t header = bytes[0];
   SrsAvcNaluType nal_type = (SrsAvcNaluType)(header & kNalTypeMask);
 
-  if (nal_type != SrsAvcNaluTypeNonIDR && nal_type != SrsAvcNaluTypeDataPartitionA && nal_type != SrsAvcNaluTypeIDR) {
+  if (nal_type != SrsAvcNaluTypeNonIDR && 
+      nal_type != SrsAvcNaluTypeDataPartitionA && 
+      nal_type != SrsAvcNaluTypeIDR) {
     return err;
   }
 
@@ -398,7 +398,8 @@ srs_error_t SrsSample::parse_bframe() {
 
   SrsBitBuffer bitstream(&stream);
   int32_t first_mb_in_slice = 0;
-  if ((err = srs_avc_nalu_read_uev(&bitstream, first_mb_in_slice)) != srs_success) {
+  if ((err = 
+      srs_avc_nalu_read_uev(&bitstream, first_mb_in_slice)) != srs_success) {
     return srs_error_wrap(err, "nalu read uev");
   }
 
@@ -540,7 +541,8 @@ srs_error_t SrsVideoFrame::add_sample(char* bytes, int size) {
   
   if (nal_unit_type == SrsAvcNaluTypeIDR) {
     has_idr = true;
-  } else if (nal_unit_type == SrsAvcNaluTypeSPS || nal_unit_type == SrsAvcNaluTypePPS) {
+  } else if (nal_unit_type == SrsAvcNaluTypeSPS || 
+       nal_unit_type == SrsAvcNaluTypePPS) {
     has_sps_pps = true;
   } else if (nal_unit_type == SrsAvcNaluTypeAccessUnitDelimiter) {
     has_aud = true;
@@ -706,7 +708,8 @@ srs_error_t SrsFormat::video_avc_demux(SrsBuffer* stream, int64_t timestamp) {
   
   // only support h.264/avc
   if (codec_id != SrsVideoCodecIdAVC) {
-    return srs_error_new(ERROR_HLS_DECODE_ERROR, "avc only support video h.264/avc, actual=%d", codec_id);
+    return srs_error_new(ERROR_HLS_DECODE_ERROR, 
+        "avc only support video h.264/avc, actual=%d", codec_id);
   }
   vcodec->id = codec_id;
   
@@ -741,7 +744,8 @@ srs_error_t SrsFormat::video_avc_demux(SrsBuffer* stream, int64_t timestamp) {
   return err;
 }
 
-// For media server, we don't care the codec, so we just try to parse sps-pps, and we could ignore any error if fail.
+// For media server, we don't care the codec, 
+// so we just try to parse sps-pps, and we could ignore any error if fail.
 // LCOV_EXCL_START
 
 srs_error_t SrsFormat::avc_demux_sps_pps(SrsBuffer* stream) {
@@ -750,7 +754,8 @@ srs_error_t SrsFormat::avc_demux_sps_pps(SrsBuffer* stream) {
   int avc_extra_size = stream->size() - stream->pos();
   if (avc_extra_size > 0) {
     char *copy_stream_from = stream->data() + stream->pos();
-    vcodec->avc_extra_data = std::vector<char>(copy_stream_from, copy_stream_from + avc_extra_size);
+    vcodec->avc_extra_data = 
+        std::vector<char>(copy_stream_from, copy_stream_from + avc_extra_size);
   }
   
   if (!stream->require(6)) {
@@ -776,7 +781,8 @@ srs_error_t SrsFormat::avc_demux_sps_pps(SrsBuffer* stream) {
   // The value of this field shall be one of 0, 1, or 3 corresponding to a
   // length encoded with 1, 2, or 4 bytes, respectively.
   if (vcodec->NAL_unit_length == 2) {
-    return srs_error_new(ERROR_HLS_DECODE_ERROR, "sps lengthSizeMinusOne should never be 2");
+    return srs_error_new(ERROR_HLS_DECODE_ERROR, 
+        "sps lengthSizeMinusOne should never be 2");
   }
   
   // 1 sps, 7.3.2.1 Sequence parameter set RBSP syntax
@@ -798,7 +804,8 @@ srs_error_t SrsFormat::avc_demux_sps_pps(SrsBuffer* stream) {
   }
   if (sequenceParameterSetLength > 0) {
     vcodec->sequenceParameterSetNALUnit.resize(sequenceParameterSetLength);
-    stream->read_bytes(&vcodec->sequenceParameterSetNALUnit[0], sequenceParameterSetLength);
+    stream->read_bytes(
+        &vcodec->sequenceParameterSetNALUnit[0], sequenceParameterSetLength);
   }
   // 1 pps
   if (!stream->require(1)) {
@@ -818,7 +825,8 @@ srs_error_t SrsFormat::avc_demux_sps_pps(SrsBuffer* stream) {
   }
   if (pictureParameterSetLength > 0) {
     vcodec->pictureParameterSetNALUnit.resize(pictureParameterSetLength);
-    stream->read_bytes(&vcodec->pictureParameterSetNALUnit[0], pictureParameterSetLength);
+    stream->read_bytes(
+        &vcodec->pictureParameterSetNALUnit[0], pictureParameterSetLength);
   }
   
   return avc_demux_sps();
@@ -849,23 +857,29 @@ srs_error_t SrsFormat::avc_demux_sps() {
     return srs_error_new(ERROR_HLS_DECODE_ERROR, "forbidden_zero_bit shall be equal to 0");
   }
   
-  // nal_ref_idc not equal to 0 specifies that the content of the NAL unit contains a sequence parameter set or a picture
-  // parameter set or a slice of a reference picture or a slice data partition of a reference picture.
+  // nal_ref_idc not equal to 0 specifies that 
+  // the content of the NAL unit contains a sequence parameter set or a picture
+  // parameter set or a slice of a reference picture or 
+  // a slice data partition of a reference picture.
   int8_t nal_ref_idc = (nutv >> 5) & 0x03;
   if (!nal_ref_idc) {
-    return srs_error_new(ERROR_HLS_DECODE_ERROR, "for sps, nal_ref_idc shall be not be equal to 0");
+    return srs_error_new(ERROR_HLS_DECODE_ERROR, 
+        "for sps, nal_ref_idc shall be not be equal to 0");
   }
   
   // 7.4.1 NAL unit semantics
   // ISO_IEC_14496-10-AVC-2012.pdf, page 61.
-  // nal_unit_type specifies the type of RBSP data structure contained in the NAL unit as specified in Table 7-1.
+  // nal_unit_type specifies the type of RBSP data structure 
+  // contained in the NAL unit as specified in Table 7-1.
   SrsAvcNaluType nal_unit_type = (SrsAvcNaluType)(nutv & 0x1f);
   if (nal_unit_type != 7) {
-    return srs_error_new(ERROR_HLS_DECODE_ERROR, "for sps, nal_unit_type shall be equal to 7");
+    return srs_error_new(ERROR_HLS_DECODE_ERROR, 
+        "for sps, nal_unit_type shall be equal to 7");
   }
   
   // decode the rbsp from sps.
-  // rbsp[ i ] a raw byte sequence payload is specified as an ordered sequence of bytes.
+  // rbsp[ i ] a raw byte sequence payload is specified as 
+  // an ordered sequence of bytes.
   std::vector<int8_t> rbsp(vcodec->sequenceParameterSetNALUnit.size());
   
   int nb_rbsp = 0;
@@ -873,7 +887,8 @@ srs_error_t SrsFormat::avc_demux_sps() {
     rbsp[nb_rbsp] = stream.read_1bytes();
     
     // XX 00 00 03 XX, the 03 byte should be drop.
-    if (nb_rbsp > 2 && rbsp[nb_rbsp - 2] == 0 && rbsp[nb_rbsp - 1] == 0 && rbsp[nb_rbsp] == 3) {
+    if (nb_rbsp > 2 && rbsp[nb_rbsp - 2] == 0 && 
+        rbsp[nb_rbsp - 1] == 0 && rbsp[nb_rbsp] == 3) {
       // read 1byte more.
       if (stream.empty()) {
         break;
@@ -1235,14 +1250,16 @@ srs_error_t SrsFormat::audio_aac_demux(SrsBuffer* stream, int64_t timestamp) {
 
   // only support aac
   if (codec_id != SrsAudioCodecIdAAC) {
-    return srs_error_new(ERROR_HLS_DECODE_ERROR, "not supported codec %d", codec_id);
+    return srs_error_new(
+        ERROR_HLS_DECODE_ERROR, "not supported codec %d", codec_id);
   }
 
   if (!stream->require(1)) {
     return srs_error_new(ERROR_HLS_DECODE_ERROR, "aac decode aac_packet_type");
   }
   
-  SrsAudioAacFrameTrait aac_packet_type = (SrsAudioAacFrameTrait)stream->read_1bytes();
+  SrsAudioAacFrameTrait aac_packet_type = 
+      (SrsAudioAacFrameTrait)stream->read_1bytes();
   audio->aac_packet_type = (SrsAudioAacFrameTrait)aac_packet_type;
   
   // Update the RAW AAC data.
@@ -1252,12 +1269,11 @@ srs_error_t SrsFormat::audio_aac_demux(SrsBuffer* stream, int64_t timestamp) {
   if (aac_packet_type == SrsAudioAacFrameTraitSequenceHeader) {
     // AudioSpecificConfig
     // 1.6.2.1 AudioSpecificConfig, in ISO_IEC_14496-3-AAC-2001.pdf, page 33.
-    int aac_extra_size = stream->size() - stream->pos();
-    if (aac_extra_size > 0) {
-      char *copy_stream_from = stream->data() + stream->pos();
-      acodec->aac_extra_data = std::vector<char>(copy_stream_from, copy_stream_from + aac_extra_size);
+    if (nb_raw > 0) {
+      acodec->aac_extra_data = std::move(std::vector<char>(raw, raw + nb_raw));
       
-      if ((err = audio_aac_sequence_header_demux(&acodec->aac_extra_data[0], aac_extra_size)) != srs_success) {
+      if ((err = audio_aac_sequence_header_demux(
+          &acodec->aac_extra_data[0], nb_raw)) != srs_success) {
         return srs_error_wrap(err, "demux aac sh");
       }
     }
@@ -1270,7 +1286,7 @@ srs_error_t SrsFormat::audio_aac_demux(SrsBuffer* stream, int64_t timestamp) {
     
     // Raw AAC frame data in UI8 []
     // 6.3 Raw Data, ISO_IEC_13818-7-AAC-2004.pdf, page 28
-    if ((err = audio->add_sample(stream->data() + stream->pos(), stream->size() - stream->pos())) != srs_success) {
+    if ((err = audio->add_sample(raw, nb_raw)) != srs_success) {
       return srs_error_wrap(err, "add audio frame");
     }
   } else {
@@ -1279,12 +1295,6 @@ srs_error_t SrsFormat::audio_aac_demux(SrsBuffer* stream, int64_t timestamp) {
   
   // reset the sample rate by sequence header
   if (acodec->aac_sample_rate != SrsAacSampleRateUnset) {
-    static int srs_aac_srates[] = {
-        96000, 88200, 64000, 48000,
-        44100, 32000, 24000, 22050,
-        16000, 12000, 11025,  8000,
-        7350,     0,     0,    0
-    };
     switch (srs_aac_srates[acodec->aac_sample_rate]) {
       case 11025:
         acodec->sound_rate = SrsAudioSampleRate11025;
@@ -1363,7 +1373,8 @@ srs_error_t SrsFormat::audio_aac_sequence_header_demux(char* data, int size) {
   uint8_t samplingFrequencyIndex = buffer.read_1bytes();
   
   acodec->aac_channels = (samplingFrequencyIndex >> 3) & 0x0f;
-  samplingFrequencyIndex = ((profile_ObjectType << 1) & 0x0e) | ((samplingFrequencyIndex >> 7) & 0x01);
+  samplingFrequencyIndex = ((profile_ObjectType << 1) & 0x0e) | 
+                           ((samplingFrequencyIndex >> 7) & 0x01);
   profile_ObjectType = (profile_ObjectType >> 3) & 0x1f;
   
   // set the aac sample rate.
@@ -1372,7 +1383,8 @@ srs_error_t SrsFormat::audio_aac_sequence_header_demux(char* data, int size) {
   // convert the object type in sequence header to aac profile of ADTS.
   acodec->aac_object = (SrsAacObjectType)profile_ObjectType;
   if (acodec->aac_object == SrsAacObjectTypeReserved) {
-    return srs_error_new(ERROR_HLS_DECODE_ERROR, "aac decode sh object %d", profile_ObjectType);
+    return srs_error_new(ERROR_HLS_DECODE_ERROR, 
+        "aac decode sh object %d", profile_ObjectType);
   }
   
   // TODO: FIXME: to support aac he/he-v2, see: ngx_rtmp_codec_parse_aac_header

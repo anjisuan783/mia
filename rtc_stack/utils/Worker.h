@@ -53,8 +53,12 @@ class Worker final : public std::enable_shared_from_this<Worker> {
     return task_queue_base_;
   }
 
-  int id() {
+  inline int id() {
     return id_;
+  }
+
+  inline bool IsCurrent() {
+    return task_queue_base_->IsCurrent();
   }
 
  private:

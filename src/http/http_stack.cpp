@@ -22,7 +22,7 @@
 
 namespace ma {
 
-static log4cxx::LoggerPtr logger = log4cxx::Logger::getLogger("http_stack");
+static log4cxx::LoggerPtr logger = log4cxx::Logger::getLogger("ma.http");
 
 
 /* Copyright Joyent, Inc. and other Node contributors.
@@ -1922,7 +1922,7 @@ HttpMessage::to_request(const std::string& vhost) {
 
   std::string query = uri_->get_query();
   if (!query.empty()) {
-      req->param = "?" + query;
+    req->param = "?" + query;
   }
   
   srs_discovery_tc_url(req->tcUrl, 
@@ -1937,12 +1937,12 @@ HttpMessage::to_request(const std::string& vhost) {
   
   // reset the host to http request host.
   if (req->host == SRS_CONSTS_RTMP_DEFAULT_VHOST) {
-      req->host = uri_->get_host();
+    req->host = uri_->get_host();
   }
 
   // Set ip by remote ip of connection.
   if (owner_) {
-      req->ip = owner_->Ip();
+    req->ip = owner_->Ip();
   }
 
   // Overwrite by ip from proxy.

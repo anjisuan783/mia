@@ -15,7 +15,7 @@
 #include "http/h/http_protocal.h"
 #include "media_server.h"
 #include "rtmp/media_req.h"
-#include "rtc/media_rtc_source.h"
+#include "rtc/media_rtc_source_sink.h"
 
 namespace ma {
 
@@ -71,21 +71,20 @@ void FillTrack(const std::string& sdp,
 
 } //namespace
 
-static log4cxx::LoggerPtr logger = 
-    log4cxx::Logger::getLogger("MediaRtcAttendee");
+static log4cxx::LoggerPtr logger = log4cxx::Logger::getLogger("ma.rtc");
 
-///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////
 //MediaRtcAttendeeBase
 ///////////////////////////////////////////////////////////////////////////////
-srs_error_t MediaRtcAttendeeBase::Open(wa::rtc_api* rtc, 
-                 std::shared_ptr<IHttpResponseWriter> w, 
-                 const std::string& stream_id,
-                 const std::string& offer,
+srs_error_t MediaRtcAttendeeBase::Open(wa::RtcApi* rtc, 
+                 std::shared_ptr<IHttpResponseWriter> w,
+                 std::string_view offer,
                  wa::Worker* worker,
                  std::shared_ptr<MediaRequest> req,
                  const std::string& publisher_id) {
   req_ = std::move(req);
-  return Open_i(rtc, w, stream_id, offer, worker, publisher_id);
+  std::string streamName = req_->get_stream_url();
+  return Open_i(rtc, std::move(w), streamName, offer, worker, publisher_id);
 }
 
 srs_error_t MediaRtcAttendeeBase::Responese(int code, const std::string& sdp) {
@@ -124,7 +123,6 @@ void MediaRtcAttendeeBase::post(Task t) {
 }
 
 void MediaRtcAttendeeBase::ChangeOnFrame(bool on) {
-  MLOG_INFO(pc_id_ << (on ? ", on" : ", off"));
   int ret;
   if (on) {
     ret = rtc_->Subscribe(pc_id_, pc_id_);
@@ -135,12 +133,23 @@ void MediaRtcAttendeeBase::ChangeOnFrame(bool on) {
   MLOG_INFO(pc_id_ << (on ? ", on" : ", off") << ", ret:" << ret);
 }
 
+///////////////////////////////////////////////////////////////////////////////
 //MediaRtcPublisher
+///////////////////////////////////////////////////////////////////////////////
+MediaRtcPublisher::MediaRtcPublisher(const std::string& id)
+    : MediaRtcAttendeeBase(id) {
+  MLOG_TRACE(id);
+}
+    
+MediaRtcPublisher::~MediaRtcPublisher() {
+  MLOG_TRACE(pc_id_);
+}
+
 srs_error_t MediaRtcPublisher::Open_i(
-    wa::rtc_api* rtc, 
+    wa::RtcApi* rtc, 
     std::shared_ptr<IHttpResponseWriter> writer, 
     const std::string& stream_id,
-    const std::string& isdp,
+    std::string_view isdp,
     wa::Worker* worker,
     const std::string&) {
     
@@ -238,21 +247,29 @@ void MediaRtcPublisher::onFrame(std::shared_ptr<owt_base::Frame> frm) {
 ///////////////////////////////////////////////////////////////////////////////
 //MediaRtcPublisher
 ///////////////////////////////////////////////////////////////////////////////
+MediaRtcSubscriber::MediaRtcSubscriber(const std::string& id) 
+    : MediaRtcAttendeeBase(id) {
+  MLOG_TRACE(id);
+}
+
+MediaRtcSubscriber::~MediaRtcSubscriber() {
+  MLOG_TRACE(pc_id_);
+}
+
 srs_error_t MediaRtcSubscriber::Open_i(
-    wa::rtc_api* rtc, 
+    wa::RtcApi* rtc, 
     std::shared_ptr<IHttpResponseWriter> writer,
     const std::string& stream_id,
-    const std::string& isdp,
+    std::string_view isdp,
     wa::Worker* worker,
     const std::string& publisher_id) {
-    
   MLOG_INFO(pc_id_ << ", offer:" << isdp);
   writer_ = std::move(writer);
   rtc_ = rtc;
   worker_ = worker;
   publisher_id_ = publisher_id;
   std::string sdp = srs_string_replace(isdp, "\\r\\n", "\r\n");
-    
+
   wa::TOption  t;
   t.connectId_ = pc_id_;
   t.stream_name_ = stream_id;
@@ -260,6 +277,7 @@ srs_error_t MediaRtcSubscriber::Open_i(
   FillTrack(sdp, t.tracks_, false);
 
   t.call_back_ = shared_from_this();
+  async_callback_ = true;
 
   int rv = rtc_->CreatePeer(t, sdp);
 

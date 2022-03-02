@@ -293,7 +293,9 @@ void Thread::Join() {
   if (!IsRunning())
     return;
 
-  RTC_DCHECK(!IsCurrent());
+  if (IsCurrent()) {
+    return;
+  }
   if (Current() && !Current()->blocking_calls_allowed_) {
     RTC_LOG(LS_WARNING) << "Waiting for the thread to join, "
                         << "but blocking calls have been disallowed";

@@ -10,7 +10,7 @@
 #include <sstream>
 #include <string.h>
 #include <string_view>
-
+#include <random>
 
 #include "common_define.h"
 #include "h/rtc_stack_api.h"
@@ -34,7 +34,7 @@ namespace {
 
 static log4cxx::LoggerPtr logger = log4cxx::Logger::getLogger("wa.sdp");
 
-inline std::string get_preference_name(EFormatPreference t) {
+std::string get_preference_name(EFormatPreference t) {
   switch(t) {
     case p_h264:
       return "H264";
@@ -45,7 +45,7 @@ inline std::string get_preference_name(EFormatPreference t) {
   }
 }
 
-inline int32_t get_codec_by_preference(std::string_view t) {
+int32_t get_codec_by_preference(std::string_view t) {
   if ("H264" == t)
     return H264_90000_PT;
 
@@ -93,6 +93,11 @@ int32_t filer_h264(const std::vector<MediaDesc::rtpmap>& rtpMaps,
 
 }
 
+int32_t get_pt_by_preference(EFormatPreference t) {
+  std::string name = get_preference_name(t);
+  return get_codec_by_preference(name);
+}
+
 // SessionInfo
 void SessionInfo::encode(JSON_TYPE& session) {
   if (!fingerprint_algo_.empty()) {
@@ -133,7 +138,8 @@ int SessionInfo::decode(const JSON_TYPE& session) {
     ice_pwd_ = session.at("icePwd");
   }
 
-  auto setup_found = session.find("setup");
+  auto setup_found = session.find(
+"setup");
   if (setup_found != session.end()) {
     setup_ = *setup_found;
   }
@@ -411,7 +417,9 @@ void MediaDesc::parseSsrcInfo(const JSON_TYPE& media) {
                      " size:" << ssrcs.size() << 
                      " ssrc:" << _ssrc <<
                      ", attr:" << ssrc_attr <<
-                     ", v:" << ssrc_value <<
+                     
+
+", v:" << ssrc_value <<
                      std::endl;
 #endif
 
@@ -680,7 +688,7 @@ void MediaDesc::encode(JSON_TYPE& media) {
   }
 }
 
-void MediaDesc::buildSettingFromExtmap(MediaSetting& settings) {
+void MediaDesc::buildSettingFromExtmap(TrackSetting& settings) {
   // Video ulpfec red transport-cc
   std::for_each(rtp_maps_.begin(), 
                 rtp_maps_.end(), 
@@ -704,8 +712,8 @@ void MediaDesc::buildSettingFromExtmap(MediaSetting& settings) {
   });
 }
 
-MediaSetting MediaDesc::getMediaSettings() {
-  MediaSetting settings;
+TrackSetting MediaDesc::getTrackSettings() {
+  TrackSetting settings;
   if (type_ == "audio") {
     settings.is_audio = true;
     // Audio ssrc
@@ -917,7 +925,8 @@ void MediaDesc::filterExtmap() {
   }
 }
 
-void MediaDesc::clearSsrcInfo() {
+void MediaDesc::clearSsrcInfo() {
+
   msid_.clear();
   ssrc_groups_.clear();
   ssrc_infos_.clear();
@@ -1284,17 +1293,17 @@ void WaSdpInfo::setCandidates(const WaSdpInfo& sdpInfo) {
   }
 }
 
-MediaSetting WaSdpInfo::getMediaSettings(const std::string& mid) {
+TrackSetting WaSdpInfo::getTrackSettings(const std::string& mid) {
   auto found = std::find_if(media_descs_.begin(), media_descs_.end(), 
       [mid](auto& item) {
     return item.mid_ == mid;
   });
 
   if (found != media_descs_.end()) {
-    return (*found).getMediaSettings();
+    return (*found).getTrackSettings();
   }
 
-  return MediaSetting();
+  return TrackSetting();
 }
 
 } //namespace wa

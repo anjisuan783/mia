@@ -33,7 +33,7 @@ void split_schema_host_port(std::string_view addr,
 
 bool srs_bytes_equals(void* pa, void* pb, int size);
 
-std::string srs_string_replace(const std::string& str, 
+std::string srs_string_replace(std::string_view str, 
                                const std::string& old_str, 
                                const std::string& new_str);
 

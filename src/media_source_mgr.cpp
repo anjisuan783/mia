@@ -10,35 +10,47 @@ int MediaSourceMgr::Init(unsigned int num) {
   workers_ = std::make_shared<wa::ThreadPool>(num);
   workers_->start("live");
   rtc_api_ = std::move(wa::AgentFactory().create_agent());
-  return rtc_api_->initiate(g_server_.config_.rtc_workers_,
+  return rtc_api_->Open(g_server_.config_.rtc_workers_,
                             g_server_.config_.candidates_,
                             "");
+}
+
+void MediaSourceMgr::Close() {
+  {
+    std::lock_guard<std::mutex> guard(source_lock_);
+    for(auto& i : sources_)
+      i.second->Close();
+  }
+
+  rtc_api_->Close();
+  workers_->close();
+  workers_ = nullptr;
 }
 
 std::shared_ptr<MediaSource>
 MediaSourceMgr::FetchOrCreateSource(MediaSource::Config& cfg,
                                     std::shared_ptr<MediaRequest> req) {
+  std::shared_ptr<MediaSource> ms;
+
   {
     std::lock_guard<std::mutex> guard(source_lock_);
     auto found = sources_.find(req->get_stream_url());
-    if(found != sources_.end()){
+    if(found != sources_.end()) {
       return found->second;
     }
-  }
 
+    std::string streamName = req->get_stream_url();
+    ms = std::make_shared<MediaSource>(std::move(req));
+    sources_[streamName] = ms;
+  }
+  
   if (!cfg.rtc_api) {
     cfg.rtc_api = rtc_api_.get();
   }
-  
-  auto ms = std::make_shared<MediaSource>(req);
-
-  ms->open(cfg);
-  
-  {
-    std::lock_guard<std::mutex> guard(source_lock_);
-    sources_[req->get_stream_url()] = ms;
-  }
-
+  cfg.worker = GetWorker();
+  cfg.consumer_queue_size_ = g_server_.config_.consumer_queue_size_;
+  cfg.mix_correct_ = g_server_.config_.mix_correct_;
+  ms->Open(cfg);
   return std::move(ms);
 }
 
@@ -55,17 +67,19 @@ MediaSourceMgr::FetchSource(std::shared_ptr<MediaRequest> req) {
 }
 
 void MediaSourceMgr::RemoveSource(std::shared_ptr<MediaRequest> req) {
-  auto found = sources_.end();
-  
-  std::lock_guard<std::mutex> guard(source_lock_);
-  found = sources_.find(req->get_stream_url());
-  if (found == sources_.end()) {
-    assert(false);
-    return;
+  std::shared_ptr<MediaSource> source;
+  {
+    std::lock_guard<std::mutex> guard(source_lock_);
+    auto found = sources_.find(req->get_stream_url());
+    if (found == sources_.end()) {
+      assert(false);
+      return;
+    }
+    source = found->second;
+    sources_.erase(found);
   }
 
-  found->second->close();
-  sources_.erase(found);
+  source->Close();
 }
 
 std::shared_ptr<wa::Worker> MediaSourceMgr::GetWorker() {

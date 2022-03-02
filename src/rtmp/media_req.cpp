@@ -1,5 +1,6 @@
 #include "rtmp/media_req.h"
 
+#include "common/media_log.h"
 #include "utils/protocol_utility.h"
 #include "http/http_consts.h"
 #include "rtmp/media_amf0.h"
@@ -8,23 +9,20 @@ namespace ma {
 
 #define RTMP_SIG_AMF0_VER   0
 
-MDEFINE_LOGGER(MediaRequest, "MediaRequest");
+static log4cxx::LoggerPtr logger = log4cxx::Logger::getLogger("ma.rtmp");
 
-MediaRequest::MediaRequest()
-{
+MediaRequest::MediaRequest() {
   objectEncoding = RTMP_SIG_AMF0_VER;
   duration = -1;
   port = SRS_CONSTS_RTMP_DEFAULT_PORT;
   args = NULL;
 }
 
-MediaRequest::~MediaRequest()
-{
+MediaRequest::~MediaRequest() {
   srs_freep(args);
 }
 
-MediaRequest* MediaRequest::copy()
-{
+MediaRequest* MediaRequest::copy() {
   MediaRequest* cp = new MediaRequest();
   
   cp->ip = ip;
@@ -47,8 +45,7 @@ MediaRequest* MediaRequest::copy()
   return cp;
 }
 
-void MediaRequest::update_auth(MediaRequest* req)
-{
+void MediaRequest::update_auth(MediaRequest* req) {
   pageUrl = req->pageUrl;
   swfUrl = req->swfUrl;
   tcUrl = req->tcUrl;
@@ -74,13 +71,11 @@ void MediaRequest::update_auth(MediaRequest* req)
   MLOG_INFO("update req of soruce for auth ok");
 }
 
-std::string MediaRequest::get_stream_url()
-{
+std::string MediaRequest::get_stream_url() {
   return srs_generate_stream_url(vhost, app, stream);
 }
 
-void MediaRequest::strip()
-{
+void MediaRequest::strip() {
   // remove the unsupported chars in names.
   host = srs_string_remove(host, "/ \n\r\t");
   vhost = srs_string_remove(vhost, "/ \n\r\t");
@@ -96,8 +91,7 @@ void MediaRequest::strip()
   stream = srs_string_trim_start(stream, "/");
 }
 
-MediaRequest* MediaRequest::as_http()
-{
+MediaRequest* MediaRequest::as_http() {
   schema = "http";
   return this;
 }

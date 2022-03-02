@@ -47,7 +47,7 @@ std::string srs_http_fs_fullpath(
   return fullpath;
 }
 
-static log4cxx::LoggerPtr logger = log4cxx::Logger::getLogger("ma.file");
+static log4cxx::LoggerPtr logger = log4cxx::Logger::getLogger("ma.fileserver");
 
 srs_error_t MediaFileHandler::serve_http(
     std::shared_ptr<IHttpResponseWriter> w, 

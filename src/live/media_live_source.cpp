@@ -7,14 +7,15 @@
 #include "live/media_live_source.h"
 
 #include <inttypes.h>
+#include <iostream>
 
+#include "common/media_log.h"
 #include "common/media_message.h"
 #include "media_source_mgr.h"
 #include "encoder/media_codec.h"
 #include "live/media_gop_cache.h"
-
 #include "live/media_meta_cache.h"
-#include "media_server.h"
+#include "live/media_live_source_sink.h"
 
 namespace ma {
 
@@ -96,24 +97,24 @@ std::optional<std::shared_ptr<MediaMessage>> SrsMixQueue::pop() {
 ///////////////////////////////////////////////////////////////////////////
 //MediaLiveSource
 ///////////////////////////////////////////////////////////////////////////
-MDEFINE_LOGGER(MediaLiveSource, "MediaLiveSource");
+static log4cxx::LoggerPtr logger = log4cxx::Logger::getLogger("ma.live");
 
-MediaLiveSource::MediaLiveSource()
-    : mix_queue_{new SrsMixQueue} {
+MediaLiveSource::MediaLiveSource(const std::string& stream_name) 
+    : stream_name_(stream_name), mix_queue_{new SrsMixQueue} {
+  MLOG_TRACE_THIS(stream_name_);
   thread_check_.Detach();
-  MLOG_TRACE_THIS("");
 }
 
 MediaLiveSource::~MediaLiveSource() {
-  MLOG_TRACE_THIS("");
+  MLOG_TRACE_THIS(stream_name_);
 }
 
-bool MediaLiveSource::Initialize(wa::Worker* worker, 
-    bool gop, JitterAlgorithm algorithm) {
-  worker_ = worker;
+bool MediaLiveSource::Initialize(bool gop, JitterAlgorithm algorithm, 
+    bool mix_correct, int consumer_queue_size) {
   enable_gop_ = gop;
   jitter_algorithm_ = algorithm;
-  mix_correct_ = g_server_.config_.mix_correct_;
+  mix_correct_ = mix_correct;
+  consumer_queue_size_ = consumer_queue_size;
   MLOG_INFO("gop:" << (enable_gop_?"enable":"disable") <<
             ", algorithm:" << jitter_algorithm_);
   return true;
@@ -122,9 +123,11 @@ bool MediaLiveSource::Initialize(wa::Worker* worker,
 void MediaLiveSource::OnPublish() {
   RTC_DCHECK_RUN_ON(&thread_check_);
   if (active_) {
-    MLOG_CERROR("wrong publish status, active");
+    MLOG_ERROR("wrong publish status, active");
     return;
   }
+
+  MLOG_INFO(stream_name_);
   mix_queue_->clear();
   
   is_monotonically_increase_ = true;
@@ -136,14 +139,18 @@ void MediaLiveSource::OnPublish() {
 
   assert(nullptr == meta_.get());
   meta_.reset(new MediaMetaCache);
+
+  first_consumer_ = true;
+  first_packet_ = true;
 }
 
 void MediaLiveSource::OnUnpublish() {
   RTC_DCHECK_RUN_ON(&thread_check_);
   if (!active_) {
-    MLOG_CERROR("wrong publish status, unactive");
+    MLOG_ERROR("wrong unpublish status, unactive");
     return;
   }
+  MLOG_INFO(stream_name_);
 
   gop_cache_.reset(nullptr);
   meta_.reset(nullptr);
@@ -156,13 +163,17 @@ std::shared_ptr<MediaConsumer> MediaLiveSource::CreateConsumer() {
   RTC_DCHECK_RUN_ON(&thread_check_); 
   auto consumer = std::make_shared<MediaConsumer>(this); 
   consumers_.emplace_back(consumer);
+
+  if (first_consumer_) {
+    first_consumer_ = false;
+    signal_live_fisrt_consumer_();
+  }
+
+  no_consumer_notify_ = false;
   return consumer;
 }
 
-/*
-void MediaLiveSource::destroy_consumer(MediaConsumer* consumer) {
-  std::lock_guard<std::mutex> guard(consumer_lock_);
-
+void MediaLiveSource::DestroyConsumer(MediaConsumer* consumer) {
   auto it = std::find_if(consumers_.begin(), consumers_.end(), 
       [consumer](std::weak_ptr<MediaConsumer> c)->bool {
         return c.lock().get() == consumer;
@@ -171,16 +182,18 @@ void MediaLiveSource::destroy_consumer(MediaConsumer* consumer) {
     consumers_.erase(it);
   }
 }
-*/
 
-void MediaLiveSource::on_audio_async(
-    std::shared_ptr<MediaMessage> shared_audio) {
-  RTC_DCHECK_RUN_ON(&thread_check_);
+void MediaLiveSource::OnAudio_i(
+    std::shared_ptr<MediaMessage> shared_audio, bool from_adaptor) {
   srs_error_t err = srs_success;
-  
+
   bool is_sequence_header = 
         SrsFlvAudio::sh(shared_audio->payload_->GetFirstMsgReadPtr(),
                         shared_audio->payload_->GetFirstMsgLength());
+
+  //std::cout << "ts:" << shared_audio->timestamp_  << ". len:" << 
+  //    shared_audio->size_ << 
+  //    (is_sequence_header?", seq":"") <<  std::endl;
 
   // whether consumer should drop for the duplicated sequence header.
   bool drop_for_reduce = false;
@@ -208,9 +221,6 @@ void MediaLiveSource::on_audio_async(
         ++i;
       } else {
         consumers_.erase(i++);
-        if (consumers_.empty()) {
-          signal_live_no_consumer_();
-        }
       }
     }
   }
@@ -234,15 +244,23 @@ void MediaLiveSource::on_audio_async(
       meta_->data()->timestamp_ = shared_audio->timestamp_;
     }
   }
+
+  CheckConsumerNotify();
 }
 
 srs_error_t MediaLiveSource::OnAudio(
-    std::shared_ptr<MediaMessage> shared_audio) {
+    std::shared_ptr<MediaMessage> shared_audio, bool from_adaptor) {
   srs_error_t err = srs_success;
+
   if (!active_) { 
     return err;
   }
 
+  if (first_packet_) {
+    first_packet_ = false;
+    signal_live_first_packet_();
+  }
+  
   // monotically increase detect.
   if (!mix_correct_ && is_monotonically_increase_) {
     if (last_packet_time_ > 0 && shared_audio->timestamp_ < last_packet_time_) {
@@ -266,19 +284,13 @@ srs_error_t MediaLiveSource::OnAudio(
   } else {
     fix_msg = std::move(shared_audio);
   }
-  
-  async_task([audio_msg = std::move(*fix_msg), this] (
-      std::shared_ptr<MediaLiveSource> p) {
-        p->on_audio_async(audio_msg);
-      });
 
+  OnAudio_i(std::move(*fix_msg), from_adaptor);
   return err;
 }
 
-void MediaLiveSource::on_video_async(
-    std::shared_ptr<MediaMessage> shared_video) {
-  RTC_DCHECK_RUN_ON(&thread_check_);
-
+void MediaLiveSource::OnVideo_i(
+    std::shared_ptr<MediaMessage> shared_video, bool from_adaptor) {
   srs_error_t err = srs_success;
 
   bool is_sequence_header = 
@@ -331,9 +343,6 @@ void MediaLiveSource::on_video_async(
         ++i;
       } else {
         consumers_.erase(i++);
-        if (consumers_.empty()) {
-          signal_live_no_consumer_();
-        }
       }
     }
   }
@@ -358,13 +367,21 @@ void MediaLiveSource::on_video_async(
       meta_->data()->timestamp_ = shared_video->timestamp_;
     }
   }
+
+  CheckConsumerNotify();
 }
 
 srs_error_t MediaLiveSource::OnVideo(
-    std::shared_ptr<MediaMessage> shared_video) {
+    std::shared_ptr<MediaMessage> shared_video, bool from_adaptor) {
   srs_error_t err = srs_success;
+
   if (!active_) { 
     return err;
+  }
+
+  if (first_packet_) {
+    first_packet_ = false;
+    signal_live_first_packet_();
   }
 
   // monotically increase detect.
@@ -378,7 +395,6 @@ srs_error_t MediaLiveSource::OnVideo(
   last_packet_time_ = shared_video->timestamp_;
   
   // drop any unknown header video.
-  // @see https://github.com/ossrs/srs/issues/421
   if (!SrsFlvVideo::acceptable(shared_video->payload_->GetFirstMsgReadPtr(), 
                                shared_video->payload_->GetFirstMsgLength())) {
     char b0 = 0x00;
@@ -405,24 +421,17 @@ srs_error_t MediaLiveSource::OnVideo(
     fix_msg = std::move(shared_video);
   }
 
-  async_task([video_msg = std::move(*fix_msg), this] (
-      std::shared_ptr<MediaLiveSource> p) {
-         p->on_video_async(video_msg);
-      });
-
+  OnVideo_i(std::move(*fix_msg), from_adaptor);
   return err;
 }
 
-srs_error_t MediaLiveSource::consumer_dumps(MediaConsumer* consumer, 
-                                        bool dump_seq_header, 
-                                        bool dump_meta, 
-                                        bool dump_gop) {
+srs_error_t MediaLiveSource::ConsumerDumps(MediaConsumer* consumer, 
+    bool dump_seq_header, bool dump_meta, bool dump_gop) {
   RTC_DCHECK_RUN_ON(&thread_check_);
 
   srs_error_t err = srs_success;
 
-  srs_utime_t queue_size = 
-        g_server_.config_.consumer_queue_size_ * SRS_UTIME_MILLISECONDS;
+  srs_utime_t queue_size = consumer_queue_size_ * SRS_UTIME_MILLISECONDS;
   consumer->set_queue_size(queue_size);
  
   // if atc, update the sequence header to gop cache time.
@@ -469,14 +478,18 @@ srs_error_t MediaLiveSource::consumer_dumps(MediaConsumer* consumer,
   return err;
 }
 
-void MediaLiveSource::async_task
-    (std::function<void(std::shared_ptr<MediaLiveSource>)> f) {
-  std::weak_ptr<MediaLiveSource> weak_this = shared_from_this();
-  worker_->task([weak_this, f] {
-    if (auto this_ptr = weak_this.lock()) {
-      f(this_ptr);
-    }
-  });
+void MediaLiveSource::CheckConsumerNotify() {
+  if (first_consumer_)
+    return ;
+  
+  if (!consumers_.empty())
+    return ;
+
+  if (no_consumer_notify_)
+    return ;
+  
+  no_consumer_notify_ = true;
+  signal_live_no_consumer_();
 }
 
 } //namespace ma

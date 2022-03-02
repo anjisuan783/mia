@@ -46,8 +46,14 @@ int MediaServerImp::Init(const Config& _config) {
   return g_conn_mgr_.Init(config_.ioworkers_, config_.listen_addr_);
 }
 
+void MediaServerImp::Close() {
+  g_conn_mgr_.Close();
+  g_source_mgr_.Close();
+  rtc::LogMessage::RemoveLogToStream(this);
+}
+
 srs_error_t MediaServerImp::OnPublish(std::shared_ptr<MediaSource> s, 
-                                       std::shared_ptr<MediaRequest> r) {
+                                      std::shared_ptr<MediaRequest> r) {
   srs_error_t err = srs_success;
   if ((err = mux_->mount_service(std::move(s), std::move(r))) != srs_success) {
     return srs_error_wrap(err, "mount service");

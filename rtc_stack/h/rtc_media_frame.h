@@ -8,7 +8,7 @@
 #include <stdint.h>
 #include <cstring>
 
-namespace owt_base{
+namespace owt_base {
 
 enum FrameFormat {
   FRAME_FORMAT_UNKNOWN      = 0,

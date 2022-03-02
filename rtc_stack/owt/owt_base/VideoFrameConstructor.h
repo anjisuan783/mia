@@ -52,7 +52,9 @@ public:
   };
 
   VideoFrameConstructor(VideoInfoListener*, const config& _config);
-  virtual ~VideoFrameConstructor();
+  ~VideoFrameConstructor() override;
+
+  void close();
 
   void bindTransport(erizo::MediaSource* source, erizo::FeedbackSink* fbSink);
   void unbindTransport();
@@ -77,15 +79,13 @@ public:
 
 private:
   void onSr(erizo::RtcpHeader *chead);
-  int64_t getNtpTimestamp(uint32_t ts);
- 
+  int64_t getNtpTimestamp(uint32_t ts); 
   void createReceiveVideo(uint32_t);
 
   // Implement erizo::MediaSink
   int deliverAudioData_(std::shared_ptr<erizo::DataPacket> audio_packet) override;
   int deliverVideoData_(std::shared_ptr<erizo::DataPacket> video_packet) override;
   int deliverEvent_(erizo::MediaEventPtr event) override { return 0; }
-  void close();
 
 private:
   config config_;

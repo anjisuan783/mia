@@ -47,7 +47,7 @@ std::shared_ptr<DataBlock> DataBlock::Create(
 #endif // MEDIA_NDEBUG
 
 
-MDEFINE_LOGGER(MessageChain, "MessageChain"); 
+MDEFINE_LOGGER(MessageChain, "ma.utils"); 
 
 std::atomic<int> s_block_createcount = 0;
 std::atomic<int> s_block_destoycount = 0;
@@ -544,7 +544,7 @@ std::string MessageChain::FlattenChained() {
   for (MessageChain *i = this; nullptr != i; i = i->next_) {
     strRet.append(i->GetFirstMsgReadPtr(), i->GetFirstMsgLength());
   }
-  return strRet;
+  return std::move(strRet);
 }
 
 void MessageChain::Reset(std::shared_ptr<DataBlock> aDb) {

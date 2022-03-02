@@ -9,6 +9,8 @@
 
 #include <string>
 #include <memory>
+#include <string_view>
+
 #include "utils/sigslot.h"
 #include "h/rtc_stack_api.h"
 #include "utils/sigslot.h"
@@ -28,13 +30,12 @@ class MediaRtcAttendeeBase
       : pc_id_(id) { }
   ~MediaRtcAttendeeBase() override = default;
   
-  srs_error_t Open(wa::rtc_api* rtc, 
-                   std::shared_ptr<IHttpResponseWriter> w, 
-                   const std::string& stream_id,
-                   const std::string& offer,
+  srs_error_t Open(wa::RtcApi* rtc, 
+                   std::shared_ptr<IHttpResponseWriter> w,
+                   std::string_view offer,
                    wa::Worker* worker,
                    std::shared_ptr<MediaRequest> req,
-                   const std::string& = "");
+                   const std::string&);
   virtual void Close() = 0;
   srs_error_t Responese(int code, const std::string& sdp);
   virtual bool IsPublisher() = 0;
@@ -58,12 +59,12 @@ class MediaRtcAttendeeBase
   virtual void OnPublisherChange(const std::string& id) = 0;
 
  protected:
-  virtual srs_error_t Open_i(wa::rtc_api* rtc, 
+  virtual srs_error_t Open_i(wa::RtcApi* rtc, 
                            std::shared_ptr<IHttpResponseWriter> w, 
                            const std::string& stream_id,
-                           const std::string& offer,
+                           std::string_view offer,
                            wa::Worker* worker,
-                           const std::string& = "") = 0;
+                           const std::string&) = 0;
  public:
   sigslot::signal1<std::shared_ptr<MediaRtcAttendeeBase>> 
                                        signal_first_packet_;
@@ -82,7 +83,7 @@ class MediaRtcAttendeeBase
   std::shared_ptr<IHttpResponseWriter> writer_;
   bool first_packet_{false};
   bool pc_in_{false};
-  wa::rtc_api* rtc_;
+  wa::RtcApi* rtc_;
   wa::Worker* worker_{nullptr};
   RtcMediaSink* sink_{nullptr};
  private:
@@ -91,22 +92,20 @@ class MediaRtcAttendeeBase
 
 class MediaRtcPublisher : public MediaRtcAttendeeBase {
  public:
-  MediaRtcPublisher(const std::string& id)
-      : MediaRtcAttendeeBase(id) {
-  }
-  ~MediaRtcPublisher() override = default;
+  MediaRtcPublisher(const std::string& id);
+  ~MediaRtcPublisher() override;
   
   void Close() override;
   bool IsPublisher() override {
     return true;
   }
  private:
-  srs_error_t Open_i(wa::rtc_api* rtc, 
+  srs_error_t Open_i(wa::RtcApi* rtc,
                      std::shared_ptr<IHttpResponseWriter> writer, 
                      const std::string& stream_id,
-                     const std::string& offer,
+                     std::string_view offer,
                      wa::Worker* worker,
-                     const std::string& = "") override;
+                     const std::string&) override;
  
   //WebrtcAgentSink implement
   void onAnswer(const std::string&) override;
@@ -122,20 +121,18 @@ class MediaRtcPublisher : public MediaRtcAttendeeBase {
 
 class MediaRtcSubscriber : public MediaRtcAttendeeBase {
  public:
-  MediaRtcSubscriber(const std::string& id) 
-      : MediaRtcAttendeeBase(id) {
-  }
-  ~MediaRtcSubscriber() override = default;
+  MediaRtcSubscriber(const std::string& id);
+  ~MediaRtcSubscriber() override;
   
   void Close() override;
   bool IsPublisher() override {
     return false;
   }
  private:
-  srs_error_t Open_i(wa::rtc_api* rtc, 
+  srs_error_t Open_i(wa::RtcApi* rtc, 
                      std::shared_ptr<IHttpResponseWriter> w,
                      const std::string& stream_id,
-                     const std::string& offer,
+                     std::string_view offer,
                      wa::Worker* worker,
                      const std::string& publisher_id) override;
  

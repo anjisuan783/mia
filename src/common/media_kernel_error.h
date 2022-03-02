@@ -368,37 +368,36 @@
 // The complex error carries code, message, callstack and instant variables,
 // which is more strong and easy to locate problem by log,
 // please @read https://github.com/ossrs/srs/issues/913
-class SrsCplxError
-{
+class SrsCplxError {
 private:
-    int code;
-    SrsCplxError* wrapped;
-    std::string msg;
-    
-    std::string func;
-    std::string file;
-    int line;
-    
-    int tid;
-    int rerrno;
-    
-    std::string desc;
-    std::string _summary;
+  int code;
+  SrsCplxError* wrapped;
+  std::string msg;
+  
+  std::string func;
+  std::string file;
+  int line;
+  
+  int tid;
+  int rerrno;
+  
+  std::string desc;
+  std::string _summary;
 private:
-    SrsCplxError();
+  SrsCplxError();
 public:
-    virtual ~SrsCplxError();
+  virtual ~SrsCplxError();
 private:
-    virtual std::string description();
-    virtual std::string summary();
+  virtual std::string description();
+  virtual std::string summary();
 public:
-    static SrsCplxError* create(const char* func, const char* file, int line, int code, const char* fmt, ...);
-    static SrsCplxError* wrap(const char* func, const char* file, int line, SrsCplxError* err, const char* fmt, ...);
-    static SrsCplxError* success();
-    static SrsCplxError* copy(SrsCplxError* from);
-    static std::string description(SrsCplxError* err);
-    static std::string summary(SrsCplxError* err);
-    static int error_code(SrsCplxError* err);
+  static SrsCplxError* create(const char* func, const char* file, int line, int code, const char* fmt, ...);
+  static SrsCplxError* wrap(const char* func, const char* file, int line, SrsCplxError* err, const char* fmt, ...);
+  static SrsCplxError* success();
+  static SrsCplxError* copy(SrsCplxError* from);
+  static std::string description(SrsCplxError* err);
+  static std::string summary(SrsCplxError* err);
+  static int error_code(SrsCplxError* err);
 };
 
 typedef SrsCplxError* srs_error_t;

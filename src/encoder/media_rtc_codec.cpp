@@ -19,7 +19,7 @@ namespace ma {
   const int64_t kAccuracy_2 = 1000;
 #endif
 
-MDEFINE_LOGGER(SrsAudioTranscoder, "SrsAudioTranscoder");
+MDEFINE_LOGGER(SrsAudioTranscoder, "ma.encoder");
 
 static const char* id2codec_name(SrsAudioCodecId id) {
   switch (id) {
@@ -140,15 +140,14 @@ srs_error_t SrsAudioTranscoder::init_dec(const AudioFormat& format) {
     return srs_error_new(ERROR_RTC_FRAME_MUXER, 
         "Could not allocate audio codec context");
   }
-  
+
+  if (avcodec_open2(dec_, codec, NULL) < 0) {
+    return srs_error_new(ERROR_RTC_FRAME_MUXER, "Could not open codec");
+  }
   dec_->channels = format.channels;
   dec_->sample_rate = format.samplerate;
   dec_->channel_layout = av_get_default_channel_layout(format.channels);
-
-  if (avcodec_open2(dec_, codec, NULL) < 0) {
-    return srs_error_new(ERROR_RTC_FRAME_MUXER, 
-        "Could not open codec");
-  }
+  //dec_->sample_fmt  default AV_SAMPLE_FMT_FLTP
 
   dec_frame_ = av_frame_alloc();
   if (!dec_frame_) {
@@ -191,6 +190,7 @@ srs_error_t SrsAudioTranscoder::init_enc(const AudioFormat& format) {
   if (format.codec == SrsAudioCodecIdOpus) {
     //TODO: for more level setting
     enc_->compression_level = 1;
+    //enc_->strict_std_compliance = FF_COMPLIANCE_EXPERIMENTAL;
   } else if (format.codec == SrsAudioCodecIdAAC) {
     enc_->strict_std_compliance = FF_COMPLIANCE_EXPERIMENTAL;
   }
@@ -228,27 +228,30 @@ srs_error_t SrsAudioTranscoder::init_enc(const AudioFormat& format) {
 
 srs_error_t SrsAudioTranscoder::init_swr(
     const AudioFormat& from, const AudioFormat& to) {
+/*    
   if (from.samplerate == to.samplerate
     && from.channels == to.channels
     && from.bitpersample == to.bitpersample) {
       return srs_success;
   }
-
-  MLOG_CDEBUG("in: %d %d %d, out:%d %d %d", 
-              enc_->channel_layout,
-              enc_->sample_fmt, 
-              to.samplerate,
+*/
+  MLOG_CDEBUG("in: %d %d %d, out:%d %d %d",
               dec_->channel_layout,
               dec_->sample_fmt, 
-              from.samplerate);
+              dec_->sample_rate,
+              enc_->channel_layout,
+              enc_->sample_fmt, 
+              enc_->sample_rate);
+
   swr_ = swr_alloc_set_opts(nullptr, 
                             enc_->channel_layout, 
                             enc_->sample_fmt, 
-                            to.samplerate,
-                            av_get_default_channel_layout(from.channels),
+                            enc_->sample_rate,
+                            dec_->channel_layout,
                             dec_->sample_fmt, 
-                            from.samplerate, 
+                            dec_->sample_rate, 
                             0, nullptr);
+
   if (!swr_) {
     return srs_error_new(ERROR_RTC_RTP_MUXER, "alloc swr");
   }
