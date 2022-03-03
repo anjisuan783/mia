@@ -83,7 +83,10 @@ srs_error_t aac_raw_append_adts_header(
  AudioTransform::AudioTransform() = default;
 
 AudioTransform::~AudioTransform() {
-  adts_writer_->close();
+  if (adts_writer_) {
+    adts_writer_->close();
+    adts_writer_.reset(nullptr);
+  }
 }
 
 srs_error_t AudioTransform::Open(TransformSink* sink,
@@ -150,7 +153,8 @@ srs_error_t AudioTransform::OnData(std::shared_ptr<MediaMessage> msg) {
         frm.payload = new uint8_t[frm.length];
         memcpy(frm.payload, out_audio->samples[0].bytes, frm.length);
 
-        frm.ntpTimeMs = frm.timeStamp = out_audio->dts * 48;
+        frm.timeStamp = out_audio->dts * 48;
+        frm.ntpTimeMs = out_audio->dts;
         frm.additionalInfo.audio.isRtpPacket = false;
         frm.additionalInfo.audio.nbSamples = out_audio->dts * 48;
         frm.additionalInfo.audio.sampleRate = 48000;
@@ -201,7 +205,10 @@ srs_error_t AudioTransform::Transcode(SrsAudioFrame* audio,
 Videotransform::Videotransform() : meta_(new MediaMetaCache) { }
 
 Videotransform::~Videotransform() {
-  h264_writer_->close();
+  if (h264_writer_) {
+    h264_writer_->close();
+    h264_writer_.reset(nullptr);
+  }
 }
 
 srs_error_t Videotransform::Open(TransformSink* sink,
@@ -335,7 +342,8 @@ srs_error_t Videotransform::PackageVideoframe(bool idr,
   }
 
   frame.format = owt_base::FRAME_FORMAT_H264;
-  frame.ntpTimeMs = frame.timeStamp = msg->timestamp_;
+  frame.timeStamp = msg->timestamp_ * 90;
+  frame.ntpTimeMs = msg->timestamp_;
   frame.additionalInfo.video.height = 0;
   frame.additionalInfo.video.width = 0;
   

@@ -1,6 +1,7 @@
 #include "media_source_mgr.h"
 #include "media_server.h"
 #include "rtmp/media_req.h"
+#include "media_statistics.h"
 
 namespace ma {
 
@@ -40,7 +41,7 @@ MediaSourceMgr::FetchOrCreateSource(MediaSource::Config& cfg,
     }
 
     std::string streamName = req->get_stream_url();
-    ms = std::make_shared<MediaSource>(std::move(req));
+    ms = std::make_shared<MediaSource>(req);
     sources_[streamName] = ms;
   }
   
@@ -51,6 +52,9 @@ MediaSourceMgr::FetchOrCreateSource(MediaSource::Config& cfg,
   cfg.consumer_queue_size_ = g_server_.config_.consumer_queue_size_;
   cfg.mix_correct_ = g_server_.config_.mix_correct_;
   ms->Open(cfg);
+
+  Stat().OnStream(std::move(req));
+
   return std::move(ms);
 }
 
@@ -80,6 +84,7 @@ void MediaSourceMgr::RemoveSource(std::shared_ptr<MediaRequest> req) {
   }
 
   source->Close();
+  Stat().OnStreamClose(std::move(req));
 }
 
 std::shared_ptr<wa::Worker> MediaSourceMgr::GetWorker() {

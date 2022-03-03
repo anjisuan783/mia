@@ -122,15 +122,10 @@ namespace json
 	class Object
 	{
 		public:
-
 			typedef std::map<std::string, Value> ValueMap;
-
 		protected:
-
 			ValueMap	mValues;
-
 		public:
-
 			Object();
 			Object(const Object& obj);
 
@@ -158,26 +153,19 @@ namespace json
 			// Convenience wrapper to find to search for a key
 			bool HasKey(const std::string& key) const;
 
-
 			// Removes all values and resets the state back to default
 			void Clear();
 
 			size_t size() const {return mValues.size();}
-
 	};
 
 	class Array
 	{
 		public:
-
 			typedef std::vector<Value> ValueVector;
-
 		protected:
-
 			ValueVector				mValues;
-
 		public:
-
 			Array();
 			Array(const Array& a);
 
@@ -216,27 +204,36 @@ namespace json
 	class Value
 	{
 		protected:
-
-			ValueType						mValueType;
+			ValueType					mValueType;
 			int								mIntVal;
 			float							mFloatVal;
-			double 							mDoubleVal;
-			std::string						mStringVal;
-			Object							mObjectVal;
+			double 						mDoubleVal;
+			std::string				mStringVal;
+			Object						mObjectVal;
 			Array							mArrayVal;
 			bool 							mBoolVal;
-
 		public:
-
-			Value() 					: mValueType(NULLVal) {}
-			Value(const int v)			: mValueType(IntVal), mIntVal(v), mFloatVal((float)v), mDoubleVal((double)v) {}
-			Value(const float v)		: mValueType(FloatVal), mIntVal((int)v), mFloatVal(v), mDoubleVal((double)v) {}
-			Value(const double v)		: mValueType(DoubleVal), mIntVal((int)v), mFloatVal((float)v), mDoubleVal(v) {}
+			Value() : mValueType(NULLVal) {}
+			Value(const int v) 
+					: mValueType(IntVal), 
+					mIntVal(v), 
+					mFloatVal((float)v), 
+					mDoubleVal((double)v) {}
+			Value(const float v) 
+					: mValueType(FloatVal), 
+					mIntVal((int)v), 
+					mFloatVal(v), 
+					mDoubleVal((double)v) {}
+			Value(const double v)	
+					: mValueType(DoubleVal), 
+					mIntVal((int)v), 
+					mFloatVal((float)v), 
+					mDoubleVal(v) {}
 			Value(const std::string& v)	: mValueType(StringVal), mStringVal(v) {}
-			Value(const char* v)		: mValueType(StringVal), mStringVal(v) {}
-			Value(const Object& v)		: mValueType(ObjectVal), mObjectVal(v) {}
-			Value(const Array& v)		: mValueType(ArrayVal), mArrayVal(v) {}
-			Value(const bool v)			: mValueType(BoolVal), mBoolVal(v) {}
+			Value(const char* v) : mValueType(StringVal), mStringVal(v) {}
+			Value(const Object& v) : mValueType(ObjectVal), mObjectVal(v) {}
+			Value(const Array& v) : mValueType(ArrayVal), mArrayVal(v) {}
+			Value(const bool v) : mValueType(BoolVal), mBoolVal(v) {}
 			Value(const Value& v);
 
 			ValueType GetType() const {return mValueType;}
@@ -272,7 +269,6 @@ namespace json
 
 			// Resets the state back to default, aka NULLVal
 			void Clear();
-
 	};
 
 	////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -280,7 +276,7 @@ namespace json
 	// Converts a JSON Object instance into a JSON string representing it.
 	std::string Serialize(const Object& obj);
 
-	Object 		Deserialize(const std::string& str);
+	Object Deserialize(const std::string& str);
 
 	////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
