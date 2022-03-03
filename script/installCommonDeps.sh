@@ -80,15 +80,23 @@ install_ffmpeg(){
     cd FFmpeg-release-4.4
     FFMPEG_OPTIONS="--disable-asm --disable-x86asm --disable-inline-asm"
     ./configure --prefix=$PREFIX_DIR \
-      --pkg-config-flags="--static" --extra-libs="-lpthread" --extra-libs="-lm" ${FFMPEG_OPTIONS} \
-      --disable-programs --disable-doc --disable-htmlpages --disable-manpages --disable-podpages --disable-txtpages \
+      --pkg-config-flags="--static" --extra-libs="-lpthread" \
+      --extra-libs="-lm" ${FFMPEG_OPTIONS} \
+      --disable-programs --disable-doc --disable-htmlpages \
+      --disable-manpages --disable-podpages --disable-txtpages \
       --disable-postproc --disable-network \
-      --disable-dct --disable-dwt --disable-error-resilience --disable-lsp --disable-lzo --disable-faan --disable-pixelutils \
-      --disable-hwaccels --disable-devices --disable-audiotoolbox --disable-videotoolbox  --disable-cuvid \
-      --disable-d3d11va --disable-dxva2 --disable-ffnvcodec --disable-nvdec --disable-nvenc --disable-v4l2-m2m --disable-vaapi \
-      --disable-vdpau --disable-appkit --disable-coreimage --disable-avfoundation --disable-securetransport --disable-iconv \
-      --disable-lzma --disable-sdl2 --disable-everything --enable-decoder=aac --enable-decoder=aac_fixed --enable-decoder=aac_latm \
-      --enable-decoder=libopus --enable-encoder=aac --enable-encoder=opus --enable-encoder=libopus --enable-libopus
+      --disable-dct --disable-dwt --disable-error-resilience \
+      --disable-lsp --disable-lzo --disable-faan --disable-pixelutils \
+      --disable-avdevice --disable-avformat --disable-swscale \
+      --disable-avfilter --disable-hwaccels --disable-devices \
+      --disable-audiotoolbox --disable-videotoolbox  --disable-cuvid \
+      --disable-d3d11va --disable-dxva2 --disable-ffnvcodec --disable-nvdec \
+      --disable-nvenc --disable-v4l2-m2m --disable-vaapi --disable-vdpau \
+      --disable-appkit --disable-coreimage --disable-avfoundation \
+      --disable-securetransport --disable-iconv --disable-lzma --disable-sdl2 \
+      --disable-everything --enable-decoder=aac --enable-decoder=aac_fixed \
+      --enable-decoder=aac_latm --enable-decoder=libopus --enable-encoder=aac \
+      --enable-encoder=opus --enable-encoder=libopus --enable-libopus
     make -j4 && make install
     cd $CURRENT_DIR
   else

@@ -39,11 +39,10 @@ int config(ma::MediaServerApi::Config& _config,
           config_setting_get_member(setting, sub_setting_name[i]);
       
       if (sub_item) {
-        int sub_item_count = config_setting_length(sub_item);
         int i1;
         const char *s1 = nullptr; 
     
-        if (sub_setting_name[i] == "live") {
+        if (sub_setting_name[i] == std::string("live")) {
           if (config_setting_lookup_string(sub_item, "gop", &s1)) {
             _config.enable_gop_ = (std::string(s1) == "on");
           }
@@ -82,7 +81,7 @@ int config(ma::MediaServerApi::Config& _config,
           continue;
         }
 
-        if (sub_setting_name[i] == "rtc") {
+        if (sub_setting_name[i] == std::string("rtc")) {
           if (config_setting_lookup_int(sub_item, "workers", &i1)) {
             _config.rtc_workers_ = i1;
           }
@@ -99,7 +98,7 @@ int config(ma::MediaServerApi::Config& _config,
           continue;
         }
 
-        if (sub_setting_name[i] == "listener") {
+        if (sub_setting_name[i] == std::string("listener")) {
           if (config_setting_lookup_string(sub_item, "http", &s1)) {
             std::string addr{"http://"};
             addr.append(s1);
@@ -133,7 +132,7 @@ int config(ma::MediaServerApi::Config& _config,
           continue;
         }
 
-        if (sub_setting_name[i] == "rtc2rtmp") {
+        if (sub_setting_name[i] == std::string("rtc2rtmp")) {
           if (config_setting_lookup_int(sub_item, "keyframe_interval", &i1)) {
             _config.request_keyframe_interval = i1;
           }
@@ -148,17 +147,22 @@ int config(ma::MediaServerApi::Config& _config,
           continue;
         }
 
-        if (sub_setting_name[i] == "rtmp2rtc") {
+        if (sub_setting_name[i] == std::string("rtmp2rtc")) {
           if (config_setting_lookup_string(sub_item, "enable", &s1)) {
             _config.enable_rtmp2rtc_ = (std::string(s1) == "on");
           }
           
-          MIA_LOG("rtmp2rtc enable:%s",
-                  _config.enable_rtmp2rtc_?"on":"off");
+          if (config_setting_lookup_string(sub_item, "debug", &s1)) {
+            _config.enable_rtmp2rtc_debug_ = (std::string(s1) == "on");
+          }
+
+          MIA_LOG("rtmp2rtc enable:%s, debug:%s",
+                  _config.enable_rtmp2rtc_?"on":"off",
+                  _config.enable_rtmp2rtc_debug_?"on":"off");
           continue;
         }
 
-        if (sub_setting_name[i] == "http") {
+        if (sub_setting_name[i] == std::string("http")) {
           if (config_setting_lookup_string(sub_item, "path", &s1)) {
             _config.path = s1;
           }

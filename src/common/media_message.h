@@ -10,7 +10,8 @@
 #include <stdint.h>
 #include "utils/media_msg_chain.h"
 
-namespace ma {
+
+namespace ma {
 
 struct MessageHeader {
   // 3bytes.
@@ -54,26 +55,22 @@ struct MessageHeader {
 
 class MediaMessage final {
  public:
-  MediaMessage();
-  MediaMessage(const MediaMessage&);
-  MediaMessage(MessageHeader* pheader, MessageChain* data);
-  ~MediaMessage();
-
-  void create(MessageHeader* pheader, MessageChain* data);
-
   static std::shared_ptr<MediaMessage> 
       create(MessageHeader* pheader, const char* payload);
       
   static std::shared_ptr<MediaMessage> 
       create(MessageHeader* pheader, std::shared_ptr<DataBlock> payload);
 
+  MediaMessage();
+  MediaMessage(const MediaMessage&);
+  MediaMessage(MessageHeader* pheader, MessageChain* data);
+  ~MediaMessage();
+
+  void create(MessageHeader* pheader, MessageChain* data);
   std::shared_ptr<MediaMessage> Copy();
   bool is_av();
-
   bool is_video();
-
   bool is_audio();
-
  public:   
   MessageHeader header_;
   int64_t& timestamp_;
@@ -81,6 +78,7 @@ class MediaMessage final {
   MessageChain* payload_{nullptr};
 };
 
-}
+
+}
 #endif //!__MEDIA_MESSAGE_DEFINE_H__
 

@@ -102,10 +102,12 @@ srs_error_t MediaMetaCache::update_data(MessageHeader* header,
   if ((prop = metadata->metadata->ensure_property_number("height")) != NULL) {
     ss << ", height=" << (int)prop->to_number();
   }
-  if ((prop = metadata->metadata->ensure_property_number("videocodecid")) != NULL) {
+  if ((prop = metadata->metadata->ensure_property_number(
+        "videocodecid")) != NULL) {
     ss << ", vcodec=" << (int)prop->to_number();
   }
-  if ((prop = metadata->metadata->ensure_property_number("audiocodecid")) != NULL) {
+  if ((prop = metadata->metadata->ensure_property_number(
+          "audiocodecid")) != NULL) {
     ss << ", acodec=" << (int)prop->to_number();
   }
   MLOG_TRACE("got metadata " << ss.str().c_str());
@@ -127,7 +129,7 @@ srs_error_t MediaMetaCache::update_data(MessageHeader* header,
     // create a shared ptr message.
     meta = MediaMessage::create(header, std::move(data_block));
     updated = true;
-   } else {
+  } else {
     MLOG_WARN("ignore the invalid metadata. size=0");
   }
 

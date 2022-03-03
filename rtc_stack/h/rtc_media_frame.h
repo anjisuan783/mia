@@ -60,8 +60,7 @@ struct VideoFrameSpecificInfo {
 };
 
 struct AudioFrameSpecificInfo {
-  /*AudioFrameSpecificInfo() : isRtpPacket(false) {}*/
-  uint8_t isRtpPacket; // FIXME: Temporarily use Frame to carry rtp-packets due to the premature AudioFrameConstructor implementation.
+  uint8_t isRtpPacket;
   uint32_t nbSamples;
   uint32_t sampleRate;
   uint8_t channels;
@@ -87,7 +86,9 @@ struct Frame {
   int64_t         ntpTimeMs;
   MediaSpecInfo   additionalInfo;
 
-  Frame() = default;
+  Frame() {
+    memset(this, 0, sizeof(Frame));
+  }
   
   Frame(const Frame& r) {
     format = r.format;

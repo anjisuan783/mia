@@ -7,7 +7,8 @@
 #ifndef __MEDIA_MESSAGE_CHAIN_H__
 #define __MEDIA_MESSAGE_CHAIN_H__
 
-#include <sys/uio.h>
+
+#include <sys/uio.h>
 #include <inttypes.h>
 #include <memory>
 #include <string>
@@ -98,10 +99,10 @@ class MessageChain final {
                         MFlag aFlag = 0, 
                         uint32_t aAdvanceWritePtrSize = 0);
                         
-  explicit MessageChain(std::shared_ptr<DataBlock> aDb, MFlag aFlag);
+  explicit MessageChain(std::shared_ptr<DataBlock> aDb);
+
   ~MessageChain();
 
-  
   MessageChain(MessageChain &&) = delete;
   
   void operator = (const MessageChain&) = delete;
@@ -109,10 +110,12 @@ class MessageChain final {
 
   /// Read <aCount> bytes, advance it if <aAdvance> is true,
   /// if <aDst> != NULL, copy data into it.
-  int Read(void* aDst, uint32_t aCount, uint32_t *aBytesRead = NULL, bool aAdvance = true);
+  int Read(void* aDst, uint32_t aCount, 
+      uint32_t *aBytesRead = NULL, bool aAdvance = true);
 
   //peek some data from messageblock.
-  int Peek(void* aDst, uint32_t aCount, uint32_t aPos = 0, uint32_t* aBytesRead = NULL);
+  int Peek(void* aDst, uint32_t aCount, uint32_t aPos = 0, 
+      uint32_t* aBytesRead = NULL);
 
   /// Write and advance <aCount> bytes from <aSrc> to the first <MessageChain>
   int Write(void* aSrc, uint32_t aCount, uint32_t *aBytesWritten = NULL);
@@ -240,6 +243,7 @@ class MessageChain final {
   static std::string GetBlockStatics();
 
  private:
+  explicit MessageChain(std::shared_ptr<DataBlock> aDb, MFlag aFlag);
   void Reset(std::shared_ptr<DataBlock> aDb);
   
  private:

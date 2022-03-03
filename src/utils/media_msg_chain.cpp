@@ -91,20 +91,25 @@ MessageChain::MessageChain(uint32_t aSize,
 	MA_CLR_BITS(flag_, MessageChain::INTERNAL_MASK);
 }
 
+MessageChain::MessageChain(std::shared_ptr<DataBlock> aDb) {
+  Reset(std::move(aDb));
+  write_ = const_cast<char*>(end_);
+  MA_SET_BITS(flag_, DUPLICATED);
+}
+
 MessageChain::MessageChain(std::shared_ptr<DataBlock> aDb, MFlag aFlag) {
   ++ s_block_createcount;
   MA_ASSERT(MA_BIT_DISABLED(aFlag, MessageChain::DONT_DELETE));
   MA_CLR_BITS(aFlag, MessageChain::DONT_DELETE);
 
   Reset(std::move(aDb));
-
   flag_ = aFlag;
   MA_CLR_BITS(flag_, MessageChain::MALLOC_AND_COPY);
   MA_CLR_BITS(flag_, MessageChain::INTERNAL_MASK);
 }
 
 MessageChain::MessageChain(const MessageChain& r)
-  : next_{r.next_}, 
+  : next_{r.next_},
     data_block_{r.data_block_}, 
     read_{r.read_}, 
     write_{r.write_},
@@ -162,7 +167,8 @@ int MessageChain::Peek(void* aDst, uint32_t aCount, uint32_t aPos, uint32_t* aBy
   } 
   
   if (aBytesRead) {
-    *aBytesRead = dwHaveRead;
+    *aBytesRead = dwHaveRead;
+
   }
   return error_part_data;
 }
@@ -310,7 +316,8 @@ int MessageChain::AdvanceChainedWritePtr(
     if (dwNeedWrite <= dwLen) {
       pCurrent->AdvanceFirstMsgWritePtr(dwNeedWrite);
       if (aBytesWritten) {
-        *aBytesWritten = aCount;
+        *aBytesWritten = aCount;
+
       }
       return error_ok;
     } else {
@@ -564,7 +571,8 @@ uint32_t MessageChain::GetFirstMsgSpace() const {
   MA_ASSERT(end_ >= write_);
   return (uint32_t)(end_ - write_);
 }
-
+
+
 const char* MessageChain::GetFirstMsgReadPtr() const {
   MA_ASSERT(MA_BIT_DISABLED(flag_, READ_LOCKED));
   return read_;

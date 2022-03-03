@@ -23,7 +23,6 @@ int ParseArgs(int argc, char* argv[]) {
   }
   std::string audio_file_path;
   std::string video_file_path;
-  int v_fps;
   int c;
   while ((c = getopt(argc, argv, "l:c:v:a:p:")) != -1) {
 		switch (c) {
@@ -47,4 +46,3 @@ int ServiceStart() {
 
 void ServiceStop() {
 }
-

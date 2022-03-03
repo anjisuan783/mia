@@ -59,6 +59,7 @@ class MediaSource final : public sigslot::has_slots<>,
     wa::RtcApi* rtc_api{nullptr};
     bool enable_rtc2rtmp_{true};
     bool enable_rtmp2rtc_{true};
+    bool enable_rtmp2rtc_debug_{false};
     int consumer_queue_size_{30000};
     bool mix_correct_{false};
   };
@@ -68,7 +69,8 @@ class MediaSource final : public sigslot::has_slots<>,
   ~MediaSource();
 
   // called only once
-  void Open(Config&);
+  void Open(Config&);
+
 
   // carefull call this function may cause crash
   void Close();

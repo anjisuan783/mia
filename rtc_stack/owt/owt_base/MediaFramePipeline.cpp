@@ -64,8 +64,8 @@ void FrameSource::removeDataDestination(FrameDestination* dest) {
   }
 }
 
-  std::unordered_map<FrameDestination*, std::weak_ptr<FrameDestination>> *plist;
 void FrameSource::deliverFrame(std::shared_ptr<Frame> frame) {
+  std::unordered_map<FrameDestination*, std::weak_ptr<FrameDestination>> *plist;
   if (isAudioFrame(*frame.get())) {
     plist = &m_audio_dests;
   } else if (isVideoFrame(*frame.get())) {
