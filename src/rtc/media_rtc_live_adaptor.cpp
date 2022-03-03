@@ -387,7 +387,6 @@ std::shared_ptr<MediaMessage> MediaRtcLiveAdaptor::PacketAudio(
 }
 
 srs_error_t MediaRtcLiveAdaptor::Trancode_audio(const owt_base::Frame& frm) {
-  MA_ASSERT(frm.additionalInfo.audio.isRtpPacket);
   srs_error_t err = srs_success;
 
   int64_t ts = frm.ntpTimeMs;
@@ -408,12 +407,21 @@ srs_error_t MediaRtcLiveAdaptor::Trancode_audio(const owt_base::Frame& frm) {
     is_first_audio_ = false;
   }
 
-  std::vector<SrsAudioFrame*> out_pkts;
+  char* payload = nullptr;
+  int payload_size = 0;
 
-  webrtc::RtpPacketReceived rtp;
-  bool ret = rtp.Parse(frm.payload, frm.length);
-  MA_ASSERT_RETURN(ret, srs_error_new(ERROR_RTC_FRAME_MUXER, "rtp parse failed"));
-
+  if (frm.additionalInfo.audio.isRtpPacket) {
+    webrtc::RtpPacketReceived rtp;
+    bool ret = rtp.Parse(frm.payload, frm.length);
+    MA_ASSERT_RETURN(ret, 
+        srs_error_new(ERROR_RTC_FRAME_MUXER, "rtp parse failed"));
+    auto data_array = rtp.payload();
+    payload = (char*)data_array.data();
+    payload_size = (int)data_array.size();
+  } else {
+    payload = (char*)frm.payload;
+    payload_size = (int)frm.length;
+  }
   
   if (!last_timestamp_) {
     last_timestamp_ = ts;
@@ -427,33 +435,31 @@ srs_error_t MediaRtcLiveAdaptor::Trancode_audio(const owt_base::Frame& frm) {
     MLOG_WARN("audio ts not mono increse.");
   }
 
-  auto payload = rtp.payload();
   SrsAudioFrame frame;
-  frame.add_sample((char*)payload.data(), payload.size());
   frame.dts = ts;
   frame.cts = 0;
-
-  err = codec_->transcode(&frame, out_pkts);
-  if (err != srs_success) {
-    return err;
-  }
-
-  for (auto it = out_pkts.begin(); it != out_pkts.end(); ++it) {
-    auto out_rtmp = PacketAudio((*it)->samples[0].bytes, 
-                                (*it)->samples[0].size, 
-                                ts, 
-                                is_first_audio_);
-
-    if (live_source_ && 
-        (err = live_source_->OnAudio(std::move(out_rtmp), true)) != srs_success) {
-      err = srs_error_wrap(err, "source on audio");
-      break;
+  if (srs_success == (err = frame.add_sample(payload, payload_size))) {
+    //consume the data
+    std::vector<SrsAudioFrame*> out_pkts;
+    if (srs_success != (err = codec_->transcode(&frame, out_pkts))) {
+      return err;
     }
-  }
-  codec_->free_frames(out_pkts);
 
+    for (auto it = out_pkts.begin(); it != out_pkts.end(); ++it) {
+      auto out_rtmp = PacketAudio((*it)->samples[0].bytes, 
+                                  (*it)->samples[0].size, 
+                                  ts, 
+                                  is_first_audio_);
+
+      if (live_source_ && 
+          (err = live_source_->OnAudio(std::move(out_rtmp), true)) != srs_success) {
+        err = srs_error_wrap(err, "source on audio");
+        break;
+      }
+    }
+    codec_->free_frames(out_pkts);
+  }
   return err;
 }
 
 } //namespace ma
-

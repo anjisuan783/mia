@@ -18,25 +18,32 @@ namespace ma {
 enum ClientType {
   TRtcPublish,
   TRtcPlay,
+  TRtmpPublish,
   TRtmpPlay
 };
 
 class MediaRequest;
 
-class MediaStatistics final {
+class MediaStatistics final {
+
  public:
   MediaStatistics() = default;
   ~MediaStatistics() = default;
+
+  void OnStream(std::shared_ptr<MediaRequest>);
+  void OnStreamClose(std::shared_ptr<MediaRequest>);
 
   void OnClient(const std::string& client_id, 
                 std::shared_ptr<MediaRequest>, 
                 ClientType);
   void OnDisconnect(const std::string& client_id);
   void DumpClient(json::Object& arr, int start, int count);
+  void DumpStream(json::Object& arr, int start, int count);
 
   size_t Clients();
+  size_t Streams();
  private:
-  struct StatisticsClient {
+  struct ClientInfo {
     std::string id;
     ClientType type;
     std::shared_ptr<MediaRequest> req;
@@ -44,8 +51,18 @@ class MediaStatistics final {
     void Dump(json::Object&);
   };
 
+  struct StreamInfo {
+    std::shared_ptr<MediaRequest> req;
+    std::shared_ptr<ClientInfo> publisher;
+    std::vector<std::shared_ptr<ClientInfo>> players;
+    time_t created;
+    void OnClient(std::shared_ptr<ClientInfo>);
+    void Dump(json::Object&);
+  };
+
   std::mutex client_lock_;
-  std::unordered_map<std::string, std::unique_ptr<StatisticsClient>> clients_;
+  std::unordered_map<std::string, std::shared_ptr<ClientInfo>> clients_;
+  std::unordered_map<std::string, std::unique_ptr<StreamInfo>> streams_;
 };
 
 MediaStatistics& Stat();

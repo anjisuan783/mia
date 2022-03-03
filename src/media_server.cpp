@@ -73,6 +73,7 @@ void MediaServerImp::OnLogMessage(const std::string& message) {
 
 void MediaServerImp::Dump() {
   std::cout << "client:" << Stat().Clients() << std::endl;
+  std::cout << "streams:" << Stat().Streams() << std::endl;
 }
 
 MediaServerImp g_server_;
@@ -81,4 +82,3 @@ MediaServerApi* MediaServerFactory::Create() {
 }
 
 }
-
