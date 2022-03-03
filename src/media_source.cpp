@@ -313,8 +313,9 @@ void MediaSource::ActiveRtcAdapter() {
   }
 
   rtc_adapter_ = std::make_shared<MediaLiveRtcAdaptor>(req_->get_stream_url());
-  srs_error_t err = 
-      rtc_adapter_->Open(worker_, live_source_.get(), rtc_source_.get());
+  srs_error_t err = rtc_adapter_->Open(worker_, live_source_.get(), 
+      rtc_source_.get(), config_.enable_rtmp2rtc_debug_);
+
   if (err != nullptr) {
     MLOG_ERROR("rtc_adapter open failed, desc:" << srs_error_desc(err));
     delete err;
@@ -373,10 +374,10 @@ void MediaSource::OnMessage(std::shared_ptr<MediaMessage> msg) {
   });
 }
 
-void MediaSource::OnFrame(std::shared_ptr<owt_base::Frame> frm) {
-  async_task([frm](std::shared_ptr<MediaSource> p){
+void MediaSource::OnFrame(std::shared_ptr<owt_base::Frame> msg) {
+  async_task([frm = std::move(msg)](std::shared_ptr<MediaSource> p){
     if (p->rtc_source_) {
-      p->rtc_source_->OnFrame(frm);
+      p->rtc_source_->OnFrame(std::move(frm));
     }
   });
 }

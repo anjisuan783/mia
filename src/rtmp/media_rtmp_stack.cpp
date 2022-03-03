@@ -42,66 +42,56 @@ srs_error_t SrsPacket::to_msg(std::shared_ptr<MediaMessage> msg, int stream_id)
 }
 */
 
-srs_error_t SrsPacket::encode(std::shared_ptr<DataBlock> payload)
-{
-    srs_error_t err = srs_success;
-    
-    int size = get_size();
+srs_error_t SrsPacket::encode(std::shared_ptr<DataBlock> payload) {
+  srs_error_t err = srs_success;
+  
+  int size = get_size();
 
-    if (size > 0) {
-        SrsBuffer stream(payload->GetBasePtr(), payload->GetCapacity());
+  if (size > 0) {
+      SrsBuffer stream(payload->GetBasePtr(), payload->GetCapacity());
 
-        if ((err = encode_packet(&stream)) != srs_success) {
-            return srs_error_wrap(err, "encode packet");
-        }
-    }
-    
-    return err;
+      if ((err = encode_packet(&stream)) != srs_success) {
+          return srs_error_wrap(err, "encode packet");
+      }
+  }
+  
+  return err;
 }
 
-srs_error_t SrsPacket::decode(SrsBuffer* stream)
-{
-    return srs_error_new(ERROR_SYSTEM_PACKET_INVALID, "decode");
+srs_error_t SrsPacket::decode(SrsBuffer* stream) {
+  return srs_error_new(ERROR_SYSTEM_PACKET_INVALID, "decode");
 }
 
-int SrsPacket::get_prefer_cid()
-{
-    return 0;
+int SrsPacket::get_prefer_cid() {
+  return 0;
 }
 
-int SrsPacket::get_message_type()
-{
-    return 0;
+int SrsPacket::get_message_type() {
+  return 0;
 }
 
-int SrsPacket::get_size()
-{
-    return 0;
+int SrsPacket::get_size() {
+  return 0;
 }
 
-srs_error_t SrsPacket::encode_packet(SrsBuffer* stream)
-{
-    return srs_error_new(ERROR_SYSTEM_PACKET_INVALID, "encode");
+srs_error_t SrsPacket::encode_packet(SrsBuffer* stream) {
+  return srs_error_new(ERROR_SYSTEM_PACKET_INVALID, "encode");
 }
 
-
-SrsOnMetaDataPacket::SrsOnMetaDataPacket()
-{
+SrsOnMetaDataPacket::SrsOnMetaDataPacket() {
   name = SRS_CONSTS_RTMP_ON_METADATA;
   metadata = SrsAmf0Any::object();
 }
 
-SrsOnMetaDataPacket::~SrsOnMetaDataPacket()
-{
+SrsOnMetaDataPacket::~SrsOnMetaDataPacket() {
   srs_freep(metadata);
 }
 
-srs_error_t SrsOnMetaDataPacket::decode(SrsBuffer* stream)
-{
+srs_error_t SrsOnMetaDataPacket::decode(SrsBuffer* stream) {
   srs_error_t err = srs_success;
   
   if ((err = srs_amf0_read_string(stream, name)) != srs_success) {
-      return srs_error_wrap(err, "name");
+    return srs_error_wrap(err, "name");
   }
   
   // ignore the @setDataFrame
@@ -143,23 +133,19 @@ srs_error_t SrsOnMetaDataPacket::decode(SrsBuffer* stream)
   return err;
 }
 
-int SrsOnMetaDataPacket::get_prefer_cid()
-{
+int SrsOnMetaDataPacket::get_prefer_cid() {
   return RTMP_CID_OverConnection2;
 }
 
-int SrsOnMetaDataPacket::get_message_type()
-{
+int SrsOnMetaDataPacket::get_message_type() {
   return RTMP_MSG_AMF0DataMessage;
 }
 
-int SrsOnMetaDataPacket::get_size()
-{
+int SrsOnMetaDataPacket::get_size() {
   return SrsAmf0Size::str(name) + SrsAmf0Size::object(metadata);
 }
 
-srs_error_t SrsOnMetaDataPacket::encode_packet(SrsBuffer* stream)
-{
+srs_error_t SrsOnMetaDataPacket::encode_packet(SrsBuffer* stream) {
   srs_error_t err = srs_success;
   
   if ((err = srs_amf0_write_string(stream, name)) != srs_success) {
@@ -173,6 +159,4 @@ srs_error_t SrsOnMetaDataPacket::encode_packet(SrsBuffer* stream)
   return err;
 }
 
-
 } //namespace ma
-

@@ -45,6 +45,7 @@ class MediaServerApi {
 
     //for rtmp2rtc
     bool enable_rtmp2rtc_{true};
+    bool enable_rtmp2rtc_debug_{false};
 
     //for rtc2rtmp
     bool enable_rtc2rtmp_{true};
@@ -57,8 +58,6 @@ class MediaServerApi {
     std::string path{"."};
 
     std::vector<std::string> listen_addr_;   // [schema://ip:port]
-
-    
   };
  
   virtual ~MediaServerApi() { }

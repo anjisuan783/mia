@@ -8,7 +8,7 @@
 #ifndef __MEDIA_RTMP_CONST_H__
 #define __MEDIA_RTMP_CONST_H__
 
-namespace ma{
+namespace ma {
 
 // 5. Protocol Control Messages
 // RTMP reserves message type IDs 1-7 for protocol control messages.

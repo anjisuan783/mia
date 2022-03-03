@@ -20,7 +20,9 @@
 namespace ma {
 
 namespace {
-
+////////////////////////////////////////////////////////////////////////////////
+//AudioTransform
+////////////////////////////////////////////////////////////////////////////////
 // ISO_IEF_13818-7-AAC-2004
 // 6.2 ADTS
 srs_error_t aac_raw_append_adts_header(
@@ -78,105 +80,34 @@ srs_error_t aac_raw_append_adts_header(
 
 }
 
-static log4cxx::LoggerPtr logger = log4cxx::Logger::getLogger("ma.live");
+ AudioTransform::AudioTransform() = default;
 
-MediaLiveRtcAdaptor::MediaLiveRtcAdaptor(const std::string& streamName) 
-    : stream_name_(streamName) {
-  MLOG_TRACE(stream_name_);
+AudioTransform::~AudioTransform() {
+  adts_writer_->close();
 }
 
-MediaLiveRtcAdaptor::~MediaLiveRtcAdaptor() {
-  MLOG_TRACE(stream_name_);
-
-  if (enable_debug_) {
-    debug_writer_->close();
-    adts_writer_->close();
-    h264_writer_->close();
-  }
-}
-
-srs_error_t MediaLiveRtcAdaptor::Open(wa::Worker* worker,
-    MediaLiveSource* source, LiveRtcAdapterSink* sink) {
+srs_error_t AudioTransform::Open(TransformSink* sink,
+    bool debug, const std::string& fileName) {
+  sink_ = sink;
   srs_error_t err = srs_success;
-  
-  live_source_ = source;
-  auto consumer = live_source_->CreateConsumer();
-
-  if ((err = source->ConsumerDumps(
-      consumer.get(), true, true, true)) != srs_success) {
-    MLOG_CERROR("dumps consumer, desc:%s", srs_error_desc(err));
+  if (!debug) {
     return err;
   }
-  consumer_ = std::move(consumer);
-  rtc_source_ = sink;
-  rtc_source_->OnLocalPublish(stream_name_);
 
-  meta_.reset(new MediaMetaCache);
-
-  static constexpr auto TIME_OUT = std::chrono::milliseconds(SRS_PERF_MW_SLEEP);
-
-  //TODO timer push need optimizing
-  worker->scheduleEvery([weak_this = weak_from_this()]() {
-    if (auto this_ptr = weak_this.lock()) {
-      return this_ptr->OnTimer();
-    }
-    return false;
-  }, TIME_OUT);
-
-  if (enable_debug_) {
-    std::string streamName = srs_string_replace(source->StreamName(), "/", "_");
-
-    // debug aac
-    std::string file_writer_path = "/tmp/rtmpadaptor" + streamName + "_d.aac";
-    adts_writer_.reset(new SrsFileWriter);
-    if (srs_success != (err = adts_writer_->open(file_writer_path))) {
-      return err;
-    }
-    
-    file_writer_path = "/tmp/rtmpadaptor" + streamName + "_d.flv";
-    debug_writer_.reset(new SrsFileWriter);
-    if (srs_success != (err = debug_writer_->open(file_writer_path))) {
-      return err;
-    }
-    
-    debug_flv_encoder_.reset(new SrsFlvStreamEncoder);
-    if (srs_success != 
-        (err = debug_flv_encoder_->initialize(debug_writer_.get(), nullptr))) {
-      return err;
-    }
-    
-    // if gop cache enabled for encoder, dump to consumer.
-    if (debug_flv_encoder_->has_cache()) {
-      if ((err = debug_flv_encoder_->dump_cache(consumer.get(), source->jitter())) 
-          != srs_success) {
-        return err;
-      }
-    }
-
-    // debug h264
-    file_writer_path = "/tmp/rtmpadaptor" + streamName + "_d.h264";
-    h264_writer_.reset(new SrsFileWriter);
-    if (srs_success != (err = h264_writer_->open(file_writer_path))) {
-      return err;
-    }
+  adts_writer_.reset(new SrsFileWriter);
+  if (srs_success != (err = adts_writer_->open(fileName))) {
+    return err;
   }
+
   return err;
 }
 
-void MediaLiveRtcAdaptor::Close() {
-  live_source_->DestroyConsumer(consumer_.get());
-  consumer_ = nullptr;
-  rtc_source_->OnLocalUnpublish();
-  rtc_source_ = nullptr;
-  meta_.reset(nullptr);
-}
-
-srs_error_t MediaLiveRtcAdaptor::OnAudio(std::shared_ptr<MediaMessage> msg) {
+srs_error_t AudioTransform::OnData(std::shared_ptr<MediaMessage> msg) {
   srs_error_t err = srs_success;
   if ((err = format_.on_audio(msg)) != srs_success) {
     return srs_error_wrap(err, "format consume audio");
   }
-  
+
   // codec is not parsed, or unknown codec, just ignore.
   if (!format_.acodec) {
     return err;
@@ -187,9 +118,6 @@ srs_error_t MediaLiveRtcAdaptor::OnAudio(std::shared_ptr<MediaMessage> msg) {
   if (acodec != SrsAudioCodecIdAAC) {
     return err;
   }
-
-  // ignore sequence header
-  MA_ASSERT(format_.audio);
 
   char* adts_audio = NULL;
   int nn_adts_audio = 0;
@@ -202,23 +130,44 @@ srs_error_t MediaLiveRtcAdaptor::OnAudio(std::shared_ptr<MediaMessage> msg) {
     return err;
   }
 
+  if (adts_writer_) {
+    adts_writer_->write(adts_audio, nn_adts_audio, nullptr);
+  }
+
   SrsAudioFrame aac;
   aac.dts = format_.audio->dts;
   aac.cts = format_.audio->cts;
-  if ((err = aac.add_sample(adts_audio, nn_adts_audio)) == srs_success) {
+  if (srs_success == (err = aac.add_sample(adts_audio, nn_adts_audio))) {
     // If OK, transcode the AAC to Opus and consume it.
-    err = Transcode(&aac);
-  }
+    std::vector<SrsAudioFrame*> out_audios;
+    if ((err = Transcode(&aac, out_audios)) == srs_success) {
+      for (auto it = out_audios.begin(); it != out_audios.end(); ++it) {
+        SrsAudioFrame* out_audio = *it;
 
+        owt_base::Frame frm;
+        frm.format = owt_base::FRAME_FORMAT_OPUS;
+        frm.length = out_audio->samples[0].size;
+        frm.payload = new uint8_t[frm.length];
+        memcpy(frm.payload, out_audio->samples[0].bytes, frm.length);
+
+        frm.ntpTimeMs = frm.timeStamp = out_audio->dts * 48;
+        frm.additionalInfo.audio.isRtpPacket = false;
+        frm.additionalInfo.audio.nbSamples = out_audio->dts * 48;
+        frm.additionalInfo.audio.sampleRate = 48000;
+        frm.additionalInfo.audio.channels = 2;
+        sink_->OnFrame(frm);
+      }
+      codec_->free_frames(out_audios);
+    }
+  }
   srs_freepa(adts_audio);
 
   return err;
 }
 
-srs_error_t MediaLiveRtcAdaptor::Transcode(SrsAudioFrame* audio) {
+srs_error_t AudioTransform::Transcode(SrsAudioFrame* audio, 
+    std::vector<SrsAudioFrame*>& out_audios) {
   srs_error_t err = srs_success;
-
-  std::vector<SrsAudioFrame*> out_audios;
 
   if (codec_ == nullptr) {
     SrsAudioTranscoder::AudioFormat from, to;
@@ -239,50 +188,38 @@ srs_error_t MediaLiveRtcAdaptor::Transcode(SrsAudioFrame* audio) {
       return srs_error_wrap(err, "codec initialize");
     }
   }
-
-  if (enable_debug_) {
-    // debug aac
-    char* pData = audio->samples[0].bytes;
-    int data_size = audio->samples[0].size;
-
-    adts_writer_->write(pData, data_size, 0);
-  }
   
   if ((err = codec_->transcode(audio, out_audios)) != srs_success) {
     return srs_error_wrap(err, "recode error");
   }
-
-  // Save OPUS packets in shared message.
-  if (out_audios.empty()) {
-    return err;
-  }
-
-  for (auto it = out_audios.begin(); it != out_audios.end(); ++it) {
-    SrsAudioFrame* out_audio = *it;
-
-    owt_base::Frame frm;
-    frm.format = owt_base::FRAME_FORMAT_OPUS;
-    frm.length = out_audio->samples[0].size;
-    frm.payload = new uint8_t[frm.length];
-    memcpy(frm.payload, out_audio->samples[0].bytes, frm.length);
-
-    frm.timeStamp = out_audio->dts * 48;
-    frm.additionalInfo.audio.isRtpPacket = false;
-    frm.additionalInfo.audio.nbSamples = out_audio->dts * 48;
-    frm.additionalInfo.audio.sampleRate = 48000;
-    frm.additionalInfo.audio.channels = 2;
-
-    auto pkt = std::make_shared<owt_base::Frame>(std::move(frm));
-
-    rtc_source_->OnFrame(std::move(pkt));
-  }
-
-  codec_->free_frames(out_audios);
-
   return err;
 }
 
-srs_error_t MediaLiveRtcAdaptor::OnVideo(std::shared_ptr<MediaMessage> msg) {
+////////////////////////////////////////////////////////////////////////////////
+//Videotransform
+////////////////////////////////////////////////////////////////////////////////
+Videotransform::Videotransform() : meta_(new MediaMetaCache) { }
+
+Videotransform::~Videotransform() {
+  h264_writer_->close();
+}
+
+srs_error_t Videotransform::Open(TransformSink* sink,
+    bool debug, const std::string& fileName) {
+  sink_ = sink;
+
+  srs_error_t err = srs_success;
+  if (!debug) {
+    return err;
+  }
+  h264_writer_.reset(new SrsFileWriter);
+  if (srs_success != (err = h264_writer_->open(fileName))) {
+    return err;
+  }
+  return err;
+}
+
+srs_error_t Videotransform::OnData(std::shared_ptr<MediaMessage> msg) {
   srs_error_t err = srs_success;
 
   // cache the sequence header if h264
@@ -317,20 +254,18 @@ srs_error_t MediaLiveRtcAdaptor::OnVideo(std::shared_ptr<MediaMessage> msg) {
     return srs_error_wrap(err, "package video");
   }
 
-  if (enable_debug_) {
+  if (h264_writer_) {
     char* pData = (char*)frm.payload;
     int data_size = (int)frm.length;
 
     h264_writer_->write(pData, data_size, 0);
   }
 
-  auto pkg = std::make_shared<owt_base::Frame>(std::move(frm));
-  rtc_source_->OnFrame(std::move(pkg));
-
+  sink_->OnFrame(frm);
   return err;
 }
 
-srs_error_t MediaLiveRtcAdaptor::Filter(SrsFormat* format, bool& has_idr,
+srs_error_t Videotransform::Filter(SrsFormat* format, bool& has_idr,
      std::deque<SrsSample*>& samples, int& data_len) {
   srs_error_t err = srs_success;
   data_len = 0;
@@ -359,7 +294,7 @@ srs_error_t MediaLiveRtcAdaptor::Filter(SrsFormat* format, bool& has_idr,
   return err;
 }
 
-srs_error_t MediaLiveRtcAdaptor::PackageVideoframe(bool idr,
+srs_error_t Videotransform::PackageVideoframe(bool idr,
     MediaMessage* msg, std::deque<SrsSample*>& samples,
     int len, owt_base::Frame& frame) {
   srs_error_t err = srs_success;
@@ -395,6 +330,8 @@ srs_error_t MediaLiveRtcAdaptor::PackageVideoframe(bool idr,
     }
 
     frame.additionalInfo.video.isKeyFrame = true;
+  } else {
+    frame.additionalInfo.video.isKeyFrame = false;
   }
 
   frame.format = owt_base::FRAME_FORMAT_H264;
@@ -422,6 +359,114 @@ srs_error_t MediaLiveRtcAdaptor::PackageVideoframe(bool idr,
   return err;
 }
 
+static log4cxx::LoggerPtr logger = log4cxx::Logger::getLogger("ma.live");
+
+////////////////////////////////////////////////////////////////////////////////
+//MediaLiveRtcAdaptor
+////////////////////////////////////////////////////////////////////////////////
+MediaLiveRtcAdaptor::MediaLiveRtcAdaptor(const std::string& streamName) 
+    : stream_name_(streamName) {
+  MLOG_TRACE(stream_name_);
+}
+
+MediaLiveRtcAdaptor::~MediaLiveRtcAdaptor() {
+  MLOG_TRACE(stream_name_);
+
+  if (debug_writer_) {
+    debug_writer_->close();
+  }
+}
+
+srs_error_t MediaLiveRtcAdaptor::Open(wa::Worker* worker,
+    MediaLiveSource* source, LiveRtcAdapterSink* sink, bool enableDebug) {
+  srs_error_t err = srs_success;
+  enable_debug_ = enableDebug;
+  live_source_ = source;
+  auto consumer = live_source_->CreateConsumer();
+
+  if ((err = source->ConsumerDumps(
+      consumer.get(), true, true, true)) != srs_success) {
+    MLOG_CERROR("dumps consumer, desc:%s", srs_error_desc(err));
+    return err;
+  }
+  consumer_ = std::move(consumer);
+  rtc_source_ = sink;
+  rtc_source_->OnLocalPublish(stream_name_);
+
+  static constexpr auto TIME_OUT = std::chrono::milliseconds(SRS_PERF_MW_SLEEP);
+
+  //TODO timer push need optimizing
+  worker->scheduleEvery([weak_this = weak_from_this()]() {
+    if (auto this_ptr = weak_this.lock()) {
+      return this_ptr->OnTimer();
+    }
+    return false;
+  }, TIME_OUT);
+
+  std::string streamName = srs_string_replace(source->StreamName(), "/", "_");
+
+  // debug aac
+  std::string file_writer_path = "/tmp/rtmpadaptor" + streamName + "_d.aac";
+  audio_.reset(new AudioTransform);
+  if (srs_success !=(err=audio_->Open(this, enable_debug_, file_writer_path))) {
+    return err;
+  }
+
+  // debug h264
+  file_writer_path = "/tmp/rtmpadaptor" + streamName + "_d.h264";
+  video_.reset(new Videotransform);
+  if (srs_success !=(err=video_->Open(this, enable_debug_, file_writer_path))) {
+    return err;
+  }
+
+  if (enable_debug_) {
+    file_writer_path = "/tmp/rtmpadaptor" + streamName + "_d.flv";
+    debug_writer_.reset(new SrsFileWriter);
+    if (srs_success != (err = debug_writer_->open(file_writer_path))) {
+      return err;
+    }
+    
+    debug_flv_encoder_.reset(new SrsFlvStreamEncoder);
+    if (srs_success != 
+        (err = debug_flv_encoder_->initialize(debug_writer_.get(), nullptr))) {
+      return err;
+    }
+    
+    // if gop cache enabled for encoder, dump to consumer.
+    if (debug_flv_encoder_->has_cache()) {
+      if (srs_success != 
+          (err = debug_flv_encoder_->dump_cache(
+              consumer.get(), source->jitter()))) {
+        return err;
+      }
+    }
+  }
+  return err;
+}
+
+void MediaLiveRtcAdaptor::Close() {
+  audio_.reset(nullptr);
+  video_.reset(nullptr);
+
+  live_source_->DestroyConsumer(consumer_.get());
+  consumer_ = nullptr;
+  rtc_source_->OnLocalUnpublish();
+  rtc_source_ = nullptr;
+}
+
+srs_error_t MediaLiveRtcAdaptor::OnAudio(std::shared_ptr<MediaMessage> msg) {
+  return audio_->OnData(std::move(msg));
+}
+
+void MediaLiveRtcAdaptor::OnFrame(owt_base::Frame& frame) {
+  auto msg = std::make_shared<owt_base::Frame>(std::move(frame));
+  rtc_source_->OnFrame(std::move(msg));
+}
+
+srs_error_t MediaLiveRtcAdaptor::OnVideo(std::shared_ptr<MediaMessage> msg) {
+  return video_->OnData(std::move(msg));
+}
+
 bool MediaLiveRtcAdaptor::OnTimer() {
   srs_error_t err = srs_success;
   int count;
@@ -429,12 +474,10 @@ bool MediaLiveRtcAdaptor::OnTimer() {
   consumer_->fetch_packets(SRS_PERF_MW_MSGS, cache, count);
 
   for(int i = 0; i < count; ++i) {
-
     if (cache[i]->is_audio()) {
       err = OnAudio(cache[i]);
     } else if (cache[i]->is_video()) {
       err = OnVideo(cache[i]);
-      continue;
     }
 
     if (err != srs_success) {

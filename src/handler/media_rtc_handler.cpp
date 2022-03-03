@@ -142,6 +142,7 @@ srs_error_t MediaHttpPlayHandler::serve_http(
       .rtc_api = nullptr,
       .enable_rtc2rtmp_ = g_server_.config_.enable_rtc2rtmp_,
       .enable_rtmp2rtc_ = g_server_.config_.enable_rtmp2rtc_,
+      .enable_rtmp2rtc_debug_ = g_server_.config_.enable_rtmp2rtc_debug_,
       .consumer_queue_size_ = g_server_.config_.enable_rtmp2rtc_,
       .mix_correct_ = g_server_.config_.mix_correct_};
 
@@ -277,6 +278,7 @@ srs_error_t MediaHttpPublishHandler::serve_http(
       .rtc_api = nullptr,
       .enable_rtc2rtmp_ = g_server_.config_.enable_rtc2rtmp_,
       .enable_rtmp2rtc_ = g_server_.config_.enable_rtmp2rtc_,
+      .enable_rtmp2rtc_debug_ = g_server_.config_.enable_rtmp2rtc_debug_,
       .consumer_queue_size_ = g_server_.config_.enable_rtmp2rtc_,
       .mix_correct_ = g_server_.config_.mix_correct_};
 

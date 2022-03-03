@@ -64,6 +64,7 @@ void MediaRtcPublisherImp::OnPublish(const std::string& tcUrl,
       .rtc_api = nullptr,
       .enable_rtc2rtmp_ = g_server_.config_.enable_rtc2rtmp_,
       .enable_rtmp2rtc_ = g_server_.config_.enable_rtmp2rtc_,
+      .enable_rtmp2rtc_debug_ = g_server_.config_.enable_rtmp2rtc_debug_,
       .consumer_queue_size_ = g_server_.config_.enable_rtmp2rtc_,
       .mix_correct_ = g_server_.config_.mix_correct_};
 
@@ -89,9 +90,10 @@ void MediaRtcPublisherImp::OnUnpublish() {
   active_ = false;
 }
 
-void MediaRtcPublisherImp::OnFrame(owt_base::Frame& frm) {
+void MediaRtcPublisherImp::OnFrame(owt_base::Frame& frm) {
   if (active_) {
-    source_->OnFrame(std::make_shared<owt_base::Frame>(frm));
+    auto msg = std::make_shared<owt_base::Frame>(std::move(frm));
+    source_->OnFrame(std::move(msg));
   }
 }
 
@@ -138,6 +140,7 @@ void MediaRtmpPublisherImp::OnPublish(
         .rtc_api = nullptr,
         .enable_rtc2rtmp_ = g_server_.config_.enable_rtc2rtmp_,
         .enable_rtmp2rtc_ = g_server_.config_.enable_rtmp2rtc_,
+        .enable_rtmp2rtc_debug_ = g_server_.config_.enable_rtmp2rtc_debug_,
         .consumer_queue_size_ = g_server_.config_.enable_rtmp2rtc_,
         .mix_correct_ = g_server_.config_.mix_correct_};
 
@@ -164,13 +167,8 @@ void MediaRtmpPublisherImp::OnUnpublish() {
 void MediaRtmpPublisherImp::OnVideo(
     const uint8_t* data, uint32_t len, uint32_t timestamp) {
 
-  MessageHeader header;
-
-  header.payload_length = len;
-
-  header.message_type = RTMP_MSG_VideoMessage;
-
-  header.timestamp = timestamp;
+  MessageHeader header{.payload_length = static_cast<int32_t>(len),
+      .message_type = RTMP_MSG_VideoMessage, .timestamp = timestamp};
 
   MessageChain msg_pkt(len, (const char*)data, MessageChain::DONT_DELETE, len);
   auto msg = std::make_shared<MediaMessage>(&header, &msg_pkt);
@@ -193,13 +191,8 @@ void MediaRtmpPublisherImp::OnVideo(
 
 void MediaRtmpPublisherImp::OnAudio(
     const uint8_t* data, uint32_t len, uint32_t timestamp) {
-  MessageHeader header;
-
-  header.payload_length = len;
-
-  header.message_type = RTMP_MSG_AudioMessage;
-
-  header.timestamp = timestamp;
+  MessageHeader header{.payload_length = static_cast<int32_t>(len),
+      .message_type = RTMP_MSG_AudioMessage, .timestamp = timestamp};
 
   MessageChain msg_pkt(len, (const char*)data, MessageChain::DONT_DELETE, len); 
   auto msg = std::make_shared<MediaMessage>(&header, &msg_pkt);

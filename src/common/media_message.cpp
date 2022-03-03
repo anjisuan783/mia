@@ -67,32 +67,21 @@ void MediaMessage::create(MessageHeader* pheader, MessageChain* data) {
   if (payload_) {
     payload_->DestroyChained();
   }
-
   payload_ = data->DuplicateChained();
 }
 
-
 std::shared_ptr<MediaMessage> MediaMessage::create(
     MessageHeader* pheader, const char* payload) {
-  
-  auto media_msg = std::make_shared<MediaMessage>(pheader, nullptr);
-  
-  auto audio_block = DataBlock::Create(pheader->payload_length, payload);
-  
-  media_msg->payload_ = new MessageChain(audio_block, MessageChain::DUPLICATED);
-
-  return std::move(media_msg);
+  auto data_block = DataBlock::Create(pheader->payload_length, payload);
+  return MediaMessage::create(pheader, std::move(data_block));
 }
 
 std::shared_ptr<MediaMessage> MediaMessage::create(
     MessageHeader* pheader, std::shared_ptr<DataBlock> payload) {
-
   assert(pheader->payload_length == payload->GetLength()); 
-  auto media_msg = std::make_shared<MediaMessage>(pheader, nullptr);
-  
-  media_msg->payload_ = new MessageChain(payload, MessageChain::DUPLICATED);
-
-  return std::move(media_msg);
+  auto msg = std::make_shared<MediaMessage>(pheader, nullptr);
+  msg->payload_ = new MessageChain(std::move(payload));
+  return std::move(msg);
 }
 
 std::shared_ptr<MediaMessage> MediaMessage::Copy() {
@@ -111,5 +100,4 @@ bool MediaMessage::is_audio() {
   return header_.is_audio();
 }
 
-}
-
+}

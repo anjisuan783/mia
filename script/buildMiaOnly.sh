@@ -35,9 +35,20 @@ cd $CURRENT_DIR
 rm -f mia
 
 EXAMPLE_PATH=$CURRENT_DIR/example
-MIA_SRC_FILES="$EXAMPLE_PATH/main.cpp $EXAMPLE_PATH/config.cpp $EXAMPLE_PATH/mia.cpp"
-RTC_PUBLISHER_SRC_FILES="$EXAMPLE_PATH/main.cpp $EXAMPLE_PATH/config.cpp $EXAMPLE_PATH/example_rtc_publisher.cpp"
-RTMP_PUBLISHER_SRC_FILES="$EXAMPLE_PATH/main.cpp $EXAMPLE_PATH/config.cpp $EXAMPLE_PATH/example_rtmp_publisher.cpp"
+MIA_SRC_FILES="$EXAMPLE_PATH/main.cpp \
+	$EXAMPLE_PATH/config.cpp \
+	$EXAMPLE_PATH/mia.cpp"
+
+RTC_PUBLISHER_SRC_FILES="$EXAMPLE_PATH/main.cpp \
+	$EXAMPLE_PATH/config.cpp \
+	$EXAMPLE_PATH/example_flv_loop_reader.cpp \
+	$EXAMPLE_PATH/example_rtc_publisher.cpp"
+
+RTMP_PUBLISHER_SRC_FILES="$EXAMPLE_PATH/main.cpp \
+	$EXAMPLE_PATH/config.cpp \
+	$EXAMPLE_PATH/example_flv_loop_reader.cpp \
+	$EXAMPLE_PATH/example_rtmp_publisher.cpp"
+
 DEPS_LIBS="./build/ma/libma.a \
 	$PREFIX_DIR/lib/libavcodec.a \
 	$PREFIX_DIR/lib/libswresample.a \
@@ -55,7 +66,8 @@ DEPS_LIBS="./build/ma/libma.a \
 
 DEPS_INCLUDE="-I./src -I./rtc_stack -I./rtc_stack/myrtc"
 
-COMMON_FLAG="-std=gnu++17 -DWEBRTC_POSIX -DWEBRTC_LINUX -DDCHECK_ALWAYS_ON"
+COMMON_FLAG="-std=gnu++17 -DWEBRTC_POSIX -DWEBRTC_LINUX -Wall \
+		-DDCHECK_ALWAYS_ON"
 
 DEBUG_FLAG="-O3 -g -DNDEBUG"
 
