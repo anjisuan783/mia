@@ -314,7 +314,7 @@ void MediaLiveSource::OnVideo_i(
     }
   
     if (meta_->vsh_format()->is_avc_sequence_header()) {
-      SrsVideoCodecConfig* c = meta_->vsh_format()->vcodec;
+      SrsVideoCodecConfig* c = meta_->vsh_format()->vcodec_;
       srs_assert(c);
 
       if (last_width_ != c->width || last_height_ != c->height) {

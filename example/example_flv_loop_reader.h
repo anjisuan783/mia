@@ -44,9 +44,10 @@ class ExpFlvLoopReader : public rtc::MessageHandler {
   // control loop
   int64_t loop_begin_ts_ = -1;
   int64_t file_size_ = -1;
-  int64_t begin_pos_;
+  static constexpr int64_t begin_pos_ = 13; // header + pre tag size
   int64_t last_round_ts_ = 0;
 
+  // valid flv check
   bool first_audio_pkt = true;
   bool first_video_pkt = true;
 };

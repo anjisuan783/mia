@@ -64,6 +64,8 @@ void ExpRtcPublish::OnFlvVideo(const uint8_t* data, int32_t len, uint32_t ts) {
         srs_error_desc(err) << std::endl;
     delete err;
   }
+
+  //std::cout << "v len:" << len << ", ts:" << ts << std::endl;
 }
 
 void ExpRtcPublish::OnFlvAudio(const uint8_t* data, int32_t len, uint32_t ts) {

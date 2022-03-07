@@ -72,8 +72,13 @@ void MediaServerImp::OnLogMessage(const std::string& message) {
 }
 
 void MediaServerImp::Dump() {
-  std::cout << "client:" << Stat().Clients() << std::endl;
-  std::cout << "streams:" << Stat().Streams() << std::endl;
+  int clients_count = Stat().Clients();
+  int streams_count = Stat().Streams();
+  std::cout << "client:" << clients_count << 
+      ", streams:" << streams_count << std::endl;
+  json::Object dump_json;
+  Stat().DumpStreams(dump_json, 0, streams_count);
+  std::cout << "streams:" << json::Serialize(dump_json) << std::endl;
 }
 
 MediaServerImp g_server_;

@@ -37,8 +37,8 @@ class MediaStatistics final {
                 std::shared_ptr<MediaRequest>, 
                 ClientType);
   void OnDisconnect(const std::string& client_id);
-  void DumpClient(json::Object& arr, int start, int count);
-  void DumpStream(json::Object& arr, int start, int count);
+  void DumpClients(json::Object& objs, int start, int count);
+  void DumpStreams(json::Object& objs, int start, int count);
 
   size_t Clients();
   size_t Streams();
@@ -62,7 +62,7 @@ class MediaStatistics final {
 
   std::mutex client_lock_;
   std::unordered_map<std::string, std::shared_ptr<ClientInfo>> clients_;
-  std::unordered_map<std::string, std::unique_ptr<StreamInfo>> streams_;
+  std::unordered_map<std::string, std::shared_ptr<StreamInfo>> streams_;
 };
 
 MediaStatistics& Stat();

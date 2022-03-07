@@ -93,6 +93,7 @@ void MediaRtcPublisherImp::OnUnpublish() {
 void MediaRtcPublisherImp::OnFrame(owt_base::Frame& frm) {
   if (active_) {
     auto msg = std::make_shared<owt_base::Frame>(std::move(frm));
+    msg->ntpTimeMs += begin_offset;
     source_->OnFrame(std::move(msg));
   }
 }

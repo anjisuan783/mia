@@ -46,6 +46,20 @@ typedef int64_t srs_utime_t;
 #endif
 
 #define MA_MAX_PACKET_SIZE 16*1024
+
+constexpr int OPUS_SAMPLE_RATE = 48000;
+constexpr int OPUS_SAMPLES_PER_MS = OPUS_SAMPLE_RATE / SRS_UTIME_MILLISECONDS;
+
+constexpr int AAC_SAMPLE_RATE = 44100;
+constexpr int AAC_SAMPLE_PER_MS = AAC_SAMPLE_RATE / SRS_UTIME_MILLISECONDS;
+
+constexpr int AUDIO_STREAM_BITRATE = 48000;
+
+constexpr int AUDIO_STERO = 2;
+
+constexpr int VIDEO_SAMPLE_RATE = 90000;
+constexpr int VIDEO_SAMPLES_PER_MS = 90000 / SRS_UTIME_MILLISECONDS;
+
 }
 #endif //!__MEDIA_COMMON_DEFINE_H__
 

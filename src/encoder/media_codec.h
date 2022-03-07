@@ -647,8 +647,8 @@ class SrsAudioFrame final : public SrsFrame {
   SrsAudioCodecConfig* acodec();
 };
 
-// A video frame, besides a frame, contains the video frame info, such as frame type.
-// TODO: FIXME: Rename to packet to follow names of FFmpeg, which means before decoding or after decoding.
+// A video frame, besides a frame, contains the video frame info, 
+// such as frame type.
 class SrsVideoFrame final : public SrsFrame {
  public:
   // video specified
@@ -675,21 +675,23 @@ class SrsVideoFrame final : public SrsFrame {
 };
 
 /**
-* A codec format, including one or many stream, each stream identified by a frame.
+* A codec format, including one or many stream, 
+* each stream identified by a frame.
 * For example, a typical RTMP stream format, consits of a video and audio frame.
-* Maybe some RTMP stream only has a audio stream, for instance, redio application.
+* Maybe some RTMP stream only has a audio stream, 
+* for instance, redio application.
 */
 class SrsFormat {
  public:
-  SrsAudioFrame* audio;
-  SrsAudioCodecConfig* acodec;
-  SrsVideoFrame* video;
-  SrsVideoCodecConfig* vcodec;
-  char* raw;
-  int nb_raw;
+  SrsAudioFrame* audio_;
+  SrsAudioCodecConfig* acodec_;
+  SrsVideoFrame* video_;
+  SrsVideoCodecConfig* vcodec_;
+  char* raw_;
+  int nb_raw_;
   // for sequence header, whether parse the h.264 sps.
   // TODO: FIXME: Refine it.
-  bool avc_parse_sps;
+  bool avc_parse_sps_;
  public:
   SrsFormat();
   virtual ~SrsFormat();
