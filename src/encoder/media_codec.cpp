@@ -559,21 +559,23 @@ SrsVideoCodecConfig* SrsVideoFrame::vcodec() {
   return (SrsVideoCodecConfig*)codec;
 }
 
+//////////////////////////////////////////////////////////////////////////////////SrsFormat
+////////////////////////////////////////////////////////////////////////////////
 SrsFormat::SrsFormat() {
-  acodec = NULL;
-  vcodec = NULL;
-  audio = NULL;
-  video = NULL;
-  avc_parse_sps = true;
-  raw = NULL;
-  nb_raw = 0;
+  acodec_ = NULL;
+  vcodec_ = NULL;
+  audio_ = NULL;
+  video_ = NULL;
+  avc_parse_sps_ = true;
+  raw_ = NULL;
+  nb_raw_ = 0;
 }
 
 SrsFormat::~SrsFormat() {
-  srs_freep(audio);
-  srs_freep(video);
-  srs_freep(acodec);
-  srs_freep(vcodec);
+  srs_freep(audio_);
+  srs_freep(video_);
+  srs_freep(acodec_);
+  srs_freep(vcodec_);
 }
 
 srs_error_t SrsFormat::initialize() {
@@ -601,14 +603,14 @@ srs_error_t SrsFormat::on_audio(int64_t timestamp, char* data, int size) {
     return err;
   }
   
-  if (!acodec) {
-    acodec = new SrsAudioCodecConfig();
+  if (!acodec_) {
+    acodec_ = new SrsAudioCodecConfig();
   }
-  if (!audio) {
-    audio = new SrsAudioFrame();
+  if (!audio_) {
+    audio_ = new SrsAudioFrame();
   }
   
-  if ((err = audio->initialize(acodec)) != srs_success) {
+  if ((err = audio_->initialize(acodec_)) != srs_success) {
     return srs_error_wrap(err, "init audio");
   }
   
@@ -644,17 +646,18 @@ srs_error_t SrsFormat::on_video(int64_t timestamp, char* data, int size) {
     return err;
   }
   
-  if (!vcodec) {
-    vcodec = new SrsVideoCodecConfig();
+  if (!vcodec_) {
+    vcodec_ = new SrsVideoCodecConfig();
   }
-  if (!video) {
-    video = new SrsVideoFrame();
+  if (!video_) {
+    video_ = new SrsVideoFrame();
   }
   
-  if ((err = video->initialize(vcodec)) != srs_success) {
+  if ((err = video_->initialize(vcodec_)) != srs_success) {
     return srs_error_wrap(err, "init video");
   }
   
+  // rewind 1 byte, read by frame_type
   buffer.skip(-1 * buffer.pos());
   return video_avc_demux(&buffer, timestamp);
 }
@@ -662,14 +665,14 @@ srs_error_t SrsFormat::on_video(int64_t timestamp, char* data, int size) {
 srs_error_t SrsFormat::on_aac_sequence_header(char* data, int size) {
   srs_error_t err = srs_success;
   
-  if (!acodec) {
-    acodec = new SrsAudioCodecConfig();
+  if (!acodec_) {
+    acodec_ = new SrsAudioCodecConfig();
   }
-  if (!audio) {
-    audio = new SrsAudioFrame();
+  if (!audio_) {
+    audio_ = new SrsAudioFrame();
   }
   
-  if ((err = audio->initialize(acodec)) != srs_success) {
+  if ((err = audio_->initialize(acodec_)) != srs_success) {
     return srs_error_wrap(err, "init audio");
   }
   
@@ -677,16 +680,16 @@ srs_error_t SrsFormat::on_aac_sequence_header(char* data, int size) {
 }
 
 bool SrsFormat::is_aac_sequence_header() {
-  return acodec && acodec->id == SrsAudioCodecIdAAC
-      && audio && audio->aac_packet_type == SrsAudioAacFrameTraitSequenceHeader;
+  return acodec_ && acodec_->id == SrsAudioCodecIdAAC
+      && audio_ && audio_->aac_packet_type == SrsAudioAacFrameTraitSequenceHeader;
 }
 
 bool SrsFormat::is_avc_sequence_header() {
-  bool h264 = (vcodec && vcodec->id == SrsVideoCodecIdAVC);
-  bool h265 = (vcodec && vcodec->id == SrsVideoCodecIdHEVC);
-  bool av1 = (vcodec && vcodec->id == SrsVideoCodecIdAV1);
-  return vcodec && (h264 || h265 || av1)
-      && video && video->avc_packet_type == SrsVideoAvcFrameTraitSequenceHeader;
+  bool h264 = (vcodec_ && vcodec_->id == SrsVideoCodecIdAVC);
+  bool h265 = (vcodec_ && vcodec_->id == SrsVideoCodecIdHEVC);
+  bool av1 = (vcodec_ && vcodec_->id == SrsVideoCodecIdAV1);
+  return vcodec_ && (h264 || h265 || av1)
+      && video_ && video_->avc_packet_type == SrsVideoAvcFrameTraitSequenceHeader;
 }
 
 srs_error_t SrsFormat::video_avc_demux(SrsBuffer* stream, int64_t timestamp) {
@@ -697,11 +700,10 @@ srs_error_t SrsFormat::video_avc_demux(SrsBuffer* stream, int64_t timestamp) {
   SrsVideoCodecId codec_id = (SrsVideoCodecId)(frame_type & 0x0f);
   frame_type = (frame_type >> 4) & 0x0f;
   
-  video->frame_type = (SrsVideoAvcFrameType)frame_type;
+  video_->frame_type = (SrsVideoAvcFrameType)frame_type;
   
   // ignore info frame without error,
-  // @see https://github.com/ossrs/srs/issues/288#issuecomment-69863909
-  if (video->frame_type == SrsVideoAvcFrameTypeVideoInfoFrame) {
+  if (video_->frame_type == SrsVideoAvcFrameTypeVideoInfoFrame) {
     MLOG_CWARN("avc igone the info frame");
     return err;
   }
@@ -711,7 +713,7 @@ srs_error_t SrsFormat::video_avc_demux(SrsBuffer* stream, int64_t timestamp) {
     return srs_error_new(ERROR_HLS_DECODE_ERROR, 
         "avc only support video h.264/avc, actual=%d", codec_id);
   }
-  vcodec->id = codec_id;
+  vcodec_->id = codec_id;
   
   if (!stream->require(4)) {
     return srs_error_new(ERROR_HLS_DECODE_ERROR, "avc decode avc_packet_type");
@@ -720,13 +722,13 @@ srs_error_t SrsFormat::video_avc_demux(SrsBuffer* stream, int64_t timestamp) {
   int32_t composition_time = stream->read_3bytes();
   
   // pts = dts + cts.
-  video->dts = timestamp;
-  video->cts = composition_time;
-  video->avc_packet_type = (SrsVideoAvcFrameTrait)avc_packet_type;
+  video_->dts = timestamp;
+  video_->cts = composition_time;
+  video_->avc_packet_type = (SrsVideoAvcFrameTrait)avc_packet_type;
   
   // Update the RAW AVC data.
-  raw = stream->data() + stream->pos();
-  nb_raw = stream->size() - stream->pos();
+  raw_ = stream->data() + stream->pos();
+  nb_raw_ = stream->size() - stream->pos();
   
   if (avc_packet_type == SrsVideoAvcFrameTraitSequenceHeader) {
     // TODO: FIXME: Maybe we should ignore any error for parsing sps/pps.
@@ -754,33 +756,33 @@ srs_error_t SrsFormat::avc_demux_sps_pps(SrsBuffer* stream) {
   int avc_extra_size = stream->size() - stream->pos();
   if (avc_extra_size > 0) {
     char *copy_stream_from = stream->data() + stream->pos();
-    vcodec->avc_extra_data = 
+    vcodec_->avc_extra_data = 
         std::vector<char>(copy_stream_from, copy_stream_from + avc_extra_size);
   }
   
   if (!stream->require(6)) {
     return srs_error_new(ERROR_HLS_DECODE_ERROR, "avc decode sequence header");
   }
-  //int8_t configurationVersion = stream->read_1bytes();
+  //ignore configurationVersion
   stream->read_1bytes();
-  //int8_t AVCProfileIndication = stream->read_1bytes();
-  vcodec->avc_profile = (SrsAvcProfile)stream->read_1bytes();
-  //int8_t profile_compatibility = stream->read_1bytes();
+  // AVCProfileIndication
+  vcodec_->avc_profile = (SrsAvcProfile)stream->read_1bytes();
+  //profile_compatibility
   stream->read_1bytes();
-  //int8_t AVCLevelIndication = stream->read_1bytes();
-  vcodec->avc_level = (SrsAvcLevel)stream->read_1bytes();
+  //AVCLevelIndication
+  vcodec_->avc_level = (SrsAvcLevel)stream->read_1bytes();
   
   // parse the NALU size.
   int8_t lengthSizeMinusOne = stream->read_1bytes();
   lengthSizeMinusOne &= 0x03;
-  vcodec->NAL_unit_length = lengthSizeMinusOne;
+  vcodec_->NAL_unit_length = lengthSizeMinusOne;
   
   // 5.3.4.2.1 Syntax, ISO_IEC_14496-15-AVC-format-2012.pdf, page 16
   // 5.2.4.1 AVC decoder configuration record
   // 5.2.4.1.2 Semantics
   // The value of this field shall be one of 0, 1, or 3 corresponding to a
   // length encoded with 1, 2, or 4 bytes, respectively.
-  if (vcodec->NAL_unit_length == 2) {
+  if (vcodec_->NAL_unit_length == 2) {
     return srs_error_new(ERROR_HLS_DECODE_ERROR, 
         "sps lengthSizeMinusOne should never be 2");
   }
@@ -803,9 +805,9 @@ srs_error_t SrsFormat::avc_demux_sps_pps(SrsBuffer* stream) {
     return srs_error_new(ERROR_HLS_DECODE_ERROR, "decode SPS data");
   }
   if (sequenceParameterSetLength > 0) {
-    vcodec->sequenceParameterSetNALUnit.resize(sequenceParameterSetLength);
+    vcodec_->sequenceParameterSetNALUnit.resize(sequenceParameterSetLength);
     stream->read_bytes(
-        &vcodec->sequenceParameterSetNALUnit[0], sequenceParameterSetLength);
+        &vcodec_->sequenceParameterSetNALUnit[0], sequenceParameterSetLength);
   }
   // 1 pps
   if (!stream->require(1)) {
@@ -824,9 +826,9 @@ srs_error_t SrsFormat::avc_demux_sps_pps(SrsBuffer* stream) {
     return srs_error_new(ERROR_HLS_DECODE_ERROR, "decode PPS data");
   }
   if (pictureParameterSetLength > 0) {
-    vcodec->pictureParameterSetNALUnit.resize(pictureParameterSetLength);
+    vcodec_->pictureParameterSetNALUnit.resize(pictureParameterSetLength);
     stream->read_bytes(
-        &vcodec->pictureParameterSetNALUnit[0], pictureParameterSetLength);
+        &vcodec_->pictureParameterSetNALUnit[0], pictureParameterSetLength);
   }
   
   return avc_demux_sps();
@@ -835,12 +837,12 @@ srs_error_t SrsFormat::avc_demux_sps_pps(SrsBuffer* stream) {
 srs_error_t SrsFormat::avc_demux_sps() {
   srs_error_t err = srs_success;
   
-  if (vcodec->sequenceParameterSetNALUnit.empty()) {
+  if (vcodec_->sequenceParameterSetNALUnit.empty()) {
     return err;
   }
   
-  char* sps = &vcodec->sequenceParameterSetNALUnit[0];
-  int nbsps = (int)vcodec->sequenceParameterSetNALUnit.size();
+  char* sps = &vcodec_->sequenceParameterSetNALUnit[0];
+  int nbsps = (int)vcodec_->sequenceParameterSetNALUnit.size();
   
   SrsBuffer stream(sps, nbsps);
   
@@ -880,7 +882,7 @@ srs_error_t SrsFormat::avc_demux_sps() {
   // decode the rbsp from sps.
   // rbsp[ i ] a raw byte sequence payload is specified as 
   // an ordered sequence of bytes.
-  std::vector<int8_t> rbsp(vcodec->sequenceParameterSetNALUnit.size());
+  std::vector<int8_t> rbsp(vcodec_->sequenceParameterSetNALUnit.size());
   
   int nb_rbsp = 0;
   while (!stream.empty()) {
@@ -905,13 +907,12 @@ srs_error_t SrsFormat::avc_demux_sps() {
   return avc_demux_sps_rbsp((char*)&rbsp[0], nb_rbsp);
 }
 
-
 srs_error_t SrsFormat::avc_demux_sps_rbsp(char* rbsp, int nb_rbsp) {
   srs_error_t err = srs_success;
   
   // we donot parse the detail of sps.
   // @see https://github.com/ossrs/srs/issues/474
-  if (!avc_parse_sps) {
+  if (!avc_parse_sps_) {
     return err;
   }
   
@@ -1009,30 +1010,36 @@ srs_error_t SrsFormat::avc_demux_sps_rbsp(char* rbsp, int nb_rbsp) {
     }
   } else if (pic_order_cnt_type == 1) {
     int8_t delta_pic_order_always_zero_flag = -1;
-    if ((err = srs_avc_nalu_read_bit(&bs, delta_pic_order_always_zero_flag)) != srs_success) {
+    if ((err = srs_avc_nalu_read_bit(&bs, delta_pic_order_always_zero_flag)) 
+            != srs_success) {
       return srs_error_wrap(err, "read delta_pic_order_always_zero_flag");;
     }
     
     int32_t offset_for_non_ref_pic = -1;
-    if ((err = srs_avc_nalu_read_uev(&bs, offset_for_non_ref_pic)) != srs_success) {
+    if ((err = srs_avc_nalu_read_uev(&bs, offset_for_non_ref_pic)) 
+            != srs_success) {
       return srs_error_wrap(err, "read offset_for_non_ref_pic");;
     }
     
     int32_t offset_for_top_to_bottom_field = -1;
-    if ((err = srs_avc_nalu_read_uev(&bs, offset_for_top_to_bottom_field)) != srs_success) {
+    if ((err = srs_avc_nalu_read_uev(&bs, offset_for_top_to_bottom_field)) 
+            != srs_success) {
       return srs_error_wrap(err, "read offset_for_top_to_bottom_field");;
     }
     
     int32_t num_ref_frames_in_pic_order_cnt_cycle = -1;
-    if ((err = srs_avc_nalu_read_uev(&bs, num_ref_frames_in_pic_order_cnt_cycle)) != srs_success) {
+    if ((err = srs_avc_nalu_read_uev(&bs, 
+            num_ref_frames_in_pic_order_cnt_cycle)) != srs_success) {
       return srs_error_wrap(err, "read num_ref_frames_in_pic_order_cnt_cycle");;
     }
     if (num_ref_frames_in_pic_order_cnt_cycle < 0) {
-      return srs_error_new(ERROR_HLS_DECODE_ERROR, "sps the num_ref_frames_in_pic_order_cnt_cycle");
+      return srs_error_new(ERROR_HLS_DECODE_ERROR, 
+          "sps the num_ref_frames_in_pic_order_cnt_cycle");
     }
     for (int i = 0; i < num_ref_frames_in_pic_order_cnt_cycle; i++) {
       int32_t offset_for_ref_frame_i = -1;
-      if ((err = srs_avc_nalu_read_uev(&bs, offset_for_ref_frame_i)) != srs_success) {
+      if ((err = srs_avc_nalu_read_uev(&bs, offset_for_ref_frame_i)) 
+              != srs_success) {
         return srs_error_wrap(err, "read offset_for_ref_frame_i");;
       }
     }
@@ -1044,39 +1051,41 @@ srs_error_t SrsFormat::avc_demux_sps_rbsp(char* rbsp, int nb_rbsp) {
   }
   
   int8_t gaps_in_frame_num_value_allowed_flag = -1;
-  if ((err = srs_avc_nalu_read_bit(&bs, gaps_in_frame_num_value_allowed_flag)) != srs_success) {
+  if ((err = srs_avc_nalu_read_bit(&bs, gaps_in_frame_num_value_allowed_flag))
+          != srs_success) {
     return srs_error_wrap(err, "read gaps_in_frame_num_value_allowed_flag");;
   }
   
   int32_t pic_width_in_mbs_minus1 = -1;
-  if ((err = srs_avc_nalu_read_uev(&bs, pic_width_in_mbs_minus1)) != srs_success) {
+  if ((err = srs_avc_nalu_read_uev(&bs, pic_width_in_mbs_minus1)) 
+          != srs_success) {
     return srs_error_wrap(err, "read pic_width_in_mbs_minus1");;
   }
   
   int32_t pic_height_in_map_units_minus1 = -1;
-  if ((err = srs_avc_nalu_read_uev(&bs, pic_height_in_map_units_minus1)) != srs_success) {
+  if ((err = srs_avc_nalu_read_uev(&bs, pic_height_in_map_units_minus1)) 
+          != srs_success) {
     return srs_error_wrap(err, "read pic_height_in_map_units_minus1");;
   }
   
-  vcodec->width = (int)(pic_width_in_mbs_minus1 + 1) * 16;
-  vcodec->height = (int)(pic_height_in_map_units_minus1 + 1) * 16;
+  vcodec_->width = (int)(pic_width_in_mbs_minus1 + 1) * 16;
+  vcodec_->height = (int)(pic_height_in_map_units_minus1 + 1) * 16;
   
   return err;
 }
 
 // LCOV_EXCL_STOP
-
 srs_error_t SrsFormat::video_nalu_demux(SrsBuffer* stream) {
   srs_error_t err = srs_success;
   
   // ensure the sequence header demuxed
-  if (!vcodec->is_avc_codec_ok()) {
+  if (!vcodec_->is_avc_codec_ok()) {
     MLOG_CWARN("avc ignore type=%d for no sequence header", SrsVideoAvcFrameTraitNALU);
     return err;
   }
   
   // guess for the first time.
-  if (vcodec->payload_format == SrsAvcPayloadFormatGuess) {
+  if (vcodec_->payload_format == SrsAvcPayloadFormatGuess) {
     // One or more NALUs (Full frames are required)
     // try  "AnnexB" from ISO_IEC_14496-10-AVC-2003.pdf, page 211.
     if ((err = avc_demux_annexb_format(stream)) != srs_success) {
@@ -1090,12 +1099,12 @@ srs_error_t SrsFormat::video_nalu_demux(SrsBuffer* stream) {
       if ((err = avc_demux_ibmf_format(stream)) != srs_success) {
         return srs_error_wrap(err, "avc demux ibmf");
       } else {
-        vcodec->payload_format = SrsAvcPayloadFormatIbmf;
+        vcodec_->payload_format = SrsAvcPayloadFormatIbmf;
       }
     } else {
-      vcodec->payload_format = SrsAvcPayloadFormatAnnexb;
+      vcodec_->payload_format = SrsAvcPayloadFormatAnnexb;
     }
-  } else if (vcodec->payload_format == SrsAvcPayloadFormatIbmf) {
+  } else if (vcodec_->payload_format == SrsAvcPayloadFormatIbmf) {
     // try "ISO Base Media File Format" from ISO_IEC_14496-15-AVC-format-2012.pdf, page 20
     if ((err = avc_demux_ibmf_format(stream)) != srs_success) {
         return srs_error_wrap(err, "avc demux ibmf");
@@ -1114,7 +1123,7 @@ srs_error_t SrsFormat::video_nalu_demux(SrsBuffer* stream) {
       if ((err = avc_demux_ibmf_format(stream)) != srs_success) {
         return srs_error_wrap(err, "avc demux ibmf");
       } else {
-        vcodec->payload_format = SrsAvcPayloadFormatIbmf;
+        vcodec_->payload_format = SrsAvcPayloadFormatIbmf;
       }
     }
   }
@@ -1165,7 +1174,7 @@ srs_error_t SrsFormat::avc_demux_annexb_format(SrsBuffer* stream) {
     }
     
     // got the NALU.
-    if ((err = video->add_sample(p, (int)(pp - p))) != srs_success) {
+    if ((err = video_->add_sample(p, (int)(pp - p))) != srs_success) {
       return srs_error_wrap(err, "add video frame");
     }
   }
@@ -1183,18 +1192,18 @@ srs_error_t SrsFormat::avc_demux_ibmf_format(SrsBuffer* stream) {
   // 5.2.4.1.2 Semantics
   // The value of this field shall be one of 0, 1, or 3 corresponding to a
   // length encoded with 1, 2, or 4 bytes, respectively.
-  srs_assert(vcodec->NAL_unit_length != 2);
+  srs_assert(vcodec_->NAL_unit_length != 2);
   
   // 5.3.4.2.1 Syntax, ISO_IEC_14496-15-AVC-format-2012.pdf, page 20
   for (int i = 0; i < PictureLength;) {
     // unsigned int((NAL_unit_length+1)*8) NALUnitLength;
-    if (!stream->require(vcodec->NAL_unit_length + 1)) {
+    if (!stream->require(vcodec_->NAL_unit_length + 1)) {
       return srs_error_new(ERROR_HLS_DECODE_ERROR, "avc decode NALU size");
     }
     int32_t NALUnitLength = 0;
-    if (vcodec->NAL_unit_length == 3) {
+    if (vcodec_->NAL_unit_length == 3) {
       NALUnitLength = stream->read_4bytes();
-    } else if (vcodec->NAL_unit_length == 1) {
+    } else if (vcodec_->NAL_unit_length == 1) {
       NALUnitLength = stream->read_2bytes();
     } else {
       NALUnitLength = stream->read_1bytes();
@@ -1211,12 +1220,12 @@ srs_error_t SrsFormat::avc_demux_ibmf_format(SrsBuffer* stream) {
       return srs_error_new(ERROR_HLS_DECODE_ERROR, "avc decode NALU data");
     }
     // 7.3.1 NAL unit syntax, ISO_IEC_14496-10-AVC-2003.pdf, page 44.
-    if ((err = video->add_sample(stream->data() + stream->pos(), NALUnitLength)) != srs_success) {
+    if ((err = video_->add_sample(stream->data() + stream->pos(), NALUnitLength)) != srs_success) {
       return srs_error_wrap(err, "avc add video frame");
     }
     stream->skip(NALUnitLength);
     
-    i += vcodec->NAL_unit_length + 1 + NALUnitLength;
+    i += vcodec_->NAL_unit_length + 1 + NALUnitLength;
   }
   
   return err;
@@ -1225,8 +1234,8 @@ srs_error_t SrsFormat::avc_demux_ibmf_format(SrsBuffer* stream) {
 srs_error_t SrsFormat::audio_aac_demux(SrsBuffer* stream, int64_t timestamp) {
   srs_error_t err = srs_success;
   
-  audio->cts = 0;
-  audio->dts = timestamp;
+  audio_->cts = 0;
+  audio_->dts = timestamp;
   
   // @see: E.4.2 Audio Tags, video_file_format_spec_v10_1.pdf, page 76
   int8_t sound_format = stream->read_1bytes();
@@ -1237,11 +1246,11 @@ srs_error_t SrsFormat::audio_aac_demux(SrsBuffer* stream, int64_t timestamp) {
   sound_format = (sound_format >> 4) & 0x0f;
 
   SrsAudioCodecId codec_id = (SrsAudioCodecId)sound_format;
-  acodec->id = codec_id;
+  acodec_->id = codec_id;
 
-  acodec->sound_type = (SrsAudioChannels)sound_type;
-  acodec->sound_rate = (SrsAudioSampleRate)sound_rate;
-  acodec->sound_size = (SrsAudioSampleBits)sound_size;
+  acodec_->sound_type = (SrsAudioChannels)sound_type;
+  acodec_->sound_rate = (SrsAudioSampleRate)sound_rate;
+  acodec_->sound_size = (SrsAudioSampleBits)sound_size;
 
   // we support h.264+mp3 for hls.
   if (codec_id == SrsAudioCodecIdMP3) {
@@ -1260,33 +1269,34 @@ srs_error_t SrsFormat::audio_aac_demux(SrsBuffer* stream, int64_t timestamp) {
   
   SrsAudioAacFrameTrait aac_packet_type = 
       (SrsAudioAacFrameTrait)stream->read_1bytes();
-  audio->aac_packet_type = (SrsAudioAacFrameTrait)aac_packet_type;
+  audio_->aac_packet_type = (SrsAudioAacFrameTrait)aac_packet_type;
   
   // Update the RAW AAC data.
-  raw = stream->data() + stream->pos();
-  nb_raw = stream->size() - stream->pos();
+  raw_ = stream->data() + stream->pos();
+  nb_raw_ = stream->size() - stream->pos();
   
   if (aac_packet_type == SrsAudioAacFrameTraitSequenceHeader) {
     // AudioSpecificConfig
     // 1.6.2.1 AudioSpecificConfig, in ISO_IEC_14496-3-AAC-2001.pdf, page 33.
-    if (nb_raw > 0) {
-      acodec->aac_extra_data = std::move(std::vector<char>(raw, raw + nb_raw));
+    if (nb_raw_ > 0) {
+      acodec_->aac_extra_data = 
+          std::move(std::vector<char>(raw_, raw_ + nb_raw_));
       
       if ((err = audio_aac_sequence_header_demux(
-          &acodec->aac_extra_data[0], nb_raw)) != srs_success) {
+          &acodec_->aac_extra_data[0], nb_raw_)) != srs_success) {
         return srs_error_wrap(err, "demux aac sh");
       }
     }
   } else if (aac_packet_type == SrsAudioAacFrameTraitRawData) {
     // ensure the sequence header demuxed
-    if (!acodec->is_aac_codec_ok()) {
+    if (!acodec_->is_aac_codec_ok()) {
       MLOG_CWARN("aac ignore type=%d for no sequence header", aac_packet_type);
       return err;
     }
     
     // Raw AAC frame data in UI8 []
     // 6.3 Raw Data, ISO_IEC_13818-7-AAC-2004.pdf, page 28
-    if ((err = audio->add_sample(raw, nb_raw)) != srs_success) {
+    if ((err = audio_->add_sample(raw_, nb_raw_)) != srs_success) {
       return srs_error_wrap(err, "add audio frame");
     }
   } else {
@@ -1294,16 +1304,16 @@ srs_error_t SrsFormat::audio_aac_demux(SrsBuffer* stream, int64_t timestamp) {
   }
   
   // reset the sample rate by sequence header
-  if (acodec->aac_sample_rate != SrsAacSampleRateUnset) {
-    switch (srs_aac_srates[acodec->aac_sample_rate]) {
+  if (acodec_->aac_sample_rate != SrsAacSampleRateUnset) {
+    switch (srs_aac_srates[acodec_->aac_sample_rate]) {
       case 11025:
-        acodec->sound_rate = SrsAudioSampleRate11025;
+        acodec_->sound_rate = SrsAudioSampleRate11025;
         break;
       case 22050:
-        acodec->sound_rate = SrsAudioSampleRate22050;
+        acodec_->sound_rate = SrsAudioSampleRate22050;
         break;
       case 44100:
-        acodec->sound_rate = SrsAudioSampleRate44100;
+        acodec_->sound_rate = SrsAudioSampleRate44100;
         break;
       default:
         break;
@@ -1316,8 +1326,8 @@ srs_error_t SrsFormat::audio_aac_demux(SrsBuffer* stream, int64_t timestamp) {
 srs_error_t SrsFormat::audio_mp3_demux(SrsBuffer* stream, int64_t timestamp) {
   srs_error_t err = srs_success;
   
-  audio->cts = 0;
-  audio->dts = timestamp;
+  audio_->cts = 0;
+  audio_->dts = timestamp;
   
   // @see: E.4.2 Audio Tags, video_file_format_spec_v10_1.pdf, page 76
   int8_t sound_format = stream->read_1bytes();
@@ -1328,18 +1338,18 @@ srs_error_t SrsFormat::audio_mp3_demux(SrsBuffer* stream, int64_t timestamp) {
   sound_format = (sound_format >> 4) & 0x0f;
   
   SrsAudioCodecId codec_id = (SrsAudioCodecId)sound_format;
-  acodec->id = codec_id;
+  acodec_->id = codec_id;
   
-  acodec->sound_type = (SrsAudioChannels)sound_type;
-  acodec->sound_rate = (SrsAudioSampleRate)sound_rate;
-  acodec->sound_size = (SrsAudioSampleBits)sound_size;
+  acodec_->sound_type = (SrsAudioChannels)sound_type;
+  acodec_->sound_rate = (SrsAudioSampleRate)sound_rate;
+  acodec_->sound_size = (SrsAudioSampleBits)sound_size;
   
   // we always decode aac then mp3.
-  srs_assert(acodec->id == SrsAudioCodecIdMP3);
+  srs_assert(acodec_->id == SrsAudioCodecIdMP3);
   
   // Update the RAW MP3 data.
-  raw = stream->data() + stream->pos();
-  nb_raw = stream->size() - stream->pos();
+  raw_ = stream->data() + stream->pos();
+  nb_raw_ = stream->size() - stream->pos();
   
   stream->skip(1);
   if (stream->empty()) {
@@ -1350,7 +1360,7 @@ srs_error_t SrsFormat::audio_mp3_demux(SrsBuffer* stream, int64_t timestamp) {
   int size = stream->size() - stream->pos();
   
   // mp3 payload.
-  if ((err = audio->add_sample(data, size)) != srs_success) {
+  if ((err = audio_->add_sample(data, size)) != srs_success) {
     return srs_error_wrap(err, "add audio frame");
   }
   
@@ -1372,17 +1382,17 @@ srs_error_t SrsFormat::audio_aac_sequence_header_demux(char* data, int size) {
   uint8_t profile_ObjectType = buffer.read_1bytes();
   uint8_t samplingFrequencyIndex = buffer.read_1bytes();
   
-  acodec->aac_channels = (samplingFrequencyIndex >> 3) & 0x0f;
+  acodec_->aac_channels = (samplingFrequencyIndex >> 3) & 0x0f;
   samplingFrequencyIndex = ((profile_ObjectType << 1) & 0x0e) | 
                            ((samplingFrequencyIndex >> 7) & 0x01);
   profile_ObjectType = (profile_ObjectType >> 3) & 0x1f;
   
   // set the aac sample rate.
-  acodec->aac_sample_rate = samplingFrequencyIndex;
+  acodec_->aac_sample_rate = samplingFrequencyIndex;
   
   // convert the object type in sequence header to aac profile of ADTS.
-  acodec->aac_object = (SrsAacObjectType)profile_ObjectType;
-  if (acodec->aac_object == SrsAacObjectTypeReserved) {
+  acodec_->aac_object = (SrsAacObjectType)profile_ObjectType;
+  if (acodec_->aac_object == SrsAacObjectTypeReserved) {
     return srs_error_new(ERROR_HLS_DECODE_ERROR, 
         "aac decode sh object %d", profile_ObjectType);
   }

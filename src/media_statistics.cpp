@@ -2,8 +2,10 @@
 
 #include <time.h>
 #include <assert.h>
+#include <algorithm>
 
 #include "rtmp/media_req.h"
+#include "utils/json.h"
 
 namespace ma {
 
@@ -25,6 +27,8 @@ std::string ClienType2String(ClientType t) {
   }
 }
 
+//////////////////////////////////////////////////////////////////////////////////ClientInfo
+////////////////////////////////////////////////////////////////////////////////
 void MediaStatistics::ClientInfo::Dump(json::Object& obj) {
   obj["id"] = id;
   obj["ip"] = req->ip;
@@ -38,19 +42,21 @@ void MediaStatistics::ClientInfo::Dump(json::Object& obj) {
   struct tm now_time;
   localtime_r(&tm_sec, &now_time);
   char buf[256];
-  snprintf(buf, 256, "%dD:%dH:%dM:%dS", 
+  snprintf(buf, 256, "%dDay(%d:%d:%d)", 
       now_time.tm_mday, now_time.tm_hour, now_time.tm_min, now_time.tm_sec);
   obj["alive"] = std::string(buf);
 }
 
+//////////////////////////////////////////////////////////////////////////////////StreamInfo
+////////////////////////////////////////////////////////////////////////////////
 void MediaStatistics::StreamInfo::Dump(json::Object& out_obj) {
   out_obj["id"] = req->get_stream_url();
   time_t tm_sec = created;
   struct tm now_time;
   localtime_r(&tm_sec, &now_time);
   char buf[256];
-  snprintf(buf, 256, "%dD:%dH:%dM:%dS", 
-      now_time.tm_mday, now_time.tm_hour, now_time.tm_min, now_time.tm_sec);
+  snprintf(buf, 256, "%d-%d %d:%d:%d", now_time.tm_mon, now_time.tm_mday
+      , now_time.tm_hour, now_time.tm_min, now_time.tm_sec);
   out_obj["created"] = std::string(buf);
 
   if (!players.empty()) {
@@ -83,13 +89,15 @@ void  MediaStatistics::StreamInfo::OnClient(std::shared_ptr<ClientInfo> c) {
   }
 }
 
+//////////////////////////////////////////////////////////////////////////////////MediaStatistics
+////////////////////////////////////////////////////////////////////////////////
 void MediaStatistics::OnStream(std::shared_ptr<MediaRequest> req) {
   StreamInfo* pStream = nullptr;
   std::string id = req->get_stream_url();
   std::lock_guard<std::mutex> guard(client_lock_);
   auto found = streams_.find(id);
   if (found == streams_.end()) {
-    auto stream = std::make_unique<StreamInfo>();
+    auto stream = std::make_shared<StreamInfo>();
     pStream = stream.get();
     streams_.emplace(id, std::move(stream));
   } else {
@@ -110,6 +118,8 @@ void MediaStatistics::OnClient(const std::string& id,
                                std::shared_ptr<MediaRequest> req, 
                                ClientType t) {
   ClientInfo* pclient = nullptr;
+  std::string url = req->get_stream_url();
+
   std::optional<std::shared_ptr<ClientInfo>> new_client;
   std::lock_guard<std::mutex> guard(client_lock_);
   auto found = clients_.find(id);
@@ -124,11 +134,11 @@ void MediaStatistics::OnClient(const std::string& id,
   }
 
   pclient->type = t;
-  pclient->req = req;
+  pclient->req = std::move(req);
   pclient->created = time(nullptr);
 
   if (new_client) {
-    auto stream_found = streams_.find(req->get_stream_url());
+    auto stream_found = streams_.find(url);
     if (stream_found != streams_.end()) {
       stream_found->second->OnClient(*new_client);
     } else {
@@ -142,42 +152,53 @@ void MediaStatistics::OnDisconnect(const std::string& id) {
   clients_.erase(id);
 }
 
-void MediaStatistics::DumpClient(json::Object& obj, int start, int count) {
-  json::Array cli_jsons;
-  obj["clients"] = cli_jsons;
-  std::lock_guard<std::mutex> guard(client_lock_);
+void MediaStatistics::DumpClients(json::Object& obj, int start, int count) {
+  std::vector<std::shared_ptr<ClientInfo>> clients_copy;
+  {
+    std::lock_guard<std::mutex> guard(client_lock_);
+    clients_copy.reserve(clients_.size());
+    std::for_each(clients_.begin(), clients_.end(), [&clients_copy](auto& x) {
+      clients_copy.emplace_back(x.second);
+    });
+  }
 
-  auto it = clients_.begin();
-  for (int i = 0; i < start + count && it != clients_.end(); ++it++, ++i) {
+  json::Array cli_jsons;
+  int total = (int)clients_copy.size();
+  for (int i = 0; i < start + count && i < total; ++i) {
     if (i < start) {
       continue;
     }
-    
-    ClientInfo* client = it->second.get();
-    
     json::Object cli_info;
-    client->Dump(cli_info);
+    clients_copy[i]->Dump(cli_info);
     cli_jsons.push_back(cli_info);
   }
+
+  obj["clients"] = cli_jsons;
 }
 
-void MediaStatistics::DumpStream(json::Object& obj, int start, int count) {
-  json::Array stream_jsons;
-  obj["streams"] = stream_jsons;
-  std::lock_guard<std::mutex> guard(client_lock_);
+void MediaStatistics::DumpStreams(json::Object& obj, int start, int count) {
+  std::vector<std::shared_ptr<StreamInfo>> streams_copy;
+  {
+    std::lock_guard<std::mutex> guard(client_lock_);
+    streams_copy.reserve(streams_.size());
+    std::for_each(streams_.begin(), streams_.end(), [&streams_copy](auto& x) {
+      streams_copy.emplace_back(x.second);
+    });
+  }
 
-  auto it = streams_.begin();
-  for (int i = 0; i < start + count && it != streams_.end(); ++it++, ++i) {
+  json::Array stream_jsons;
+  int total = (int)streams_copy.size();
+  for (int i = 0; i < start + count && i < total; ++i) {
     if (i < start) {
       continue;
     }
     
-    StreamInfo* stream = it->second.get();
-    
+    StreamInfo* stream = streams_copy[i].get();
     json::Object stream_info;
     stream->Dump(stream_info);
     stream_jsons.push_back(stream_info);
-  }  
+  }
+  obj["streams"] = stream_jsons;
 }
 
 size_t MediaStatistics::Clients() {

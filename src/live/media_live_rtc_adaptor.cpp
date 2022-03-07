@@ -1,5 +1,6 @@
 #include "live/media_live_rtc_adaptor.h"
 
+#include "common/media_define.h"
 #include "common/media_log.h"
 #include "common/media_performance.h"
 #include "rtmp/media_req.h"
@@ -33,11 +34,11 @@ srs_error_t aac_raw_append_adts_header(
     return err;
   }
 
-  if (format->audio->nb_samples != 1) {
+  if (format->audio_->nb_samples != 1) {
     return srs_error_new(ERROR_RTC_RTP_MUXER, "adts");
   }
 
-  int nb_buf = format->audio->samples[0].size + 7;
+  int nb_buf = format->audio_->samples[0].size + 7;
   char* buf = new char[nb_buf];
   SrsBuffer stream(buf, nb_buf);
 
@@ -60,17 +61,17 @@ srs_error_t aac_raw_append_adts_header(
 
   stream.write_1bytes(0xFF);
   stream.write_1bytes(0xF1);
-  stream.write_1bytes(((format->acodec->aac_object - 1) << 6) | 
-                      ((format->acodec->aac_sample_rate & 0x0F) << 2) | 
-                      ((format->acodec->aac_channels & 0x04) >> 2));
-  stream.write_1bytes(((format->acodec->aac_channels & 0x03) << 6) | 
+  stream.write_1bytes(((format->acodec_->aac_object - 1) << 6) | 
+                      ((format->acodec_->aac_sample_rate & 0x0F) << 2) | 
+                      ((format->acodec_->aac_channels & 0x04) >> 2));
+  stream.write_1bytes(((format->acodec_->aac_channels & 0x03) << 6) | 
                       ((nb_buf >> 11) & 0x03));
   stream.write_1bytes((nb_buf >> 3) & 0xFF);
   stream.write_1bytes(((nb_buf & 0x07) << 5) | 0x1F);
   stream.write_1bytes(0xFC);
 
-  stream.write_bytes(format->audio->samples[0].bytes, 
-                     format->audio->samples[0].size);
+  stream.write_bytes(format->audio_->samples[0].bytes, 
+                     format->audio_->samples[0].size);
 
   *pbuf = buf;
   *pnn_buf = nb_buf;
@@ -80,7 +81,7 @@ srs_error_t aac_raw_append_adts_header(
 
 }
 
- AudioTransform::AudioTransform() = default;
+AudioTransform::AudioTransform() = default;
 
 AudioTransform::~AudioTransform() {
   if (adts_writer_) {
@@ -112,11 +113,11 @@ srs_error_t AudioTransform::OnData(std::shared_ptr<MediaMessage> msg) {
   }
 
   // codec is not parsed, or unknown codec, just ignore.
-  if (!format_.acodec) {
+  if (!format_.acodec_) {
     return err;
   }
 
-  SrsAudioCodecId acodec = format_.acodec->id;
+  SrsAudioCodecId acodec = format_.acodec_->id;
   // When drop aac audio packet, never transcode.
   if (acodec != SrsAudioCodecIdAAC) {
     return err;
@@ -138,8 +139,8 @@ srs_error_t AudioTransform::OnData(std::shared_ptr<MediaMessage> msg) {
   }
 
   SrsAudioFrame aac;
-  aac.dts = format_.audio->dts;
-  aac.cts = format_.audio->cts;
+  aac.dts = format_.audio_->dts;
+  aac.cts = format_.audio_->cts;
   if (srs_success == (err = aac.add_sample(adts_audio, nn_adts_audio))) {
     // If OK, transcode the AAC to Opus and consume it.
     std::vector<SrsAudioFrame*> out_audios;
@@ -153,11 +154,12 @@ srs_error_t AudioTransform::OnData(std::shared_ptr<MediaMessage> msg) {
         frm.payload = new uint8_t[frm.length];
         memcpy(frm.payload, out_audio->samples[0].bytes, frm.length);
 
-        frm.timeStamp = out_audio->dts * 48;
+        frm.timeStamp = out_audio->dts * OPUS_SAMPLES_PER_MS;
         frm.ntpTimeMs = out_audio->dts;
         frm.additionalInfo.audio.isRtpPacket = false;
-        frm.additionalInfo.audio.nbSamples = out_audio->dts * 48;
-        frm.additionalInfo.audio.sampleRate = 48000;
+        frm.additionalInfo.audio.nbSamples = 
+            out_audio->dts * OPUS_SAMPLES_PER_MS;
+        frm.additionalInfo.audio.sampleRate = OPUS_SAMPLE_RATE;
         frm.additionalInfo.audio.channels = 2;
         sink_->OnFrame(frm);
       }
@@ -178,14 +180,14 @@ srs_error_t AudioTransform::Transcode(SrsAudioFrame* audio,
 
     // read from sdp ?
     to.codec = SrsAudioCodecIdOpus;
-    to.samplerate = 48000; // The output audio bitrate in bps.
-    to.channels = 2;      //stero
-    to.bitrate = 48000;  // The output audio bitrate in bps.
+    to.samplerate = OPUS_SAMPLE_RATE; // The output audio bitrate in bps.
+    to.channels = AUDIO_STERO;      //stero
+    to.bitrate = AUDIO_STREAM_BITRATE;  // The output audio bitrate in bps.
 
     from.codec = SrsAudioCodecIdAAC; // The output audio codec.
-    from.samplerate = GetAacSampleRate(format_.acodec->aac_sample_rate);
-    from.channels = format_.acodec->aac_channels;
-    from.bitrate = format_.acodec->audio_data_rate;
+    from.samplerate = GetAacSampleRate(format_.acodec_->aac_sample_rate);
+    from.channels = format_.acodec_->aac_channels;
+    from.bitrate = format_.acodec_->audio_data_rate;
 
     codec_.reset(new SrsAudioTranscoder);
     if ((err = codec_->initialize(from, to)) != srs_success) {
@@ -243,7 +245,11 @@ srs_error_t Videotransform::OnData(std::shared_ptr<MediaMessage> msg) {
 
   // Ignore if no format->vcodec, it means the codec is not parsed, 
   // or unsupport/unknown codec, such as H.263 codec
-  if (!format_.vcodec) {
+  if (!format_.vcodec_) {
+    return err;
+  }
+
+  if (SrsVideoAvcFrameTraitSequenceHeader == format_.video_->avc_packet_type) {
     return err;
   }
 
@@ -278,13 +284,13 @@ srs_error_t Videotransform::Filter(SrsFormat* format, bool& has_idr,
   data_len = 0;
 
   // If IDR, we will insert SPS/PPS before IDR frame.
-  if (format->video && format->video->has_idr) {
+  if (format->video_ && format->video_->has_idr) {
     has_idr = true;
   }
 
   // Update samples to shared frame.
-  for (int i = 0; i < format->video->nb_samples; ++i) {
-    SrsSample* sample = &format->video->samples[i];
+  for (int i = 0; i < format->video_->nb_samples; ++i) {
+    SrsSample* sample = &format->video_->samples[i];
 
     // Because RTC does not support B-frame, so we will drop them.
     // TODO: Drop B-frame in better way, which not cause picture corruption.
@@ -309,13 +315,13 @@ srs_error_t Videotransform::PackageVideoframe(bool idr,
   // Well, for each IDR, we append a SPS/PPS before it
   if (idr) {
     SrsFormat* format = meta_->vsh_format();
-    if (!format || !format->vcodec) {
+    if (!format || !format->vcodec_) {
       return err;
     }
 
     // Note that the sps/pps may change, so we should copy it.
-    const std::vector<char>& sps = format->vcodec->sequenceParameterSetNALUnit;
-    const std::vector<char>& pps = format->vcodec->pictureParameterSetNALUnit;
+    const std::vector<char>& sps = format->vcodec_->sequenceParameterSetNALUnit;
+    const std::vector<char>& pps = format->vcodec_->pictureParameterSetNALUnit;
     if (sps.empty() || pps.empty()) {
       return srs_error_new(ERROR_RTC_RTP_MUXER, "sps/pps empty");
     }
@@ -342,7 +348,7 @@ srs_error_t Videotransform::PackageVideoframe(bool idr,
   }
 
   frame.format = owt_base::FRAME_FORMAT_H264;
-  frame.timeStamp = msg->timestamp_ * 90;
+  frame.timeStamp = msg->timestamp_ * VIDEO_SAMPLES_PER_MS;
   frame.ntpTimeMs = msg->timestamp_;
   frame.additionalInfo.video.height = 0;
   frame.additionalInfo.video.width = 0;

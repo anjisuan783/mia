@@ -23,26 +23,15 @@ srs_error_t ExpFlvLoopReader::Open(ExpFlvLoopReaderSink* sink,
   if ((err = decoder_.initialize(&reader_)) != srs_success) {
     return srs_error_wrap(err, "init decoder");
   }
-  
-  char header[9];
-  if ((err = decoder_.read_header(header)) != srs_success) {
-    return srs_error_wrap(err, "read header");
-  }
-  
-  char no_use[4];
-  if ((err = decoder_.read_previous_tag_size(no_use)) != srs_success) {
-    return srs_error_wrap(err, "read pts");
-  }
+
+  reader_.seek2(begin_pos_);
 
   last_round_ts_ = 0;
 
-  begin_pos_ = reader_.tellg();
-
   thread->PostDelayed(RTC_FROM_HERE, 100, this, MSG_TIMEOUT, nullptr);
-
   sink_ = sink;
   thread_ = thread;
-  
+
   return err;
 }
 
@@ -94,7 +83,11 @@ srs_error_t ExpFlvLoopReader::ReadTags() {
         first_video_pkt = false;
         assert(ma::SrsFlvVideo::sh(data, size));
       }
-      sink_->OnFlvVideo((const uint8_t*)data, size, media_ts);
+
+      // ignore AVC end of sequence
+      if (size > 0 && (data[0] != 0x17 || data[1] != 0x02)) {
+        sink_->OnFlvVideo((const uint8_t*)data, size, media_ts);
+      }
     } else if (type == 8) {
       // audio
       if (first_audio_pkt) {

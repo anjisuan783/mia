@@ -76,8 +76,10 @@ srs_error_t StapPackage::encode(SrsBuffer* buf) {
 }
 
 srs_error_t StapPackage::decode(SrsBuffer* buf) {
-  if (!buf->require(4)) {
-    return srs_error_new(ERROR_RTC_FRAME_MUXER, "requires %d bytes", 4);
+  constexpr int REQUIRE_BYTES = 4;
+  if (!buf->require(REQUIRE_BYTES)) {
+    return srs_error_new(ERROR_RTC_FRAME_MUXER, 
+        "requires %d bytes", REQUIRE_BYTES);
   }
 
   int nalu_length = 0;
@@ -175,9 +177,9 @@ void MediaRtcLiveAdaptor::OnMediaFrame(std::shared_ptr<owt_base::Frame> f) {
       from.channels = frm.additionalInfo.audio.channels;
       //from.bitrate = from.samplerate * from.bitpersample * from.channels;
       
-      to.samplerate = 44100; // The output audio sample rate in hz.
-      to.channels = 2;       //stero
-      to.bitrate = 48000; // The output audio bitrate in bps.
+      to.samplerate = AAC_SAMPLE_RATE; // The output audio sample rate in hz.
+      to.channels = AUDIO_STERO;       //stero
+      to.bitrate = AUDIO_STREAM_BITRATE; // The output audio bitrate in bps.
 
       if ((err = codec_->initialize(from, to)) != srs_success) {
         MLOG_CERROR("transcoder initialize failed, desc:%s", srs_error_desc(err));

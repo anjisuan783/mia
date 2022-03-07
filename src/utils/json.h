@@ -103,304 +103,314 @@
 #include <map>
 #include <string>
 
-namespace json
-{
-	enum ValueType
-	{
-		NULLVal,
-		StringVal,
-		IntVal,
-		FloatVal,
-		DoubleVal,
-		ObjectVal,
-		ArrayVal,
-		BoolVal
-	};
+namespace json {
+enum ValueType {
+	NULLVal,
+	StringVal,
+	IntVal,
+	FloatVal,
+	DoubleVal,
+	ObjectVal,
+	ArrayVal,
+	BoolVal
+};
 
-	class Value;
+class Value;
 
-	class Object
-	{
-		public:
-			typedef std::map<std::string, Value> ValueMap;
-		protected:
-			ValueMap	mValues;
-		public:
-			Object();
-			Object(const Object& obj);
+class Object {
+	public:
+	typedef std::map<std::string, Value> ValueMap;
+	protected:
+	ValueMap	mValues;
+	public:
+	Object();
+	Object(const Object& obj);
 
-			Object& operator =(const Object& obj);
+	Object& operator =(const Object& obj);
 
-			friend bool operator ==(const Object& lhs, const Object& rhs);
-			inline friend bool operator !=(const Object& lhs, const Object& rhs) 	{return !(lhs == rhs);}
-			friend bool operator <(const Object& lhs, const Object& rhs);
-			inline friend bool operator >(const Object& lhs, const Object& rhs) 	{return operator<(rhs, lhs);}
-			inline friend bool operator <=(const Object& lhs, const Object& rhs)	{return !operator>(lhs, rhs);}
-			inline friend bool operator >=(const Object& lhs, const Object& rhs)	{return !operator<(lhs, rhs);}
+	friend bool operator ==(const Object& lhs, const Object& rhs);
 
-			Value& operator [](const std::string& key);
-			const Value& operator [](const std::string& key) const;
-
-			ValueMap::const_iterator begin() const;
-			ValueMap::const_iterator end() const;
-			ValueMap::iterator begin();
-			ValueMap::iterator end();
-
-			// Find will return end() if the key can't be found, just like std::map does.
-			ValueMap::iterator find(const std::string& key);
-			ValueMap::const_iterator find(const std::string& key) const;
-
-			// Convenience wrapper to find to search for a key
-			bool HasKey(const std::string& key) const;
-
-			// Removes all values and resets the state back to default
-			void Clear();
-
-			size_t size() const {return mValues.size();}
-	};
-
-	class Array
-	{
-		public:
-			typedef std::vector<Value> ValueVector;
-		protected:
-			ValueVector				mValues;
-		public:
-			Array();
-			Array(const Array& a);
-
-			Array& operator =(const Array& a);
-
-			friend bool operator ==(const Array& lhs, const Array& rhs);
-			inline friend bool operator !=(const Array& lhs, const Array& rhs) {return !(lhs == rhs);}
-			friend bool operator <(const Array& lhs, const Array& rhs);
-			inline friend bool operator >(const Array& lhs, const Array& rhs) 	{return operator<(rhs, lhs);}
-			inline friend bool operator <=(const Array& lhs, const Array& rhs)	{return !operator>(lhs, rhs);}
-			inline friend bool operator >=(const Array& lhs, const Array& rhs)	{return !operator<(lhs, rhs);}
-
-			Value& operator[] (size_t i);
-			const Value& operator[] (size_t i) const;
-
-			ValueVector::const_iterator begin() const;
-			ValueVector::const_iterator end() const;
-			ValueVector::iterator begin();
-			ValueVector::iterator end();
-
-			// Just a convenience wrapper for doing a std::find(Array::begin(), Array::end(), Value)
-			ValueVector::iterator find(const Value& v);
-			ValueVector::const_iterator find(const Value& v) const;
-
-			// Convenience wrapper to check if a value is in the array
-			bool HasValue(const Value& v) const;
-
-			// Removes all values and resets the state back to default
-			void Clear();
-
-			void push_back(const Value& v);
-			void insert(size_t index, const Value& v);
-			size_t size() const;
-	};
-
-	class Value
-	{
-		protected:
-			ValueType					mValueType;
-			int								mIntVal;
-			float							mFloatVal;
-			double 						mDoubleVal;
-			std::string				mStringVal;
-			Object						mObjectVal;
-			Array							mArrayVal;
-			bool 							mBoolVal;
-		public:
-			Value() : mValueType(NULLVal) {}
-			Value(const int v) 
-					: mValueType(IntVal), 
-					mIntVal(v), 
-					mFloatVal((float)v), 
-					mDoubleVal((double)v) {}
-			Value(const float v) 
-					: mValueType(FloatVal), 
-					mIntVal((int)v), 
-					mFloatVal(v), 
-					mDoubleVal((double)v) {}
-			Value(const double v)	
-					: mValueType(DoubleVal), 
-					mIntVal((int)v), 
-					mFloatVal((float)v), 
-					mDoubleVal(v) {}
-			Value(const std::string& v)	: mValueType(StringVal), mStringVal(v) {}
-			Value(const char* v) : mValueType(StringVal), mStringVal(v) {}
-			Value(const Object& v) : mValueType(ObjectVal), mObjectVal(v) {}
-			Value(const Array& v) : mValueType(ArrayVal), mArrayVal(v) {}
-			Value(const bool v) : mValueType(BoolVal), mBoolVal(v) {}
-			Value(const Value& v);
-
-			ValueType GetType() const {return mValueType;}
-
-			Value& operator =(const Value& v);
-
-			friend bool operator ==(const Value& lhs, const Value& rhs);
-			inline friend bool operator !=(const Value& lhs, const Value& rhs) 	{return !(lhs == rhs);}
-			friend bool operator <(const Value& lhs, const Value& rhs);
-			inline friend bool operator >(const Value& lhs, const Value& rhs) 	{return operator<(rhs, lhs);}
-			inline friend bool operator <=(const Value& lhs, const Value& rhs)	{return !operator>(lhs, rhs);}
-			inline friend bool operator >=(const Value& lhs, const Value& rhs)	{return !operator<(lhs, rhs);}
-
-
-			// For use with Array/ObjectVal types, respectively
-			Value& operator [](size_t idx);
-			const Value& operator [](size_t idx) const;
-			Value& operator [](const std::string& key);
-			const Value& operator [](const std::string& key) const;
-
-			operator int() const 			{return mIntVal;}
-			operator float() const 			{return mFloatVal;}
-			operator double() const 		{return mDoubleVal;}
-			operator bool() const 			{return mBoolVal;}
-			operator std::string() const 	{return mStringVal;}
-			operator Object() const 		{return mObjectVal;}
-			operator Array() const 			{return mArrayVal;}
-
-			bool IsNumeric() const 			{return (mValueType == IntVal) || (mValueType == DoubleVal) || (mValueType == FloatVal);}
-
-			// Returns 1 for anything not an Array/ObjectVal
-			size_t size() const;
-
-			// Resets the state back to default, aka NULLVal
-			void Clear();
-	};
-
-	////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-	////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-	// Converts a JSON Object instance into a JSON string representing it.
-	std::string Serialize(const Object& obj);
-
-	Object Deserialize(const std::string& str);
-
-	////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-	////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-	inline bool operator ==(const Object& lhs, const Object& rhs)
-	{
-		return lhs.mValues == rhs.mValues;
+	inline friend bool operator !=(const Object& lhs, const Object& rhs) 	{
+		return !(lhs == rhs);
 	}
 
-	inline bool operator <(const Object& lhs, const Object& rhs)
-	{
-		return lhs.mValues < rhs.mValues;
+	friend bool operator <(const Object& lhs, const Object& rhs);
+
+	inline friend bool operator >(const Object& lhs, const Object& rhs) {
+		return operator<(rhs, lhs);
 	}
 
-	inline bool operator ==(const Array& lhs, const Array& rhs)
-	{
-		return lhs.mValues == rhs.mValues;
+	inline friend bool operator <=(const Object& lhs, const Object& rhs) {
+		return !operator>(lhs, rhs);
 	}
 
-	inline bool operator <(const Array& lhs, const Array& rhs)
-	{
-		return lhs.mValues < rhs.mValues;
+	inline friend bool operator >=(const Object& lhs, const Object& rhs) {
+		return !operator<(lhs, rhs);
 	}
 
-	/* When comparing different numeric types, this method works the same as if you compared different numeric types
-	 on your own. Thus it performs the same as if you, for example, did this:
+	Value& operator [](const std::string& key);
+	const Value& operator [](const std::string& key) const;
+	ValueMap::const_iterator begin() const;
+	ValueMap::const_iterator end() const;
+	ValueMap::iterator begin();
+	ValueMap::iterator end();
 
-	 	int a = 1;
-	 	float b = 1.1f;
-	 	bool equivalent = a == b;
+	// Find will return end() if the key can't be found, just like std::map does.
+	ValueMap::iterator find(const std::string& key);
+	ValueMap::const_iterator find(const std::string& key) const;
 
-		The same logic applies to the other comparison operators.
-	 */
-	inline bool operator ==(const Value& lhs, const Value& rhs)
-	{
-		if ((lhs.mValueType != rhs.mValueType) && !lhs.IsNumeric() && !rhs.IsNumeric())
-			return false;
+	// Convenience wrapper to find to search for a key
+	bool HasKey(const std::string& key) const;
 
-		switch (lhs.mValueType)
-		{
-			case StringVal		: 	return lhs.mStringVal == rhs.mStringVal;
+	// Removes all values and resets the state back to default
+	void Clear();
 
-			case IntVal			: 	if (rhs.GetType() == FloatVal)
-										return lhs.mIntVal == rhs.mFloatVal;
-									else if (rhs.GetType() == DoubleVal)
-										return lhs.mIntVal == rhs.mDoubleVal;
-									else if (rhs.GetType() == IntVal)
-										return lhs.mIntVal == rhs.mIntVal;
-									else
-										return false;
+	size_t size() const {return mValues.size();}
+};
 
-			case FloatVal		: 	if (rhs.GetType() == FloatVal)
-										return lhs.mFloatVal == rhs.mFloatVal;
-									else if (rhs.GetType() == DoubleVal)
-										return lhs.mFloatVal == rhs.mDoubleVal;
-									else if (rhs.GetType() == IntVal)
-										return lhs.mFloatVal == rhs.mIntVal;
-									else
-										return false;
+class Array {
+ public:
+	typedef std::vector<Value> ValueVector;
+ protected:
+	ValueVector mValues;
+ public:
+	Array();
+	Array(const Array& a);
+
+	Array& operator =(const Array& a);
+
+	friend bool operator ==(const Array& lhs, const Array& rhs);
+	inline friend bool operator !=(const Array& lhs, const Array& rhs) {return !(lhs == rhs);}
+	friend bool operator <(const Array& lhs, const Array& rhs);
+	inline friend bool operator >(const Array& lhs, const Array& rhs) 	{return operator<(rhs, lhs);}
+	inline friend bool operator <=(const Array& lhs, const Array& rhs)	{return !operator>(lhs, rhs);}
+	inline friend bool operator >=(const Array& lhs, const Array& rhs)	{return !operator<(lhs, rhs);}
+
+	Value& operator[] (size_t i);
+	const Value& operator[] (size_t i) const;
+
+	ValueVector::const_iterator begin() const;
+	ValueVector::const_iterator end() const;
+	ValueVector::iterator begin();
+	ValueVector::iterator end();
+
+	// Just a convenience wrapper for doing a std::find(Array::begin(), Array::end(), Value)
+	ValueVector::iterator find(const Value& v);
+	ValueVector::const_iterator find(const Value& v) const;
+
+	// Convenience wrapper to check if a value is in the array
+	bool HasValue(const Value& v) const;
+
+	// Removes all values and resets the state back to default
+	void Clear();
+
+	void push_back(const Value& v);
+	void insert(size_t index, const Value& v);
+	size_t size() const;
+};
+
+class Value {
+ protected:
+	ValueType					mValueType;
+	int								mIntVal;
+	float							mFloatVal;
+	double 						mDoubleVal;
+	std::string				mStringVal;
+	Object						mObjectVal;
+	Array							mArrayVal;
+	bool 							mBoolVal;
+ public:
+	Value() : mValueType(NULLVal) {}
+	Value(const int v) 
+			: mValueType(IntVal), 
+			mIntVal(v), 
+			mFloatVal((float)v), 
+			mDoubleVal((double)v) {}
+	Value(const float v) 
+			: mValueType(FloatVal), 
+			mIntVal((int)v), 
+			mFloatVal(v), 
+			mDoubleVal((double)v) {}
+	Value(const double v)	
+			: mValueType(DoubleVal), 
+			mIntVal((int)v), 
+			mFloatVal((float)v), 
+			mDoubleVal(v) {}
+	Value(const std::string& v)	: mValueType(StringVal), mStringVal(v) {}
+	Value(const char* v) : mValueType(StringVal), mStringVal(v) {}
+	Value(const Object& v) : mValueType(ObjectVal), mObjectVal(v) {}
+	Value(const Array& v) : mValueType(ArrayVal), mArrayVal(v) {}
+	Value(const bool v) : mValueType(BoolVal), mBoolVal(v) {}
+	Value(const Value& v);
+
+	ValueType GetType() const {return mValueType;}
+
+	Value& operator =(const Value& v);
+
+	friend bool operator ==(const Value& lhs, const Value& rhs);
+	inline friend bool operator !=(const Value& lhs, const Value& rhs) 	{return !(lhs == rhs);}
+	friend bool operator <(const Value& lhs, const Value& rhs);
+	inline friend bool operator >(const Value& lhs, const Value& rhs) 	{return operator<(rhs, lhs);}
+	inline friend bool operator <=(const Value& lhs, const Value& rhs)	{return !operator>(lhs, rhs);}
+	inline friend bool operator >=(const Value& lhs, const Value& rhs)	{return !operator<(lhs, rhs);}
 
 
-			case DoubleVal		: 	if (rhs.GetType() == FloatVal)
-										return lhs.mDoubleVal == rhs.mFloatVal;
-									else if (rhs.GetType() == DoubleVal)
-										return lhs.mDoubleVal == rhs.mDoubleVal;
-									else if (rhs.GetType() == IntVal)
-										return lhs.mDoubleVal == rhs.mIntVal;
-									else
-										return false;
+	// For use with Array/ObjectVal types, respectively
+	Value& operator [](size_t idx);
+	const Value& operator [](size_t idx) const;
+	Value& operator [](const std::string& key);
+	const Value& operator [](const std::string& key) const;
 
-			case BoolVal		: 	return lhs.mBoolVal == rhs.mBoolVal;
+	operator int() const { return mIntVal; }
+	operator float() const { return mFloatVal; }
+	operator double() const {return mDoubleVal; }
+	operator bool() const { return mBoolVal; }
+	operator std::string() const { return mStringVal; }
+	operator Object() const { return mObjectVal; }
+	operator Array() const { return mArrayVal; }
 
-			case ObjectVal		: 	return lhs.mObjectVal == rhs.mObjectVal;
+	bool IsNumeric() const { 
+		return (mValueType == IntVal) || 
+				(mValueType == DoubleVal) || 
+				(mValueType == FloatVal);
+	}
 
-			case ArrayVal		: 	return lhs.mArrayVal == rhs.mArrayVal;
+	// Returns 1 for anything not an Array/ObjectVal
+	size_t size() const;
 
-			default:
-				return true;
+	// Resets the state back to default, aka NULLVal
+	void Clear();
+};
+
+////////////////////////////////////////////////////
+// Converts a JSON Object instance into a JSON string representing it.
+std::string Serialize(const Object& obj);
+
+Object Deserialize(const std::string& str);
+
+inline bool operator ==(const Object& lhs, const Object& rhs) {
+	return lhs.mValues == rhs.mValues;
+}
+
+inline bool operator <(const Object& lhs, const Object& rhs) {
+	return lhs.mValues < rhs.mValues;
+}
+
+inline bool operator ==(const Array& lhs, const Array& rhs) {
+	return lhs.mValues == rhs.mValues;
+}
+
+inline bool operator <(const Array& lhs, const Array& rhs) {
+	return lhs.mValues < rhs.mValues;
+}
+
+/* When comparing different numeric types, this method works the same as if you compared different numeric types
+	on your own. Thus it performs the same as if you, for example, did this:
+
+	int a = 1;
+	float b = 1.1f;
+	bool equivalent = a == b;
+
+	The same logic applies to the other comparison operators.
+ */
+inline bool operator ==(const Value& lhs, const Value& rhs) {
+	if ((lhs.mValueType != rhs.mValueType) && 
+			!lhs.IsNumeric() && 
+			!rhs.IsNumeric())
+		return false;
+
+	switch (lhs.mValueType) {
+		case StringVal: return lhs.mStringVal == rhs.mStringVal;
+
+		case IntVal: {
+			if (rhs.GetType() == FloatVal)
+				return lhs.mIntVal == rhs.mFloatVal;
+			else if (rhs.GetType() == DoubleVal)
+				return lhs.mIntVal == rhs.mDoubleVal;
+			else if (rhs.GetType() == IntVal)
+				return lhs.mIntVal == rhs.mIntVal;
+			else
+				return false;
 		}
-	}
-
-	inline bool operator <(const Value& lhs, const Value& rhs)
-	{
-		if ((lhs.mValueType != rhs.mValueType) && !lhs.IsNumeric() && !rhs.IsNumeric())
-			return false;
-
-		switch (lhs.mValueType)
-		{
-			case StringVal		: 	return lhs.mStringVal < rhs.mStringVal;
-
-			case IntVal			: 	if (rhs.GetType() == FloatVal)
-										return lhs.mIntVal < rhs.mFloatVal;
-									else if (rhs.GetType() == DoubleVal)
-										return lhs.mIntVal < rhs.mDoubleVal;
-									else if (rhs.GetType() == IntVal)
-										return lhs.mIntVal < rhs.mIntVal;
-									else
-										return false;
-
-			case FloatVal		: 	if (rhs.GetType() == FloatVal)
-										return lhs.mFloatVal < rhs.mFloatVal;
-									else if (rhs.GetType() == DoubleVal)
-										return lhs.mFloatVal < rhs.mDoubleVal;
-									else if (rhs.GetType() == IntVal)
-										return lhs.mFloatVal < rhs.mIntVal;
-									else
-										return false;
-
-			case DoubleVal		: 	if (rhs.GetType() == FloatVal)
-										return lhs.mDoubleVal < rhs.mFloatVal;
-									else if (rhs.GetType() == DoubleVal)
-										return lhs.mDoubleVal < rhs.mDoubleVal;
-									else if (rhs.GetType() == IntVal)
-										return lhs.mDoubleVal < rhs.mIntVal;
-									else
-										return false;
-
-			case BoolVal		: 	return lhs.mBoolVal < rhs.mBoolVal;
-
-			case ObjectVal		: 	return lhs.mObjectVal < rhs.mObjectVal;
-
-			case ArrayVal		: 	return lhs.mArrayVal < rhs.mArrayVal;
-
-			default:
-				return true;
+		case FloatVal: {
+			if (rhs.GetType() == FloatVal)
+				return lhs.mFloatVal == rhs.mFloatVal;
+			else if (rhs.GetType() == DoubleVal)
+				return lhs.mFloatVal == rhs.mDoubleVal;
+			else if (rhs.GetType() == IntVal)
+				return lhs.mFloatVal == rhs.mIntVal;
+			else
+				return false;
 		}
+
+		case DoubleVal: {
+			if (rhs.GetType() == FloatVal)
+				return lhs.mDoubleVal == rhs.mFloatVal;
+			else if (rhs.GetType() == DoubleVal)
+				return lhs.mDoubleVal == rhs.mDoubleVal;
+			else if (rhs.GetType() == IntVal)
+				return lhs.mDoubleVal == rhs.mIntVal;
+			else
+				return false;
+		}
+		case BoolVal: return lhs.mBoolVal == rhs.mBoolVal;
+
+		case ObjectVal: return lhs.mObjectVal == rhs.mObjectVal;
+
+		case ArrayVal: return lhs.mArrayVal == rhs.mArrayVal;
+
+		default: return true;
 	}
 }
+
+inline bool operator <(const Value& lhs, const Value& rhs) {
+	if ((lhs.mValueType != rhs.mValueType) && 
+			!lhs.IsNumeric() && 
+			!rhs.IsNumeric())
+		return false;
+
+	switch (lhs.mValueType)
+	{
+		case StringVal: return lhs.mStringVal < rhs.mStringVal;
+
+		case IntVal: {
+			if (rhs.GetType() == FloatVal)
+				return lhs.mIntVal < rhs.mFloatVal;
+			else if (rhs.GetType() == DoubleVal)
+				return lhs.mIntVal < rhs.mDoubleVal;
+			else if (rhs.GetType() == IntVal)
+				return lhs.mIntVal < rhs.mIntVal;
+			else
+				return false;
+		}
+		case FloatVal: {
+			if (rhs.GetType() == FloatVal)
+				return lhs.mFloatVal < rhs.mFloatVal;
+			else if (rhs.GetType() == DoubleVal)
+				return lhs.mFloatVal < rhs.mDoubleVal;
+			else if (rhs.GetType() == IntVal)
+				return lhs.mFloatVal < rhs.mIntVal;
+			else
+				return false;
+		}
+		case DoubleVal: {
+			if (rhs.GetType() == FloatVal)
+				return lhs.mDoubleVal < rhs.mFloatVal;
+			else if (rhs.GetType() == DoubleVal)
+				return lhs.mDoubleVal < rhs.mDoubleVal;
+			else if (rhs.GetType() == IntVal)
+				return lhs.mDoubleVal < rhs.mIntVal;
+			else
+				return false;
+		}
+		case BoolVal: return lhs.mBoolVal < rhs.mBoolVal;
+
+		case ObjectVal: return lhs.mObjectVal < rhs.mObjectVal;
+
+		case ArrayVal: return lhs.mArrayVal < rhs.mArrayVal;
+
+		default: return true;
+	}
+}
+
+} // namespace json
