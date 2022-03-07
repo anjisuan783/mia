@@ -50,20 +50,33 @@ CentOS 7 supported only now!
 ### 2. C++ api
 
 class MediaRtcPublisherApi {
+
  public:
+ 
   virtual ~MediaRtcPublisherApi() = default;
+  
   virtual void OnPublish(const std::string& tcUrl, const std::string& stream) = 0;
+  
   virtual void OnUnpublish() = 0;
+  
   virtual void OnFrame(owt_base::Frame&) = 0;
+  
 };
 
 class MediaRtmpPublisherApi {
+
  public:
+ 
   virtual ~MediaRtmpPublisherApi() = default;
+  
   virtual void OnPublish(const std::string& tcUrl, const std::string& stream) = 0;
+  
   virtual void OnUnpublish() = 0;
+  
   virtual void OnVideo(const uint8_t*, uint32_t len, uint32_t timestamp) = 0;
+  
   virtual void OnAudio(const uint8_t*, uint32_t len, uint32_t timestamp) = 0;
+  
 };
 
 ## AUTHORS
