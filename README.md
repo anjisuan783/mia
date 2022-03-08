@@ -1,6 +1,6 @@
 # MIA
 
-stream server library written with c++
+Media stream server library written by c++.
 
 ## Build:
 
@@ -78,6 +78,21 @@ class MediaRtmpPublisherApi {
   virtual void OnAudio(const uint8_t*, uint32_t len, uint32_t timestamp) = 0;
   
 };
+
+## Example
+
+### 1. Publish with MediaRtcPublisherApi
+./rtc_push -l conf/log4cxx.properties -c conf/mia.cfg -s data/avatar_264_aac.flv
+
+### 2. Publish with MediaRtmpPublisherApi
+./rtmp_push -l conf/log4cxx.properties -c conf/mia.cfg -s data/avatar_264_a
+
+WebRTC
+[imagine] 
+[logo](https://github.com/anjisuan783/mia/blob/master/www/webrtc_play.png)
+
+Http(s)-flv
+[logo](https://github.com/anjisuan783/mia/blob/master/www/webrtc_play.png)
 
 ## AUTHORS
 

@@ -111,9 +111,16 @@ MediaLiveSource::~MediaLiveSource() {
 
 bool MediaLiveSource::Initialize(bool gop, JitterAlgorithm algorithm, 
     bool mix_correct, int consumer_queue_size) {
-  enable_gop_ = gop;
+  last_packet_time_ = 0;
+  active_ = false;
   jitter_algorithm_ = algorithm;
+  enable_gop_ = gop;
+  last_width_ = last_height_ = 0;
+  is_monotonically_increase_ = false;
   mix_correct_ = mix_correct;
+  first_packet_ = true;
+  first_consumer_ = true;
+  no_consumer_notify_ = false;
   consumer_queue_size_ = consumer_queue_size;
   MLOG_INFO("gop:" << (enable_gop_?"enable":"disable") <<
             ", algorithm:" << jitter_algorithm_);
@@ -133,15 +140,14 @@ void MediaLiveSource::OnPublish() {
   is_monotonically_increase_ = true;
   active_ = true;
 
+  last_width_ = last_height_ = 0;
+
   assert(nullptr == gop_cache_.get());
   gop_cache_.reset(new SrsGopCache);
   gop_cache_->set(enable_gop_);
 
   assert(nullptr == meta_.get());
   meta_.reset(new MediaMetaCache);
-
-  first_consumer_ = true;
-  first_packet_ = true;
 }
 
 void MediaLiveSource::OnUnpublish() {
@@ -157,6 +163,8 @@ void MediaLiveSource::OnUnpublish() {
 
   last_packet_time_ = 0;
   active_ = false;
+  first_consumer_ = true;
+  first_packet_ = true;
 }
 
 std::shared_ptr<MediaConsumer> MediaLiveSource::CreateConsumer() {
