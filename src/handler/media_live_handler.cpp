@@ -33,9 +33,8 @@ namespace ma {
 static log4cxx::LoggerPtr logger = 
     log4cxx::Logger::getLogger("ma.liveserver");
 
-class StreamEntry final 
+class StreamEntry final
     : public std::enable_shared_from_this<StreamEntry> {
-
   struct customer {
     customer(std::shared_ptr<MediaConsumer> consumer,
              std::unique_ptr<SrsFileWriter> buffer,
@@ -66,7 +65,7 @@ class StreamEntry final
     int sent_{0};
   };
  public:
-  StreamEntry(std::shared_ptr<MediaSource> s,   
+  StreamEntry(std::shared_ptr<MediaSource> s,
               std::shared_ptr<MediaRequest> r);
   ~StreamEntry();
 

@@ -227,7 +227,6 @@ void MediaSource::OnRtmpNoConsumer() {
 }
 
 void MediaSource::OnRtmpFirstConsumer() {
-
   RTC_DCHECK_RUN_ON(&thread_check_);
   // transform media from rtc to rtmp
   if (isRtc(publiser_type_)) {
