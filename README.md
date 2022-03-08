@@ -87,8 +87,11 @@ class MediaRtmpPublisherApi {
 ### 2. Publish with MediaRtmpPublisherApi
 ./rtmp_push -l conf/log4cxx.properties -c conf/mia.cfg -s data/avatar_264_1080.flv
 
+### WebRTC Play
 <img width="800" alt="WebRTC Play" src="https://github.com/anjisuan783/mia/blob/master/www/webrtc_play.png">
-<img width="800" alt="Http(s)-flv play" src="https://github.com/anjisuan783/mia/blob/master/www/flv_play.png">
+
+### Http(s)-flv play
+<img width="800" alt="Http(s)-flv Play" src="https://github.com/anjisuan783/mia/blob/master/www/flv_play.png">
 
 ## AUTHORS
 
