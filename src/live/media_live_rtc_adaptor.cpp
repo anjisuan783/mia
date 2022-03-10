@@ -1,5 +1,8 @@
 #include "live/media_live_rtc_adaptor.h"
 
+#include <cstddef>
+#include <iostream>
+
 #include "common/media_define.h"
 #include "common/media_log.h"
 #include "common/media_performance.h"
@@ -15,12 +18,14 @@
 #include "utils/media_kernel_buffer.h"
 #include "common/media_io.h"
 #include "encoder/media_flv_encoder.h"
-#include "utils/protocol_utility.h"
+#include "utils/media_protocol_utility.h"
 #include "encoder/media_rtc_codec.h"
 
 namespace ma {
 
 namespace {
+static log4cxx::LoggerPtr logger = log4cxx::Logger::getLogger("ma.live");
+
 ////////////////////////////////////////////////////////////////////////////////
 //AudioTransform
 ////////////////////////////////////////////////////////////////////////////////
@@ -153,7 +158,6 @@ srs_error_t AudioTransform::OnData(std::shared_ptr<MediaMessage> msg) {
         frm.length = out_audio->samples[0].size;
         frm.payload = new uint8_t[frm.length];
         memcpy(frm.payload, out_audio->samples[0].bytes, frm.length);
-
         frm.timeStamp = out_audio->dts * OPUS_SAMPLES_PER_MS;
         frm.ntpTimeMs = out_audio->dts;
         frm.additionalInfo.audio.isRtpPacket = false;
@@ -161,6 +165,7 @@ srs_error_t AudioTransform::OnData(std::shared_ptr<MediaMessage> msg) {
             out_audio->dts * OPUS_SAMPLES_PER_MS;
         frm.additionalInfo.audio.sampleRate = OPUS_SAMPLE_RATE;
         frm.additionalInfo.audio.channels = 2;
+        frm.need_delete = true;
         sink_->OnFrame(frm);
       }
       codec_->free_frames(out_audios);
@@ -221,6 +226,7 @@ srs_error_t Videotransform::Open(TransformSink* sink,
   if (!debug) {
     return err;
   }
+
   h264_writer_.reset(new SrsFileWriter);
   if (srs_success != (err = h264_writer_->open(fileName))) {
     return err;
@@ -259,8 +265,7 @@ srs_error_t Videotransform::OnData(std::shared_ptr<MediaMessage> msg) {
   if ((err = Filter(&format_, has_idr, samples, len)) != srs_success) {
     return srs_error_wrap(err, "filter video");
   }
-  int nn_samples = (int)samples.size();
-
+  
   owt_base::Frame frm;
   if ((err = PackageVideoframe(has_idr, msg.get(), samples, len, frm))
       != srs_success) {
@@ -354,26 +359,38 @@ srs_error_t Videotransform::PackageVideoframe(bool idr,
   frame.additionalInfo.video.width = 0;
   
   size_t nn_samples = samples.size();
-
-  int buffer_len = nn_samples * 4 + len;
-  frame.length = buffer_len;
-  frame.payload = new uint8_t[buffer_len];
-  uint8_t* p = frame.payload;
+  int frame_len = nn_samples * 4 + len;
   
-  for (size_t i = 0; i < nn_samples; ++i) {
+  int total_len = 0;
+  for (auto i : samples) {
+    total_len += 4;
+    total_len += i->size;
+  }
+
+  if (total_len != frame_len) {
+    MA_ASSERT(total_len == frame_len);
+    MLOG_CERROR("%d, %d", total_len, frame_len);
+  }
+  
+  frame.length = total_len;
+  frame.payload = new uint8_t[total_len];
+  frame.need_delete = true;
+  uint8_t* p = frame.payload;
+
+  for (size_t i = 0; i < samples.size(); ++i) {
     *p++ = 0x00;
     *p++ = 0x00;
     *p++ = 0x00;
     *p++ = 0x01;
-    SrsSample* sample = samples[i];
-    memcpy(p, sample->bytes, sample->size);
-    p += sample->size;
+    memcpy(p, samples[i]->bytes, samples[i]->size);
+    p += samples[i]->size;
   }
+
+  std::ptrdiff_t diff = p - frame.payload;
+  MA_ASSERT(diff == frame_len);
 
   return err;
 }
-
-static log4cxx::LoggerPtr logger = log4cxx::Logger::getLogger("ma.live");
 
 ////////////////////////////////////////////////////////////////////////////////
 //MediaLiveRtcAdaptor
@@ -420,7 +437,7 @@ srs_error_t MediaLiveRtcAdaptor::Open(wa::Worker* worker,
   std::string streamName = srs_string_replace(source->StreamName(), "/", "_");
 
   // debug aac
-  std::string file_writer_path = "/tmp/rtmpadaptor" + streamName + "_d.aac";
+  std::string file_writer_path = "/tmp/rtmp2rtc_" + streamName + "_d.aac";
   audio_.reset(new AudioTransform);
   if (srs_success !=(err=audio_->Open(this, enable_debug_, file_writer_path))) {
     return err;
@@ -513,4 +530,3 @@ bool MediaLiveRtcAdaptor::OnTimer() {
 }
 
 }
-

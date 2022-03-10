@@ -5,8 +5,8 @@
 //
 // This file is borrowed from srs with some modifications.
 
-#ifndef SRS_PROTOCOL_UTILITY_HPP
-#define SRS_PROTOCOL_UTILITY_HPP
+#ifndef __MEDIA_PROTOCOL_UTILITY_H__
+#define __MEDIA_PROTOCOL_UTILITY_H__
 
 // for srs-librtmp, @see https://github.com/ossrs/srs/issues/213
 #ifndef _WIN32
@@ -69,6 +69,18 @@ std::string srs_string_trim_start(std::string str, std::string trim_chars);
 std::string srs_string_trim_end(std::string str, std::string trim_chars);
 
 bool srs_string_starts_with(const std::string& str, const std::string&);
+bool srs_string_starts_with(const std::string& str, 
+                            const std::string&, 
+                            const std::string&);
+bool srs_string_starts_with(const std::string& str, 
+                            const std::string&,
+                            const std::string&, 
+                            const std::string&);
+bool srs_string_starts_with(const std::string& str, 
+                            const std::string&,
+                            const std::string&,
+                            const std::string&, 
+                            const std::string&);
 bool srs_string_ends_with(const std::string& str, const std::string& flag);
 
 bool srs_path_exists(const std::string& path);
@@ -108,6 +120,6 @@ bool srs_is_ipv4(std::string domain);
 
 std::string srs_int2str(int64_t value);
 
-}
-#endif
+} //namespace ma
 
+#endif //!__MEDIA_PROTOCOL_UTILITY_H__

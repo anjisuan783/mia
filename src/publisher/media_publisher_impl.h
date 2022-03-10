@@ -33,7 +33,7 @@ class MediaRtcPublisherImp : public MediaRtcPublisherApi {
   bool active_{false};
   std::shared_ptr<MediaSource> source_;
   std::shared_ptr<MediaRequest> req_;
-  int64_t begin_offset = 10;
+  int64_t begin_offset = 10;  // must not zero
 };
 
 class MediaRtmpPublisherImp : public MediaRtmpPublisherApi {

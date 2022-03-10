@@ -26,6 +26,8 @@ class ExpFlvLoopReaderSink {
 class ExpFlvLoopReader : public rtc::MessageHandler {
 	enum { MSG_TIMEOUT };
  public:
+  ExpFlvLoopReader() = default;
+  ~ExpFlvLoopReader();
   srs_error_t Open(ExpFlvLoopReaderSink*, 
       const std::string& a, rtc::Thread* thread);
   void Close();
@@ -40,6 +42,9 @@ class ExpFlvLoopReader : public rtc::MessageHandler {
   // file reader
   ma::SrsFileReader reader_;
   ma::SrsFlvDecoder decoder_;
+
+  char* data_buf_ = nullptr;
+  int32_t buf_size_ = 0;
 
   // control loop
   int64_t loop_begin_ts_ = -1;

@@ -6,6 +6,7 @@
 
 #include "config.h"
 
+#include <algorithm>
 #include <libconfig.h>
 
 int config(ma::MediaServerApi::Config& _config, 
@@ -30,9 +31,11 @@ int config(ma::MediaServerApi::Config& _config,
   setting = config_lookup(&cfg, "host");
   if(setting) {
     static const char* sub_setting_name[] = 
-        {"live", "rtc", "listener", "rtmp2rtc", "http"};
+        {"live", "rtc", "listener", "rtc2rtmp", "rtmp2rtc", "www"};
     
     int setting_count = config_setting_length(setting);
+
+    setting_count = std::min<int>(setting_count, sizeof(sub_setting_name));
 
     for (int i = 0; i < setting_count; ++i) {
       config_setting_t *sub_item = 
@@ -91,9 +94,11 @@ int config(ma::MediaServerApi::Config& _config,
           if (config_setting_lookup_int(sub_item, "stun_port", &i1)) {
             _config.stun_port = i1;
           }
+
+          bool is_can_empty = _config.candidates_.empty();
           MIA_LOG("workers:%d candidates:%s stun_port:%d", 
                   _config.rtc_workers_, 
-                  _config.candidates_[0].c_str(), 
+                  is_can_empty?"*":_config.candidates_[0].c_str(), 
                   _config.stun_port);
           continue;
         }
@@ -140,10 +145,15 @@ int config(ma::MediaServerApi::Config& _config,
           if (config_setting_lookup_string(sub_item, "enable", &s1)) {
             _config.enable_rtc2rtmp_ = (std::string(s1) == "on");
           }
+
+          if (config_setting_lookup_string(sub_item, "debug", &s1)) {
+            _config.enable_rtc2rtmp_debug_ = (std::string(s1) == "on");
+          }
           
-          MIA_LOG("rtc2rtmp keyframe interval:%d enable:%s", 
+          MIA_LOG("rtc2rtmp keyframe interval:%d enable:%s debug:%s", 
                   _config.request_keyframe_interval, 
-                  _config.enable_rtc2rtmp_?"on":"off");
+                  _config.enable_rtc2rtmp_?"on":"off",
+                  _config.enable_rtc2rtmp_debug_?"on":"off");
           continue;
         }
 
@@ -162,7 +172,7 @@ int config(ma::MediaServerApi::Config& _config,
           continue;
         }
 
-        if (sub_setting_name[i] == std::string("http")) {
+        if (sub_setting_name[i] == std::string("www")) {
           if (config_setting_lookup_string(sub_item, "path", &s1)) {
             _config.path = s1;
           }

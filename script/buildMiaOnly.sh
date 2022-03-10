@@ -69,7 +69,7 @@ DEPS_INCLUDE="-I./src -I./rtc_stack -I./rtc_stack/myrtc"
 COMMON_FLAG="-std=gnu++17 -DWEBRTC_POSIX -DWEBRTC_LINUX -Wall \
 		-DDCHECK_ALWAYS_ON"
 
-DEBUG_FLAG="-O3 -g -DNDEBUG"
+DEBUG_FLAG="-O0 -g -DNDEBUG"
 
 if [ $DEBUG_MODE = "debug" ]; then
   DEBUG_FLAG="-O0 -g3 -ggdb"

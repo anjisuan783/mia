@@ -140,7 +140,9 @@ MediaRtcLiveAdaptor::~MediaRtcLiveAdaptor() {
 }
 
 void MediaRtcLiveAdaptor::Open(MediaRtcSource* rtcSource, 
-                               RtcLiveAdapterSink* liveSource) {
+                               RtcLiveAdapterSink* liveSource,
+                               bool debug) {
+  debug_ = debug;
   rtc_source_ = rtcSource;
   rtc_source_->SetMediaSink(this);
   rtc_source_->TurnOnFrameCallback(true);
@@ -243,7 +245,7 @@ void MediaRtcLiveAdaptor::open_dump() {
   
   video_writer_ = std::move(std::make_unique<SrsFileWriter>());
   
-   std::string file_writer_path = "/tmp/" + stream_id_ + "_rtc.h264";
+   std::string file_writer_path = "/tmp/rtc2rtmp_" + stream_id_ + ".h264";
    srs_error_t err = srs_success;
    if (srs_success != (err = video_writer_->open(file_writer_path))) {
      MLOG_CFATAL("open rtc file writer failed, desc:%s", srs_error_desc(err).c_str());

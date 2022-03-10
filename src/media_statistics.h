@@ -54,8 +54,9 @@ class MediaStatistics final {
   struct StreamInfo {
     std::shared_ptr<MediaRequest> req;
     std::shared_ptr<ClientInfo> publisher;
-    std::vector<std::shared_ptr<ClientInfo>> players;
+    std::unordered_map<std::string, std::shared_ptr<ClientInfo>> players;
     time_t created;
+    std::string created_string;
     void OnClient(std::shared_ptr<ClientInfo>);
     void Dump(json::Object&);
   };

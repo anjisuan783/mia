@@ -4,7 +4,7 @@
 // SPDX-License-Identifier: MIT
 //
 
-#include "utils/protocol_utility.h"
+#include "utils/media_protocol_utility.h"
 
 #include <inttypes.h>
 #include <sys/stat.h>
@@ -322,6 +322,27 @@ bool srs_string_starts_with(
   return str.find(flag) == 0;
 }
 
+bool srs_string_starts_with(const std::string& str, 
+    const std::string& flag0, const std::string& flag1) {
+  return srs_string_starts_with(str, flag0) || 
+      srs_string_starts_with(str, flag1);
+}
+
+bool srs_string_starts_with(const std::string& str, const std::string& flag0,
+    const std::string& flag1, const std::string& flag2) {
+  return srs_string_starts_with(str, flag0, flag1) || 
+      srs_string_starts_with(str, flag2);
+}
+
+bool srs_string_starts_with(const std::string& str, 
+    const std::string& flag0, 
+    const std::string& flag1, 
+    const std::string& flag2, 
+    const std::string& flag3) {
+  return srs_string_starts_with(str, flag0, flag1, flag2) ||
+      srs_string_starts_with(str, flag3);
+}
+
 bool srs_string_ends_with(
     const std::string& str, const std::string& flag) {
   const size_t pos = str.rfind(flag);
@@ -452,5 +473,4 @@ std::string srs_path_filename(std::string_view path) {
   return std::move(std::string{path.data(), path.length()});
 }
 
-}
-
+} //namespace ma

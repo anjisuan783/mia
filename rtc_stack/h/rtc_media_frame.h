@@ -7,6 +7,7 @@
 
 #include <stdint.h>
 #include <cstring>
+#include <assert.h>
 
 namespace owt_base {
 
@@ -79,22 +80,20 @@ bool isAudioFrame(const Frame& frame);
 bool isVideoFrame(const Frame& frame);
 
 struct Frame {
-  FrameFormat     format;
-  uint8_t*        payload;
-  uint32_t        length;
-  uint32_t        timeStamp;
-  int64_t         ntpTimeMs;
+  FrameFormat     format{FRAME_FORMAT_UNKNOWN};
+  uint8_t*        payload{nullptr};
+  uint32_t        length{0};
+  uint32_t        timeStamp{0};
+  int64_t         ntpTimeMs{0};
   MediaSpecInfo   additionalInfo;
 
-  Frame() {
-    memset(this, 0, sizeof(Frame));
-  }
+  Frame() { }
   
   Frame(const Frame& r) {
     format = r.format;
-    payload = new uint8_t[r.length];
-    std::memcpy(payload, r.payload, r.length);
     length = r.length;
+    payload = new uint8_t[length];
+    std::memcpy(payload, r.payload, length);
     timeStamp = r.timeStamp;
     ntpTimeMs = r.ntpTimeMs;
     if (isVideoFrame(*this)) {
@@ -108,7 +107,6 @@ struct Frame {
   Frame(Frame&& r) {
     format = r.format;
     payload = r.payload;
-    r.payload = nullptr;
     length = r.length;
     timeStamp = r.timeStamp;
     ntpTimeMs = r.ntpTimeMs;
@@ -117,19 +115,23 @@ struct Frame {
     } else {
       additionalInfo.audio = r.additionalInfo.audio;
     }
+    assert(r.need_delete);
     need_delete = true;
     r.need_delete = false;
-  }
-  ~Frame() {
-    if (need_delete)
-      delete[] payload;
+    r.payload = nullptr;
   }
 
-  void operator =(const Frame&) = delete;
-  void operator =(Frame&&) = delete;
-  
- private:
-  bool need_delete{false};
+  ~Frame() {
+    if (need_delete) {
+      assert(payload);
+      delete[] payload;
+    }
+  }
+
+  void operator=(const Frame&) = delete;
+  void operator=(Frame&& r) = delete;
+
+  bool need_delete{true};
 };
 
 inline bool isAudioFrame(const Frame& frame) {

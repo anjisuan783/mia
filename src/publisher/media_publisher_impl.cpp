@@ -11,12 +11,13 @@
 #include "rtmp/media_req.h"
 #include "common/media_io.h"
 #include "encoder/media_flv_encoder.h"
-#include "utils/protocol_utility.h"
+#include "utils/media_protocol_utility.h"
 #include "media_server.h"
 #include "media_source_mgr.h"
 #include "rtmp/media_rtmp_const.h"
 #include "utils/media_msg_chain.h"
 #include "common/media_message.h"
+#include "media_statistics.h"
 
 namespace ma {
 
@@ -57,23 +58,16 @@ void MediaRtcPublisherImp::OnPublish(const std::string& tcUrl,
             ", port:" << req->port << 
             ", param:" << req->param);
 
-  MediaSource::Config cfg = {
-      .worker = nullptr,
-      .gop = g_server_.config_.enable_gop_,
-      .jitter_algorithm = JitterAlgorithmZERO,
-      .rtc_api = nullptr,
-      .enable_rtc2rtmp_ = g_server_.config_.enable_rtc2rtmp_,
-      .enable_rtmp2rtc_ = g_server_.config_.enable_rtmp2rtc_,
-      .enable_rtmp2rtc_debug_ = g_server_.config_.enable_rtmp2rtc_debug_,
-      .consumer_queue_size_ = g_server_.config_.enable_rtmp2rtc_,
-      .mix_correct_ = g_server_.config_.mix_correct_};
-
+  MediaSource::Config cfg;
   source_ = g_source_mgr_.FetchOrCreateSource(cfg, req);
-
   // local rtc publisher
   source_->OnPublish(eLocalRtc);
   active_ = true;
   req_ = req;
+  std::ostringstream oss;
+  oss << "local";
+  oss << (uint64_t)this;
+  Stat().OnClient(oss.str(), std::move(req), TRtcPublish);
 }
 
 void MediaRtcPublisherImp::OnUnpublish() {
@@ -88,6 +82,11 @@ void MediaRtcPublisherImp::OnUnpublish() {
 
   g_source_mgr_.RemoveSource(req_);
   active_ = false;
+
+  std::ostringstream oss;
+  oss << "local";
+  oss << (uint64_t)this;
+  Stat().OnDisconnect(oss.str());
 }
 
 void MediaRtcPublisherImp::OnFrame(owt_base::Frame& frm) {
@@ -134,23 +133,16 @@ void MediaRtmpPublisherImp::OnPublish(
             ", port:" << req->port << 
             ", param:" << req->param);
 
-  MediaSource::Config cfg = {
-        .worker = nullptr,
-        .gop = g_server_.config_.enable_gop_,
-        .jitter_algorithm = JitterAlgorithmZERO,
-        .rtc_api = nullptr,
-        .enable_rtc2rtmp_ = g_server_.config_.enable_rtc2rtmp_,
-        .enable_rtmp2rtc_ = g_server_.config_.enable_rtmp2rtc_,
-        .enable_rtmp2rtc_debug_ = g_server_.config_.enable_rtmp2rtc_debug_,
-        .consumer_queue_size_ = g_server_.config_.enable_rtmp2rtc_,
-        .mix_correct_ = g_server_.config_.mix_correct_};
-
+  MediaSource::Config cfg;
   source_ = g_source_mgr_.FetchOrCreateSource(cfg, req);
-
   req_ = req;
-
   // local rtmp publisher
   source_->OnPublish(eLocalRtmp);
+
+  std::ostringstream oss;
+  oss << "local";
+  oss << (uint64_t)this;
+  Stat().OnClient(oss.str(), std::move(req), TRtmpPublish);
   ToFile();
 }
 
@@ -163,6 +155,11 @@ void MediaRtmpPublisherImp::OnUnpublish() {
   // local rtmp publisher
   source_->OnUnpublish();
   active_ = false;
+
+  std::ostringstream oss;
+  oss << "local";
+  oss << (uint64_t)this;
+  Stat().OnDisconnect(oss.str());
 }
 
 void MediaRtmpPublisherImp::OnVideo(

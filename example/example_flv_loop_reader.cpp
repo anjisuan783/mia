@@ -12,6 +12,11 @@
 
 const int TIME_OUT_LONG = 10;
 
+ExpFlvLoopReader::~ExpFlvLoopReader() {
+  if (data_buf_)
+    delete data_buf_;
+}
+
 srs_error_t ExpFlvLoopReader::Open(ExpFlvLoopReaderSink* sink, 
     const std::string& v, rtc::Thread* thread) {
   srs_error_t err = reader_.open(v);
@@ -68,9 +73,15 @@ srs_error_t ExpFlvLoopReader::ReadTags() {
       break;
     }
 
-    char* data = new char[size];
-    std::unique_ptr<char> data_deleter(data); 
-    if ((err = decoder_.read_tag_data(data, size)) != srs_success) {
+    if (!data_buf_ || size > buf_size_) {
+      if (data_buf_) {
+        delete data_buf_;
+      }
+      buf_size_ = size * 2;
+      data_buf_ = new char[buf_size_];
+    }
+
+    if ((err = decoder_.read_tag_data(data_buf_, size)) != srs_success) {
       return srs_error_wrap(err, "read tag data");
     }
 
@@ -81,23 +92,23 @@ srs_error_t ExpFlvLoopReader::ReadTags() {
       // video
       if (first_video_pkt) {
         first_video_pkt = false;
-        assert(ma::SrsFlvVideo::sh(data, size));
+        assert(ma::SrsFlvVideo::sh(data_buf_, size));
       }
 
       // ignore AVC end of sequence
-      if (size > 0 && (data[0] != 0x17 || data[1] != 0x02)) {
-        sink_->OnFlvVideo((const uint8_t*)data, size, media_ts);
+      if (size > 0 && (data_buf_[0] != 0x17 || data_buf_[1] != 0x02)) {
+        sink_->OnFlvVideo((const uint8_t*)data_buf_, size, media_ts);
       }
     } else if (type == 8) {
       // audio
       if (first_audio_pkt) {
         first_audio_pkt = false;
-        assert(ma::SrsFlvAudio::sh(data, size));
+        assert(ma::SrsFlvAudio::sh(data_buf_, size));
       }
-      sink_->OnFlvAudio((const uint8_t*)data, size, media_ts);
+      sink_->OnFlvAudio((const uint8_t*)data_buf_, size, media_ts);
     } else if(type == 18) {
       // script
-      sink_->OnFlvMeta((const uint8_t*)data, size, media_ts);
+      sink_->OnFlvMeta((const uint8_t*)data_buf_, size, media_ts);
     }
 
     if ((err = decoder_.read_previous_tag_size(no_use)) != srs_success) {

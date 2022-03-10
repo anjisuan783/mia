@@ -29,7 +29,7 @@ class MediaRtcLiveAdaptor : public RtcMediaSink {
   MediaRtcLiveAdaptor(const std::string& stream_id);
   ~MediaRtcLiveAdaptor();
 
-  void Open(MediaRtcSource*, RtcLiveAdapterSink*);
+  void Open(MediaRtcSource*, RtcLiveAdapterSink*, bool);
   void Close();
 
   //RtcMediaSink

@@ -17,12 +17,14 @@ bool ClientTypeIsPublish(ClientType t) {
 std::string ClienType2String(ClientType t) {
   switch (t) {
     case TRtcPublish: 
-      return "rtmp-play";
+      return "rtc-publish";
     case TRtcPlay: 
       return "rtc-play";
-    case TRtmpPlay: 
+    case TRtmpPublish: 
       return "flash-publish";
-    default: 
+    case TRtmpPlay: 
+      return "flash-play";
+    default:
       return "Unknown";
   }
 }
@@ -39,11 +41,14 @@ void MediaStatistics::ClientInfo::Dump(json::Object& obj) {
   obj["type"] = ClienType2String(type);
   obj["publish"] = ClientTypeIsPublish(type);
   time_t tm_sec = time(nullptr) - created;
-  struct tm now_time;
-  localtime_r(&tm_sec, &now_time);
+
+  int hours = tm_sec / 3600;
+  int sec = tm_sec % 3600;
+  int min = sec / 60;
+  sec %= 60;
+  
   char buf[256];
-  snprintf(buf, 256, "%dDay(%d:%d:%d)", 
-      now_time.tm_mday, now_time.tm_hour, now_time.tm_min, now_time.tm_sec);
+  snprintf(buf, 256, "%d:%d:%d", hours, min, sec);
   obj["alive"] = std::string(buf);
 }
 
@@ -51,29 +56,23 @@ void MediaStatistics::ClientInfo::Dump(json::Object& obj) {
 ////////////////////////////////////////////////////////////////////////////////
 void MediaStatistics::StreamInfo::Dump(json::Object& out_obj) {
   out_obj["id"] = req->get_stream_url();
-  time_t tm_sec = created;
-  struct tm now_time;
-  localtime_r(&tm_sec, &now_time);
-  char buf[256];
-  snprintf(buf, 256, "%d-%d %d:%d:%d", now_time.tm_mon, now_time.tm_mday
-      , now_time.tm_hour, now_time.tm_min, now_time.tm_sec);
-  out_obj["created"] = std::string(buf);
-
-  if (!players.empty()) {
-    json::Array array;
-    for(auto& i : players) {
-      json::Object client_info;
-      i->Dump(client_info);
-      array.push_back(client_info);
-    }
-
-    out_obj["player"] = array;
-  }
+  
+  out_obj["created"] = created_string;
 
   if (publisher) {
     json::Object client_info;
     publisher->Dump(client_info);
     out_obj["publisher"] = client_info;
+  }
+
+  if (!players.empty()) {
+    json::Array array;
+    for(auto& i : players) {
+      json::Object client_info;
+      i.second->Dump(client_info);
+      array.push_back(client_info);
+    }
+    out_obj["player"] = array;
   }
 }
 
@@ -85,7 +84,7 @@ void  MediaStatistics::StreamInfo::OnClient(std::shared_ptr<ClientInfo> c) {
   if (isPublisher) {
     publisher = std::move(c);
   } else {
-    players.emplace_back(std::move(c));
+    players.emplace(c->id, std::move(c));
   }
 }
 
@@ -106,6 +105,14 @@ void MediaStatistics::OnStream(std::shared_ptr<MediaRequest> req) {
 
   pStream->req = std::move(req);
   pStream->created = time(nullptr);
+  
+  struct tm now_time;
+  localtime_r(&(pStream->created), &now_time);
+  char buf[256];
+  snprintf(buf, 256, "%d-%d %d:%d:%d", now_time.tm_mon, now_time.tm_mday
+      , now_time.tm_hour, now_time.tm_min, now_time.tm_sec);
+
+  pStream->created_string = buf;
 }
 
 void MediaStatistics::OnStreamClose(std::shared_ptr<MediaRequest> req) {
@@ -118,7 +125,7 @@ void MediaStatistics::OnClient(const std::string& id,
                                std::shared_ptr<MediaRequest> req, 
                                ClientType t) {
   ClientInfo* pclient = nullptr;
-  std::string url = req->get_stream_url();
+  std::string stream_url = req->get_stream_url();
 
   std::optional<std::shared_ptr<ClientInfo>> new_client;
   std::lock_guard<std::mutex> guard(client_lock_);
@@ -138,7 +145,7 @@ void MediaStatistics::OnClient(const std::string& id,
   pclient->created = time(nullptr);
 
   if (new_client) {
-    auto stream_found = streams_.find(url);
+    auto stream_found = streams_.find(stream_url);
     if (stream_found != streams_.end()) {
       stream_found->second->OnClient(*new_client);
     } else {
@@ -149,7 +156,27 @@ void MediaStatistics::OnClient(const std::string& id,
 
 void MediaStatistics::OnDisconnect(const std::string& id) {
   std::lock_guard<std::mutex> guard(client_lock_);
+  auto found = clients_.find(id);
+  if (found == clients_.end())
+    return ;
+
+  auto pInfo = std::move(found->second);
   clients_.erase(id);
+  auto stream = streams_.find(pInfo->req->get_stream_url());
+  if (stream == streams_.end())
+    return ;
+
+  StreamInfo* pStream = stream->second.get();
+
+  if (pStream->publisher && pStream->publisher->id == id) {
+    pStream->publisher = nullptr;
+    return;
+  }
+
+  if (pStream->players.empty())
+    return ;
+
+  pStream->players.erase(id);
 }
 
 void MediaStatistics::DumpClients(json::Object& obj, int start, int count) {

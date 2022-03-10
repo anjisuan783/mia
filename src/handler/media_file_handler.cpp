@@ -10,7 +10,7 @@
 #include "common/media_log.h"
 #include "http/h/http_message.h"
 #include "http/h/http_protocal.h"
-#include "utils/protocol_utility.h"
+#include "utils/media_protocol_utility.h"
 #include "media_error_handler.h"
 #include "media_server.h"
 

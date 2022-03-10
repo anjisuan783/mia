@@ -1,19 +1,18 @@
 #include "media_source_mgr.h"
-#include "media_server.h"
 #include "rtmp/media_req.h"
 #include "media_statistics.h"
+#include "media_server.h"
 
 namespace ma {
 
 static std::shared_ptr<wa::ThreadPool>  workers_;
 
-int MediaSourceMgr::Init(unsigned int num) {
+int MediaSourceMgr::Init(unsigned int num, 
+    const std::vector<std::string>& candidates) {
   workers_ = std::make_shared<wa::ThreadPool>(num);
   workers_->start("live");
   rtc_api_ = std::move(wa::AgentFactory().create_agent());
-  return rtc_api_->Open(g_server_.config_.rtc_workers_,
-                            g_server_.config_.candidates_,
-                            "");
+  return rtc_api_->Open(num, candidates, "");
 }
 
 void MediaSourceMgr::Close() {
@@ -45,16 +44,21 @@ MediaSourceMgr::FetchOrCreateSource(MediaSource::Config& cfg,
     sources_[streamName] = ms;
   }
   
+  cfg.worker = GetWorker();
+  cfg.gop = g_server_.config_.enable_gop_;
+  cfg.jitter_algorithm = g_server_.config_.jitter_algo_;
   if (!cfg.rtc_api) {
     cfg.rtc_api = rtc_api_.get();
   }
-  cfg.worker = GetWorker();
+  cfg.enable_rtc2rtmp_ = g_server_.config_.enable_rtc2rtmp_;
+  cfg.enable_rtc2rtmp_debug_ = g_server_.config_.enable_rtc2rtmp_debug_;
+  cfg.enable_rtmp2rtc_ = g_server_.config_.enable_rtmp2rtc_;
+  cfg.enable_rtmp2rtc_debug_ = g_server_.config_.enable_rtmp2rtc_debug_;
   cfg.consumer_queue_size_ = g_server_.config_.consumer_queue_size_;
   cfg.mix_correct_ = g_server_.config_.mix_correct_;
+
   ms->Open(cfg);
-
   Stat().OnStream(std::move(req));
-
   return std::move(ms);
 }
 
