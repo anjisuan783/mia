@@ -32,8 +32,12 @@ WebrtcAgent::~WebrtcAgent() = default;
 int WebrtcAgent::Open(uint32_t num_workers, 
                       const std::vector<std::string>& ip_addresses, 
                       const std::string& service_addr) {
-  if(ip_addresses.empty()){
+  if(ip_addresses.empty()) {
     return wa_e_invalid_param;
+  }
+
+  if(0 == num_workers) {
+    num_workers = 1;
   }
 
   if(!global_init_) {
@@ -45,10 +49,6 @@ int WebrtcAgent::Open(uint32_t num_workers,
 
     event_set_log_callback(lib_evnet_log);
     global_init_ = true;
-  }
-
-  if(0 == num_workers) {
-    num_workers = 1;
   }
 
   ELOG_INFO("WebrtcAgent initiate %d workers, ip:%s", 

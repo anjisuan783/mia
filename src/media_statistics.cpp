@@ -207,6 +207,9 @@ void MediaStatistics::DumpStreams(json::Object& obj, int start, int count) {
   std::vector<std::shared_ptr<StreamInfo>> streams_copy;
   {
     std::lock_guard<std::mutex> guard(client_lock_);
+    if (streams_.empty())
+      return ;
+
     streams_copy.reserve(streams_.size());
     std::for_each(streams_.begin(), streams_.end(), [&streams_copy](auto& x) {
       streams_copy.emplace_back(x.second);
