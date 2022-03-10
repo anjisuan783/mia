@@ -168,13 +168,10 @@ void MediaRtmpPublisherImp::OnVideo(
   MessageHeader header{.payload_length = static_cast<int32_t>(len),
       .message_type = RTMP_MSG_VideoMessage, .timestamp = timestamp};
 
-  MessageChain msg_pkt(len, (const char*)data, MessageChain::DONT_DELETE, len);
-  auto msg = std::make_shared<MediaMessage>(&header, &msg_pkt);
+  auto msg = MediaMessage::create(&header, (const char*)data);
 
   if (debug_) {
-    std::vector< std::shared_ptr<MediaMessage> > msgs;
-    msgs.push_back(msg);
-  
+    std::vector<std::shared_ptr<MediaMessage>> msgs{msg};
     srs_error_t ret = flv_encoder_->write_tags(msgs);
 
     if (ret != srs_success) {
@@ -192,13 +189,10 @@ void MediaRtmpPublisherImp::OnAudio(
   MessageHeader header{.payload_length = static_cast<int32_t>(len),
       .message_type = RTMP_MSG_AudioMessage, .timestamp = timestamp};
 
-  MessageChain msg_pkt(len, (const char*)data, MessageChain::DONT_DELETE, len); 
-  auto msg = std::make_shared<MediaMessage>(&header, &msg_pkt);
+  auto msg = MediaMessage::create(&header, (const char*)data);
 
   if (debug_) {
-    std::vector< std::shared_ptr<MediaMessage> > msgs;
-    msgs.push_back(msg);
-    
+    std::vector<std::shared_ptr<MediaMessage>> msgs{msg};
     srs_error_t ret = flv_encoder_->write_tags(msgs);
     if (ret != srs_success) {
       MLOG_ERROR("write audio tags faild code:" << srs_error_code(ret) << 
@@ -248,6 +242,4 @@ std::shared_ptr<MediaRtmpPublisherApi> MediaRtmpPublisherFactory::Create() {
       std::make_shared<MediaRtmpPublisherImp>());
 }
 
-
 }
-
