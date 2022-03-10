@@ -35,7 +35,7 @@ class MediaServerApi {
  
     //for rtc
     uint32_t rtc_workers_{1};
-    std::vector<std::string> candidates_;  //local candidates [ip]
+    std::vector<std::string> candidates_;  // candidates [ip]
     uint16_t stun_port{9000}; //not use
 
     //for https
@@ -50,6 +50,7 @@ class MediaServerApi {
     //for rtc2rtmp
     bool enable_rtc2rtmp_{true};
     int32_t request_keyframe_interval{5}; // second
+    bool enable_rtc2rtmp_debug_{false};
 
     //for vhost
     std::string vhost{""};

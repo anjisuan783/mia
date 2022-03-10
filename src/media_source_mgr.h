@@ -21,7 +21,7 @@ namespace ma {
 
 class MediaSourceMgr {
  public:
-  int Init(unsigned int);
+  int Init(unsigned int, const std::vector<std::string>&);
   void Close();
   
   std::shared_ptr<MediaSource> 

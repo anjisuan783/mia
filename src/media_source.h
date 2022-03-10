@@ -58,6 +58,7 @@ class MediaSource final : public sigslot::has_slots<>,
     JitterAlgorithm jitter_algorithm{JitterAlgorithmZERO};
     wa::RtcApi* rtc_api{nullptr};
     bool enable_rtc2rtmp_{true};
+    bool enable_rtc2rtmp_debug_{false};
     bool enable_rtmp2rtc_{true};
     bool enable_rtmp2rtc_debug_{false};
     int consumer_queue_size_{30000};

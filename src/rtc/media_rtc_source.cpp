@@ -203,8 +203,6 @@ void MediaRtcSource::OnAttendeeJoined(std::shared_ptr<MediaRtcAttendeeBase> p) {
   MLOG_CINFO("%s %s joined",
       (p->IsPublisher()?"published":"subscriber"), p->Id());
 
-  Stat().OnClient(p->Id(), std::move(p->GetRequest()), TRtcPublish);
-
   p->signal_join_ok_.disconnect(this);
 
   bool first = false;
@@ -226,12 +224,15 @@ void MediaRtcSource::OnAttendeeJoined(std::shared_ptr<MediaRtcAttendeeBase> p) {
   p->signal_left_.connect(this, &MediaRtcSource::OnAttendeeLeft);
 
   if (p->IsPublisher()) {
-    OnPublisherJoin(std::move(p));
+    OnPublisherJoin(p);
   }
 
   if (first) {
     signal_rtc_first_suber_();
   }
+
+  Stat().OnClient(p->Id(), std::move(p->GetRequest()), 
+      p->IsPublisher()?TRtcPublish:TRtcPlay);
 }
 
 void MediaRtcSource::OnAttendeeLeft(std::shared_ptr<MediaRtcAttendeeBase> p) {
@@ -239,7 +240,7 @@ void MediaRtcSource::OnAttendeeLeft(std::shared_ptr<MediaRtcAttendeeBase> p) {
 
   MLOG_CINFO("%s %s left",
       (p->IsPublisher()?"published":"subscriber"), p->Id());
-  Stat().OnDisconnect(p->Id());
+  
   p->Close();
 
   bool empty = false;
@@ -271,6 +272,8 @@ void MediaRtcSource::OnAttendeeLeft(std::shared_ptr<MediaRtcAttendeeBase> p) {
   if (empty) {
     signal_rtc_nobody_();
   }
+
+  Stat().OnDisconnect(p->Id());
 }
 
 void MediaRtcSource::SetMediaSink(RtcMediaSink* s) {

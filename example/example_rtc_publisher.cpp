@@ -30,12 +30,14 @@ srs_error_t ExpRtcPublish::Open(const std::string& v) {
   }
 
   audio_.reset(new AudioTransform);
-  if (srs_success != (err = audio_->Open(this, true, "/tmp/a.aac"))) {
+  if (srs_success != (err = audio_->Open(
+    this, true, "/tmp/ExpRtcPublish.aac"))) {
     return err;
   }
 
   video_.reset(new Videotransform);
-  if (srs_success != (err = video_->Open(this, true, "/tmp/a.264"))) {
+  if (srs_success != (err = video_->Open(
+        this, true, "/tmp/ExpRtcPublish.264"))) {
     return err;
   }
 
@@ -64,8 +66,6 @@ void ExpRtcPublish::OnFlvVideo(const uint8_t* data, int32_t len, uint32_t ts) {
         srs_error_desc(err) << std::endl;
     delete err;
   }
-
-  //std::cout << "v len:" << len << ", ts:" << ts << std::endl;
 }
 
 void ExpRtcPublish::OnFlvAudio(const uint8_t* data, int32_t len, uint32_t ts) {

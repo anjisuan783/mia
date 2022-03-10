@@ -11,6 +11,7 @@
 #include "rtmp/media_req.h"
 #include "http/http_consts.h"
 #include "media_statistics.h"
+#include "utils/media_service_utility.h"
 
 namespace ma {
 
@@ -31,12 +32,21 @@ int MediaServerImp::Init(const Config& _config) {
   rtc::LogMessage::AddLogToStream(this, rtc::LS_INFO);
 
   ServerHandlerFactor factory;
-  
   mux_ = std::move(factory.Create());
-
   mux_->init();
 
-  int rv = g_source_mgr_.Init(config_.workers_);
+  std::vector<std::string> cans;
+  if (config_.candidates_.empty()) {
+    std::vector<SrsIPAddress*>& ips = srs_get_local_ips();
+    cans.reserve(ips.size());
+    std::for_each(ips.begin(), ips.end(), [&cans](auto i) {
+      cans.emplace_back(i->ip);
+    });
+  } else {
+    cans = config_.candidates_;
+  }
+
+  int rv = g_source_mgr_.Init(config_.workers_, cans);
 
   if (rv != wa::wa_ok) {
     MLOG_ERROR("wa init failed. code:" << rv);

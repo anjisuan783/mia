@@ -346,7 +346,8 @@ void MediaSource::ActiveRtmpAdapter() {
   }
   
   live_adapter_.reset(new MediaRtcLiveAdaptor(req_->get_stream_url()));
-  live_adapter_->Open(rtc_source_.get(), live_source_.get());
+  live_adapter_->Open(rtc_source_.get(), live_source_.get(), 
+      config_.enable_rtc2rtmp_debug_);
 }
 
 void MediaSource::UnactiveRtmpAdapter() {
@@ -383,14 +384,11 @@ void MediaSource::OnFrame(std::shared_ptr<owt_base::Frame> msg) {
 
 void MediaSource::async_task
     (std::function<void(std::shared_ptr<MediaSource>)> f) {
-  std::weak_ptr<MediaSource> weak_this = shared_from_this();
-  worker_->task([weak_this, f] {
+  worker_->task([weak_this = weak_from_this(), f] {
     if (auto this_ptr = weak_this.lock()) {
       f(this_ptr);
     }
   });
 }
 
-
 } //namespace ma
-

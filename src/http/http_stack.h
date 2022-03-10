@@ -68,7 +68,8 @@ class HttpMessage final : public ISrsHttpMessage {
   HttpMessage(std::string_view body);
   ~HttpMessage() = default;
 
-  void set_basic(uint8_t type, uint8_t method, uint16_t status, int64_t content_length);
+  void set_basic(uint8_t type, uint8_t method, 
+      uint16_t status, int64_t content_length);
   void set_header(const SrsHttpHeader&, bool keep_alive);
   srs_error_t set_url(const std::string& url, bool allow_jsonp);
   void set_https(bool v);

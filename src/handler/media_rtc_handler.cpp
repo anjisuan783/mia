@@ -11,7 +11,7 @@
 #include "h/rtc_return_value.h"
 #include "common/media_log.h"
 #include "utils/json.h"
-#include "utils/protocol_utility.h"
+#include "utils/media_protocol_utility.h"
 #include "http/h/http_message.h"
 #include "http/h/http_protocal.h"
 #include "connection/h/conn_interface.h"
@@ -134,18 +134,7 @@ srs_error_t MediaHttpPlayHandler::serve_http(
             ", param:" << req->param);
 
   std::string subscriber_id;
-  
-  MediaSource::Config cfg = {
-      .worker = nullptr,
-      .gop = g_server_.config_.enable_gop_,
-      .jitter_algorithm = JitterAlgorithmZERO,
-      .rtc_api = nullptr,
-      .enable_rtc2rtmp_ = g_server_.config_.enable_rtc2rtmp_,
-      .enable_rtmp2rtc_ = g_server_.config_.enable_rtmp2rtc_,
-      .enable_rtmp2rtc_debug_ = g_server_.config_.enable_rtmp2rtc_debug_,
-      .consumer_queue_size_ = g_server_.config_.enable_rtmp2rtc_,
-      .mix_correct_ = g_server_.config_.mix_correct_};
-
+  MediaSource::Config cfg;
   auto rtc_source = g_source_mgr_.FetchOrCreateSource(cfg, req);
   err = rtc_source->Subscribe(
       sdp, std::move(writer), subscriber_id, std::move(req));
@@ -270,18 +259,7 @@ srs_error_t MediaHttpPublishHandler::serve_http(
                        req->port, 
                        req->param);
   req->vhost = g_server_.config_.vhost;
-
-  MediaSource::Config cfg = {
-      .worker = nullptr,
-      .gop = g_server_.config_.enable_gop_,
-      .jitter_algorithm = JitterAlgorithmZERO,
-      .rtc_api = nullptr,
-      .enable_rtc2rtmp_ = g_server_.config_.enable_rtc2rtmp_,
-      .enable_rtmp2rtc_ = g_server_.config_.enable_rtmp2rtc_,
-      .enable_rtmp2rtc_debug_ = g_server_.config_.enable_rtmp2rtc_debug_,
-      .consumer_queue_size_ = g_server_.config_.enable_rtmp2rtc_,
-      .mix_correct_ = g_server_.config_.mix_correct_};
-
+  MediaSource::Config cfg;
   auto ms = g_source_mgr_.FetchOrCreateSource(cfg, req);
 
   // change publisher

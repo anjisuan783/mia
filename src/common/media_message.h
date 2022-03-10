@@ -63,8 +63,12 @@ class MediaMessage final {
 
   MediaMessage();
   MediaMessage(const MediaMessage&);
+  MediaMessage(MediaMessage&&);
   MediaMessage(MessageHeader* pheader, MessageChain* data);
   ~MediaMessage();
+
+  void operator=(MediaMessage&&);
+  void operator=(const MediaMessage&);
 
   void create(MessageHeader* pheader, MessageChain* data);
   std::shared_ptr<MediaMessage> Copy();

@@ -55,9 +55,31 @@ MediaMessage::MediaMessage(const MediaMessage& r)
     payload_ = r.payload_->DuplicateChained();
 }
 
+MediaMessage::MediaMessage(MediaMessage&& r)
+  : MediaMessage() {
+  header_ = r.header_;
+  payload_ = r.payload_;
+  r.payload_ = nullptr;
+}
+
 MediaMessage::~MediaMessage() {
   if (payload_) {
     payload_->DestroyChained();
+    payload_ = nullptr;
+  }
+}
+
+void MediaMessage::operator=(MediaMessage&& r) {
+  header_ = r.header_;
+  payload_ = r.payload_;
+  r.payload_ = nullptr;
+}
+
+void MediaMessage::operator=(const MediaMessage& r) {
+  header_ = r.header_;
+  if (r.payload_) {
+    payload_ = r.payload_->DuplicateChained();
+  } else {
     payload_ = nullptr;
   }
 }

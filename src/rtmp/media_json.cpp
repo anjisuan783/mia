@@ -62,7 +62,7 @@
 #define json_char char
 #endif //!json_char
 
-#include "utils/protocol_utility.h"
+#include "utils/media_protocol_utility.h"
 #include "rtmp/media_amf0.h"
 
 namespace ma {

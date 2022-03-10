@@ -43,7 +43,6 @@ class AudioTransform {
   TransformSink* sink_{nullptr};
   SrsRtmpFormat format_;
   std::unique_ptr<SrsAudioTranscoder> codec_;
-
   std::unique_ptr<SrsFileWriter> adts_writer_;
 };
 
@@ -62,9 +61,10 @@ class Videotransform {
  private:
   TransformSink* sink_{nullptr};
   SrsRtmpFormat format_;
+
   // The metadata cache.
   std::unique_ptr<MediaMetaCache> meta_;
-
+  
   std::unique_ptr<SrsFileWriter> h264_writer_;
 };
 
