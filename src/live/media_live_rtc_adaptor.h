@@ -2,7 +2,7 @@
 #define __MEDIA_LIVE_RTC_ADAPTOR_H__
 
 #include <memory>
-#include <deque>
+#include <list>
 
 #include "common/media_kernel_error.h"
 #include "common/media_message.h"
@@ -54,9 +54,9 @@ class Videotransform {
   srs_error_t OnData(std::shared_ptr<MediaMessage> msg);
  private:
   srs_error_t Filter(SrsFormat* format, 
-      bool& has_idr, std::deque<SrsSample*>& samples, int& data_len);
+      bool& has_idr, std::list<SrsSample*>& samples, int& data_len);
   srs_error_t PackageVideoframe(bool idr, MediaMessage* msg, 
-      std::deque<SrsSample*>& samples, int len, owt_base::Frame& frame);
+      std::list<SrsSample*>& samples, int len, owt_base::Frame& frame);
 
  private:
   TransformSink* sink_{nullptr};

@@ -1,6 +1,5 @@
 #include "live/media_live_rtc_adaptor.h"
 
-#include <cstddef>
 #include <iostream>
 
 #include "common/media_define.h"
@@ -260,7 +259,7 @@ srs_error_t Videotransform::OnData(std::shared_ptr<MediaMessage> msg) {
   }
 
   bool has_idr = false;
-  std::deque<SrsSample*> samples;
+  std::list<SrsSample*> samples;
   int len = 0;
   if ((err = Filter(&format_, has_idr, samples, len)) != srs_success) {
     return srs_error_wrap(err, "filter video");
@@ -284,7 +283,7 @@ srs_error_t Videotransform::OnData(std::shared_ptr<MediaMessage> msg) {
 }
 
 srs_error_t Videotransform::Filter(SrsFormat* format, bool& has_idr,
-     std::deque<SrsSample*>& samples, int& data_len) {
+     std::list<SrsSample*>& samples, int& data_len) {
   srs_error_t err = srs_success;
   data_len = 0;
 
@@ -313,11 +312,13 @@ srs_error_t Videotransform::Filter(SrsFormat* format, bool& has_idr,
 }
 
 srs_error_t Videotransform::PackageVideoframe(bool idr,
-    MediaMessage* msg, std::deque<SrsSample*>& samples,
+    MediaMessage* msg, std::list<SrsSample*>& samples,
     int len, owt_base::Frame& frame) {
   srs_error_t err = srs_success;
 
-  // Well, for each IDR, we append a SPS/PPS before it
+  SrsSample sample_sps, sample_pps;
+
+  // Appending a SPS/PPS for each IDR
   if (idr) {
     SrsFormat* format = meta_->vsh_format();
     if (!format || !format->vcodec_) {
@@ -332,7 +333,6 @@ srs_error_t Videotransform::PackageVideoframe(bool idr,
     }
 
     { // pps
-      SrsSample sample_pps;
       sample_pps.bytes = (char*)&pps[0];
       sample_pps.size = (int)pps.size();
       samples.push_front(&sample_pps);
@@ -340,7 +340,6 @@ srs_error_t Videotransform::PackageVideoframe(bool idr,
     }
 
     { // sps
-      SrsSample sample_sps;
       sample_sps.bytes = (char*)&sps[0];
       sample_sps.size = (int)sps.size();
       samples.push_front(&sample_sps);
@@ -360,35 +359,19 @@ srs_error_t Videotransform::PackageVideoframe(bool idr,
   
   size_t nn_samples = samples.size();
   int frame_len = nn_samples * 4 + len;
-  
-  int total_len = 0;
-  for (auto i : samples) {
-    total_len += 4;
-    total_len += i->size;
-  }
-
-  if (total_len != frame_len) {
-    MA_ASSERT(total_len == frame_len);
-    MLOG_CERROR("%d, %d", total_len, frame_len);
-  }
-  
-  frame.length = total_len;
-  frame.payload = new uint8_t[total_len];
+  frame.payload = new uint8_t[frame_len];
+  frame.length = frame_len;
   frame.need_delete = true;
   uint8_t* p = frame.payload;
 
-  for (size_t i = 0; i < samples.size(); ++i) {
+  for (auto x : samples) {
     *p++ = 0x00;
     *p++ = 0x00;
     *p++ = 0x00;
     *p++ = 0x01;
-    memcpy(p, samples[i]->bytes, samples[i]->size);
-    p += samples[i]->size;
+    memcpy(p, x->bytes, x->size);
+    p += x->size;
   }
-
-  std::ptrdiff_t diff = p - frame.payload;
-  MA_ASSERT(diff == frame_len);
-
   return err;
 }
 
