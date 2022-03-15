@@ -98,4 +98,3 @@ class WebrtcTrackDumy : public WebrtcTrackBase, public owt_base::FrameSource {
 } //namespace wa
 
 #endif //!__WA_WEBRTC_TRACK_H__
-

@@ -140,7 +140,8 @@ class MediaSource final : public sigslot::has_slots<>,
   void ActiveRtmpAdapter();
   void UnactiveRtmpAdapter();
 
-  void async_task(std::function<void(std::shared_ptr<MediaSource>)> f);
+  void async_task(std::function<void(std::shared_ptr<MediaSource>)> f, 
+                  const rtc::Location& l);
  private:
   Config config_;
   wa::Worker* worker_{nullptr};

@@ -269,7 +269,9 @@ class HttpResponseWriterProxy : public IHttpResponseWriter,
   MessageChain* internal_write(MessageChain* input);
   
   //safe call for asynchronously
-  void asyncTask(std::function<void(std::shared_ptr<HttpResponseWriterProxy>)> f);
+  void asyncTask(
+      std::function<void(std::shared_ptr<HttpResponseWriterProxy>)> f,
+      const rtc::Location&);
  private:
   std::unique_ptr<HttpResponseWriter> writer_;
   rtc::Thread* thread_;

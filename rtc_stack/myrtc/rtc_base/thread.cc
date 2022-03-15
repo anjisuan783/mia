@@ -509,11 +509,6 @@ void Thread::Clear(MessageHandler* phandler,
 }
 
 bool Thread::ProcessMessages(int cmsLoop) {
-  // Using ProcessMessages with a custom clock for testing and a time greater
-  // than 0 doesn't work, since it's not guaranteed to advance the custom
-  // clock's time, and may get stuck in an infinite loop.
-  RTC_DCHECK(GetClockForTesting() == nullptr || cmsLoop == 0 ||
-             cmsLoop == kForever);
   int64_t msEnd = (kForever == cmsLoop) ? 0 : TimeAfter(cmsLoop);
   int cmsNext = cmsLoop;
 

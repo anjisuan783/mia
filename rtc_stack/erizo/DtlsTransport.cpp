@@ -89,7 +89,7 @@ void TimeoutChecker::scheduleNext() {
         transport_->onHandshakeFailed(socket_context_, "Dtls Timeout on TimeoutChecker");
       }
     }
-  }, std::chrono::seconds(check_seconds_));
+  }, std::chrono::seconds(check_seconds_), RTC_FROM_HERE);
 }
 
 DtlsTransport::DtlsTransport(
@@ -254,7 +254,7 @@ void DtlsTransport::updateIceState(IceState state, IceConnection *conn) {
     if (auto transport = weak_transport.lock()) {
       updateIceStateSync(state, conn);
     }
-  });
+  }, RTC_FROM_HERE);
 }
 
 void DtlsTransport::onCandidate(const CandidateInfo &candidate, IceConnection *conn) {
@@ -265,7 +265,7 @@ void DtlsTransport::onCandidate(const CandidateInfo &candidate, IceConnection *c
         listener->onCandidate(candidate, transport.get());
       }
     }
-  });
+  }, RTC_FROM_HERE);
 }
 
 void DtlsTransport::write(char* data, int len) {

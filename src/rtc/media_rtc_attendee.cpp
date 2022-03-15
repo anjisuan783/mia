@@ -119,7 +119,7 @@ void MediaRtcAttendeeBase::onStat() {
 }
 
 void MediaRtcAttendeeBase::post(Task t) {
-  worker_->task(t);
+  worker_->task(t, RTC_FROM_HERE);
 }
 
 void MediaRtcAttendeeBase::ChangeOnFrame(bool on) {

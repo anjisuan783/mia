@@ -4,6 +4,7 @@
 #include <memory>
 
 #include "myrtc/api/default_task_queue_factory.h"
+#include "myrtc/rtc_base/to_queued_task.h"
 
 namespace wa {
 
@@ -21,7 +22,16 @@ void ScheduledTaskReference::cancel() {
 Worker::Worker(webrtc::TaskQueueFactory* factory, int id, std::shared_ptr<Clock> the_clock) 
     : factory_(factory),
       id_(id),
-      clock_{the_clock} { }
+      clock_{the_clock} 
+{ }
+
+void Worker::task(Task t) {
+  task_queue_->PostTask(webrtc::ToQueuedTask(std::forward<Task>(t)));
+}
+
+void Worker::task(Task t, const rtc::Location& r) {
+  task_queue_->PostTask(webrtc::ToQueuedTask(std::forward<Task>(t), r));
+}
 
 void Worker::start(const std::string& name) {
   auto promise = std::make_shared<std::promise<void>>();
@@ -31,9 +41,11 @@ void Worker::start(const std::string& name) {
 
 void Worker::start(std::shared_ptr<std::promise<void>> start_promise,
                    const std::string& name) {
-  auto pQueue = factory_->CreateTaskQueue(name, webrtc::TaskQueueFactory::Priority::NORMAL);
+  auto pQueue = factory_->CreateTaskQueue(name,
+      webrtc::TaskQueueFactory::Priority::NORMAL);
   task_queue_base_ = pQueue.get();
   task_queue_ = std::move(std::make_unique<rtc::TaskQueue>(std::move(pQueue))); 
+
 
   task_queue_->PostTask([start_promise] {
     start_promise->set_value();
@@ -46,34 +58,51 @@ void Worker::close() {
   task_queue_base_ = nullptr;
 }
 
-std::shared_ptr<ScheduledTaskReference> Worker::scheduleFromNow(Task f, duration delta) {
-  auto delta_ms = ClockUtils::durationToMs(delta);
-  auto id = std::make_shared<ScheduledTaskReference>();
+std::shared_ptr<ScheduledTaskReference> 
+    Worker::scheduleFromNow(Task t, duration delta) {
+  rtc::Location l;
+  return scheduleFromNow(std::forward<Task>(t), delta, l);
+}
 
-  task_queue_->PostDelayedTask([f, id]() {
-    if (!id->isCancelled()) {
-      f();
-    }
-  }, delta_ms);
+std::shared_ptr<ScheduledTaskReference> 
+    Worker::scheduleFromNow(Task t, duration delta, const rtc::Location& l) {
+  auto id = std::make_shared<ScheduledTaskReference>();
+  task_queue_->PostDelayedTask(
+      webrtc::ToQueuedTask(std::forward<std::function<void()>>(
+          [f = std::forward<Task>(t), id]() {
+            if (!id->isCancelled()) {
+              f();
+            }
+          }), l),
+      ClockUtils::durationToMs(delta));
   return id;
 }
 
 void Worker::scheduleEvery(ScheduledTask f, duration period) {
-  scheduleEvery(f, period, period);
+  rtc::Location l;
+  scheduleEvery(std::forward<ScheduledTask>(f), period, period, l);
 }
 
-void Worker::scheduleEvery(ScheduledTask f, duration period, duration next_delay) {
-  time_point start = clock_->now();
-  std::shared_ptr<Clock> clock = clock_;
+void Worker::scheduleEvery(ScheduledTask f,  
+    duration period, const rtc::Location& l) {
+  scheduleEvery(std::forward<ScheduledTask>(f), period, period, l);
+}
 
-  auto this_ptr = shared_from_this();
-  scheduleFromNow([this_ptr, start, period, next_delay, f, clock]() {
+void Worker::scheduleEvery(ScheduledTask&& t, 
+    duration period, duration next_delay, const rtc::Location& location) {
+  time_point start = clock_->now();
+
+  scheduleFromNow([this_ptr = shared_from_this(), 
+      start, period, next_delay, 
+      f = std::forward<ScheduledTask>(t), clock = clock_, location]() {
     if (f()) {
       duration clock_skew = clock->now() - start - next_delay;
       duration delay = std::max(period - clock_skew, duration(0));
-      this_ptr->scheduleEvery(f, period, delay);
+      this_ptr->scheduleEvery(
+          std::forward<ScheduledTask>(const_cast<ScheduledTask&>(f)),
+          period, delay, location);
     }
-  }, next_delay);
+  }, next_delay, location);
 }
 
 void Worker::unschedule(std::shared_ptr<ScheduledTaskReference> id) {

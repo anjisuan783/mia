@@ -365,7 +365,8 @@ TEST(WaSdpInfo, chrom_answer_91) {
   EXPECT_TRUE(sdpinfo.media_descs_[1].rtp_maps_[14].rtcp_fb_.empty());
   EXPECT_EQ(sdpinfo.media_descs_[1].rtp_maps_[14].fmtp_, "");
 
-  EXPECT_TRUE(sdpinfo.media_descs_[1].ssrc_groups_.empty());
+  EXPECT_TRUE(sdpinfo.media_descs_[1].ssrc_groups_.empty());
+
 
   //std::string toAnswer = sdpinfo.toString("");
   //std::cout << toAnswer << std::endl;
@@ -385,7 +386,7 @@ void session_info_comp(wa::SessionInfo& session_info) {
 void sdp_info_comp(wa::WaSdpInfo& sdpinfo) {
   EXPECT_EQ(sdpinfo.version_, 0);
   EXPECT_EQ(sdpinfo.username_, "-");
-  EXPECT_EQ(sdpinfo.session_id_, 1701150822055760335);
+  EXPECT_EQ(sdpinfo.session_id_, (uint64_t)1701150822055760335);
   EXPECT_EQ(sdpinfo.session_version_, (uint32_t)2);
   EXPECT_EQ(sdpinfo.nettype_, "IN");
   EXPECT_EQ(sdpinfo.addrtype_, 4);
@@ -734,7 +735,7 @@ void sdp_info_comp(wa::WaSdpInfo& sdpinfo) {
   EXPECT_EQ(sdpinfo.media_descs_[1].rtp_maps_[18].fmtp_, "");
 
   EXPECT_EQ(sdpinfo.media_descs_[1].ssrc_groups_[0].semantic_, "FID");
-  EXPECT_EQ(sdpinfo.media_descs_[1].ssrc_groups_[0].ssrcs_[0], 658290066);
+  EXPECT_EQ(sdpinfo.media_descs_[1].ssrc_groups_[0].ssrcs_[0], (uint32_t)658290066);
   EXPECT_EQ(sdpinfo.media_descs_[1].ssrc_groups_[0].ssrcs_[1], (uint32_t)30849494);
 }
 
@@ -786,7 +787,8 @@ TEST(WaSdpInfo, chrome_filterVideoPayload) {
   wa::WaSdpInfo sdpinfo;
   int result = read_sdp_from_string(sdpinfo, chrome_sdp88);
   ASSERT_EQ(result, wa::wa_ok);
- 
+
+ 
   wa::FormatPreference pre;
   pre.format_ = wa::p_h264;
   
@@ -819,8 +821,8 @@ void session_info_comp_firefox(wa::SessionInfo& session_info) {
 void sdp_info_comp_firefox(wa::WaSdpInfo& sdpinfo) {
   EXPECT_EQ(sdpinfo.version_, 0);
   EXPECT_EQ(sdpinfo.username_, "mozilla...THIS_IS_SDPARTA-95.0.2");
-  EXPECT_EQ(sdpinfo.session_id_, 6924795097247936072);
-  EXPECT_EQ(sdpinfo.session_version_, 0);
+  EXPECT_EQ(sdpinfo.session_id_, (uint64_t)6924795097247936072);
+  EXPECT_EQ(sdpinfo.session_version_, (uint32_t)0);
   EXPECT_EQ(sdpinfo.nettype_, "IN");
   EXPECT_EQ(sdpinfo.addrtype_, 4);
   EXPECT_EQ(sdpinfo.unicast_address_, "0.0.0.0");
@@ -871,7 +873,7 @@ void sdp_info_comp_firefox(wa::WaSdpInfo& sdpinfo) {
   
   EXPECT_EQ(sdpinfo.media_descs_[0].rtcp_mux_, "rtcp-mux");
 
-  EXPECT_EQ(sdpinfo.media_descs_[0].rtp_maps_.size(), 5);  
+  EXPECT_EQ(sdpinfo.media_descs_[0].rtp_maps_.size(), (size_t)5);  
  
   EXPECT_EQ(sdpinfo.media_descs_[0].rtp_maps_[0].payload_type_, 109);
   EXPECT_EQ(sdpinfo.media_descs_[0].rtp_maps_[0].encoding_name_, "opus");
@@ -1026,7 +1028,7 @@ void sdp_info_comp_firefox(wa::WaSdpInfo& sdpinfo) {
   EXPECT_EQ(sdpinfo.media_descs_[1].rtp_maps_[7].fmtp_, "apt=97");
 
   EXPECT_EQ(sdpinfo.media_descs_[1].ssrc_groups_[0].semantic_, "FID");
-  EXPECT_EQ(sdpinfo.media_descs_[1].ssrc_groups_[0].ssrcs_[0], 705814802);
+  EXPECT_EQ(sdpinfo.media_descs_[1].ssrc_groups_[0].ssrcs_[0], (uint32_t)705814802);
   EXPECT_EQ(sdpinfo.media_descs_[1].ssrc_groups_[0].ssrcs_[1], 2879488689);
 }
 
@@ -1065,7 +1067,8 @@ TEST(WaSdpInfo, firefox_init) {
 }
 
 void filterVideoPayload_firefox(wa::WaSdpInfo& sdpinfo) {
- 
+
+ 
   wa::FormatPreference pre;
   pre.format_ = wa::p_h264;
   
@@ -1078,14 +1081,15 @@ void filterVideoPayload_firefox(wa::WaSdpInfo& sdpinfo) {
   //for (auto& i : sdpinfo.media_descs_[1].rtp_maps_) {
   //  std::cout << i.encoding_name_ << std::endl;
   //}
-  ASSERT_EQ(sdpinfo.media_descs_[1].rtp_maps_.size(), 1);
+  ASSERT_EQ(sdpinfo.media_descs_[1].rtp_maps_.size(), (size_t)1);
 
   EXPECT_TRUE(sdpinfo.media_descs_[1].rtp_maps_[0].related_.empty());
 }
 
 
 void filterPayload_firefox_audio_crash(wa::WaSdpInfo& sdpinfo) {
- 
+
+ 
   wa::FormatPreference pre;
   pre.format_ = wa::p_opus;
 
@@ -1097,7 +1101,7 @@ void filterPayload_firefox_audio_crash(wa::WaSdpInfo& sdpinfo) {
   //for (auto& i : sdpinfo.media_descs_[1].rtp_maps_) {
   //  std::cout << i.encoding_name_ << std::endl;
   //}
-  ASSERT_EQ(sdpinfo.media_descs_[0].rtp_maps_.size(), 1);
+  ASSERT_EQ(sdpinfo.media_descs_[0].rtp_maps_.size(), (size_t)1);
 
   EXPECT_TRUE(sdpinfo.media_descs_[0].rtp_maps_[0].related_.empty());
 }

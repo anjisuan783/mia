@@ -120,7 +120,7 @@ class Transport : public std::enable_shared_from_this<Transport>,
           this_ptr->running_ = false;
         }
       }
-    });
+    }, RTC_FROM_HERE);
   }
 
   inline std::string toLog() {

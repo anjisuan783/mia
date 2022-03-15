@@ -80,8 +80,8 @@ srs_error_t MediaFileHandler::serve_http(
 
   // serve common static file.
   worker_->task([this, w, r, fullpath] {
-    serve_file(std::move(w), std::move(r), fullpath);
-  });
+      serve_file(std::move(w), std::move(r), fullpath);
+    }, RTC_FROM_HERE);
   
   return srs_success;
 }
@@ -273,10 +273,10 @@ void MediaFileHandler::doing_job::on_write_event(IHttpResponseWriter* w) {
 
   auto weak_this = weak_from_this();
   worker_->task([weak_this, func] {
-    if (auto this_ptr = weak_this.lock()) {
-      func();
-    }
-  });
+      if (auto this_ptr = weak_this.lock()) {
+        func();
+      }
+    }, RTC_FROM_HERE);
 }
 
 }

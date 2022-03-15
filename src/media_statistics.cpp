@@ -179,10 +179,13 @@ void MediaStatistics::OnDisconnect(const std::string& id) {
   pStream->players.erase(id);
 }
 
-void MediaStatistics::DumpClients(json::Object& obj, int start, int count) {
+bool MediaStatistics::DumpClients(json::Object& obj, int start, int count) {
   std::vector<std::shared_ptr<ClientInfo>> clients_copy;
   {
     std::lock_guard<std::mutex> guard(client_lock_);
+    if (clients_.empty())
+      return false;
+
     clients_copy.reserve(clients_.size());
     std::for_each(clients_.begin(), clients_.end(), [&clients_copy](auto& x) {
       clients_copy.emplace_back(x.second);
@@ -201,14 +204,16 @@ void MediaStatistics::DumpClients(json::Object& obj, int start, int count) {
   }
 
   obj["clients"] = cli_jsons;
+
+  return true;
 }
 
-void MediaStatistics::DumpStreams(json::Object& obj, int start, int count) {
+bool MediaStatistics::DumpStreams(json::Object& obj, int start, int count) {
   std::vector<std::shared_ptr<StreamInfo>> streams_copy;
   {
     std::lock_guard<std::mutex> guard(client_lock_);
     if (streams_.empty())
-      return ;
+      return false;
 
     streams_copy.reserve(streams_.size());
     std::for_each(streams_.begin(), streams_.end(), [&streams_copy](auto& x) {
@@ -229,6 +234,8 @@ void MediaStatistics::DumpStreams(json::Object& obj, int start, int count) {
     stream_jsons.push_back(stream_info);
   }
   obj["streams"] = stream_jsons;
+
+  return true;
 }
 
 size_t MediaStatistics::Clients() {
@@ -247,5 +254,4 @@ MediaStatistics& Stat() {
   return g_statistics;
 }
 
-}
-
+} //namespace ma

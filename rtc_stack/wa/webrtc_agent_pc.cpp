@@ -112,7 +112,7 @@ int WrtcAgentPc::init(TOption& config,
 
   asyncTask([ipAddresses, stun_addr](std::shared_ptr<WrtcAgentPc> pc){
     pc->init_i(ipAddresses, stun_addr);
-  });
+  }, RTC_FROM_HERE);
   return wa_ok;
 }
 
@@ -174,7 +174,7 @@ void WrtcAgentPc::close() {
   
   worker_->task([shared_this = shared_from_this()] {
     shared_this->close_i();
-  });
+  }, RTC_FROM_HERE);
 }
 
 srs_error_t WrtcAgentPc::addTrackOperation(const std::string& mid, 
@@ -219,7 +219,7 @@ void WrtcAgentPc::signalling(const std::string& signal,
                  srs_error_desc(result).c_str());
       delete result;
     }
-  });
+  }, RTC_FROM_HERE);
 }
 
 void WrtcAgentPc::notifyEvent(erizo::WebRTCEvent newStatus, 
@@ -486,13 +486,13 @@ srs_error_t WrtcAgentPc::setupTransport(MediaDesc& media, bool& bPublish) {
 void WrtcAgentPc::Subscribe(const WEBRTC_TRACK_TYPE& tracks) {
   asyncTask([tracks](std::shared_ptr<WrtcAgentPc> this_pc) {
     this_pc->subscribe_i(tracks, true);
-  });
+  }, RTC_FROM_HERE);
 }
 
 void WrtcAgentPc::unSubscribe(const WEBRTC_TRACK_TYPE& tracks) {
   asyncTask([tracks](std::shared_ptr<WrtcAgentPc> this_pc) {
     this_pc->subscribe_i(tracks, false);
-  });
+  }, RTC_FROM_HERE);
 }
 
 void WrtcAgentPc::frameCallback(bool on) {
@@ -515,8 +515,7 @@ void WrtcAgentPc::frameCallback(bool on) {
           }
         }
       }
-    }
- );
+    }, RTC_FROM_HERE);
 }
 
 WebrtcTrackBase* WrtcAgentPc::addTrack(
@@ -609,12 +608,14 @@ void WrtcAgentPc::callBack(E_SINKID id, const std::string& message) {
 }
 
 void WrtcAgentPc::asyncTask(
-    std::function<void(std::shared_ptr<WrtcAgentPc>)> f) {
-  worker_->task([weak_this = weak_from_this(), f] {
+    std::function<void(std::shared_ptr<WrtcAgentPc>)> t,
+    const rtc::Location& location) {
+  worker_->task([weak_this = weak_from_this(), 
+      f = std::forward<std::function<void(std::shared_ptr<WrtcAgentPc>)>>(t)] {
     if (auto this_ptr = weak_this.lock()) {
       f(this_ptr);
     }
-  });
+  }, location);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -657,7 +658,7 @@ void WrtcAgentPcDummy::close_i() {
 void WrtcAgentPcDummy::close() {
   worker_->task([shared_this = shared_from_this()] {
     shared_this->close_i();
-  });
+  }, RTC_FROM_HERE);
 }
 
 void WrtcAgentPcDummy::Subscribe(const WEBRTC_TRACK_TYPE& dest_tracks) {

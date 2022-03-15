@@ -12,7 +12,7 @@
 
 #include "utils/sigslot.h"
 #include "rtc_base/sequence_checker.h"
-#include "utils/Worker.h"
+//#include "utils/Worker.h"
 #include "h/media_server_api.h"
 #include "common/media_kernel_error.h"
 #include "live/media_consumer.h"

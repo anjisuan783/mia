@@ -214,7 +214,7 @@ void WebrtcTrack::requestKeyFrame() {
             return true;
           }
           return false;
-        }, std::chrono::seconds(request_kframe_period_));
+        }, std::chrono::seconds(request_kframe_period_), RTC_FROM_HERE);
   }
 }
 

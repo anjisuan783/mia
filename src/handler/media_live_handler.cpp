@@ -84,7 +84,7 @@ class StreamEntry final
   void delete_customer(IMediaConnection* conn);
   bool on_timer();
   void consumer_push(customer&, std::vector<std::shared_ptr<MediaMessage>>&);
-  void async_task(std::function<void()> f);
+  void async_task(std::function<void()> f, const rtc::Location& l);
  private:
   std::map<IMediaConnection*, customer> conns_customers_; // in worker thread
 
@@ -153,7 +153,7 @@ void StreamEntry::initialize() {
       }
     }
     add_customer(nullptr, consumer, std::move(file_writer), std::move(encoder));
-  });
+  }, RTC_FROM_HERE);
 }
 
 void StreamEntry::add_customer(IMediaConnection* conn, 
@@ -183,7 +183,7 @@ void StreamEntry::add_customer(IMediaConnection* conn,
     }
     
     return false;
-  }, TIME_OUT);
+  }, TIME_OUT, RTC_FROM_HERE);
 }
 
 void StreamEntry::delete_customer(IMediaConnection* conn) {
@@ -316,7 +316,7 @@ srs_error_t StreamEntry::serve_http(std::shared_ptr<IHttpResponseWriter> writer,
     oss << req->ip;
     oss << (uint64_t)key;
     Stat().OnClient(oss.str(), req, TRtmpPlay);
-  });
+  }, RTC_FROM_HERE);
 
   return srs_success;
 }
@@ -324,16 +324,16 @@ srs_error_t StreamEntry::serve_http(std::shared_ptr<IHttpResponseWriter> writer,
 void StreamEntry::conn_destroy(std::shared_ptr<IMediaConnection> conn) {
   async_task([this, raw_conn = conn.get()]() {
     delete_customer(raw_conn);
-  });
+  }, RTC_FROM_HERE);
 }
 
-void StreamEntry::async_task(std::function<void()> f) {
+void StreamEntry::async_task(std::function<void()> f, const rtc::Location& l) {
   std::weak_ptr<StreamEntry> weak_this{weak_from_this()};
   worker_->task([weak_this, f] {
     if (auto this_ptr = weak_this.lock()) {
       f();
     }
-  });
+  }, l);
 }
 
 //MediaFlvPlayHandler

@@ -250,7 +250,7 @@ void MediaStream::initializeStats()  {
       }
     }
     return false;
-  }, kStreamStatsPeriod);
+  }, kStreamStatsPeriod, RTC_FROM_HERE);
 }
 
 void MediaStream::transferLayerStats(std::string spatial, std::string temporal) {
@@ -417,7 +417,8 @@ void MediaStream::onTransportData(std::shared_ptr<DataPacket> packet,
       assert(fb_sink_ == nullptr);
       if (video_sink_) {
         video_sink_->deliverVideoData(std::move(packet));
-      } else if (audio_sink_) {
+      } else if (audio_sink_) {
+
         audio_sink_->deliverAudioData(std::move(packet));
       }
     } else if (fb_sink_ != nullptr && should_send_feedback_) {

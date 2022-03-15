@@ -7,7 +7,7 @@
 #include "config.h"
 
 #include <unistd.h>
-#include <iostream>
+#include <string>
 
 int Usage() {
   printf("usage: ./mia -l [log4cxx.properties] -c [mia.cfg] \n");

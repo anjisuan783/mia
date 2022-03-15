@@ -862,7 +862,7 @@ srs_error_t HttpResponseWriterProxy::final_request() {
       MLOG_ERROR("proxy final request failed, desc:" << srs_error_desc(err));
       delete err;
     }
-  });
+  }, RTC_FROM_HERE);
 
   return srs_success;
 }
@@ -1026,7 +1026,7 @@ srs_error_t HttpResponseWriterProxy::write_i(
     if (pDuplcated) {
       pDuplcated->DestroyChained();
     }
-  });
+  }, RTC_FROM_HERE);
 
   if (pnwrite) {
     *pnwrite = data_len;
@@ -1071,7 +1071,7 @@ void HttpResponseWriterProxy::write_header(int code) {
     }
     
     writer_->write_header(code);
-  });
+  }, RTC_FROM_HERE);
 }
 
 void HttpResponseWriterProxy::OnWriteEvent() {
@@ -1099,9 +1099,10 @@ void HttpResponseWriterProxy::OnWriteEvent() {
 }
 
 void HttpResponseWriterProxy::asyncTask(
-    std::function<void(std::shared_ptr<HttpResponseWriterProxy>)> f) {
+    std::function<void(std::shared_ptr<HttpResponseWriterProxy>)> f,
+    const rtc::Location& l) {
   std::weak_ptr<HttpResponseWriterProxy> weak_this = weak_from_this();
-  thread_->PostTask(RTC_FROM_HERE, [weak_this, f] {
+  thread_->PostTask(l, [weak_this, f] {
     if (auto this_ptr = weak_this.lock()) {
       f(this_ptr);
     }

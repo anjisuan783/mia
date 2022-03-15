@@ -165,7 +165,7 @@ void VideoFrameConstructor::onFeedback(const FeedbackMsg& msg) {
         setBitrate(msg.data.kbps);
       }      
     }
-  });
+  }, RTC_FROM_HERE);
 }
 
 
@@ -183,7 +183,7 @@ void VideoFrameConstructor::createReceiveVideo(uint32_t ssrc) {
       return true;
     }
     return false;
-  }, std::chrono::seconds(1));
+  }, std::chrono::seconds(1), RTC_FROM_HERE);
   
   ssrc_ = config_.ssrc;
 

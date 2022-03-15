@@ -33,19 +33,6 @@
 #include "time_utils.h"
 
 namespace rtc {
-
-ClockInterface* g_clock = nullptr;
-
-ClockInterface* SetClockForTesting(ClockInterface* clock) {
-  ClockInterface* prev = g_clock;
-  g_clock = clock;
-  return prev;
-}
-
-ClockInterface* GetClockForTesting() {
-  return g_clock;
-}
-
 #if defined(WINUWP)
 
 namespace {
@@ -202,9 +189,6 @@ int64_t SystemTimeMillis() {
 }
 
 int64_t TimeNanos() {
-  if (g_clock) {
-    return g_clock->TimeNanos();
-  }
   return SystemTimeNanos();
 }
 
@@ -302,9 +286,6 @@ int64_t TmToSeconds(const tm& tm) {
 }
 
 int64_t TimeUTCMicros() {
-  if (g_clock) {
-    return g_clock->TimeNanos() / kNumNanosecsPerMicrosec;
-  }
 #if defined(WEBRTC_POSIX)
   struct timeval time;
   gettimeofday(&time, nullptr);

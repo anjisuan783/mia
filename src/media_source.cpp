@@ -6,7 +6,6 @@
 
 #include "media_source.h"
 
-
 #include "media_server.h"
 #include "rtmp/media_req.h"
 #include "live/media_consumer.h"
@@ -45,12 +44,12 @@ void MediaSource::Open(Config& c) {
 void MediaSource::Close() {
   closed_ = true; 
   
-  worker_->task([p = shared_from_this()](){
-    p->UnactiveRtcSource();
-    p->UnactiveLiveSource();
-    p->UnactiveRtcAdapter();
-    p->UnactiveRtmpAdapter();
-  });
+  worker_->task([p = shared_from_this()]() {
+      p->UnactiveRtcSource();
+      p->UnactiveLiveSource();
+      p->UnactiveRtcAdapter();
+      p->UnactiveRtmpAdapter();
+    }, RTC_FROM_HERE);
 
   worker_ = nullptr;
 }
@@ -136,7 +135,7 @@ void MediaSource::OnPublish(PublisherType t) {
     RTC_DCHECK_RUN_ON(&thread_check_);
     func(shared_from_this());
   } else {
-   async_task(func);
+   async_task(func, RTC_FROM_HERE);
   }
 }
 
@@ -172,7 +171,7 @@ void MediaSource::OnUnpublish() {
     RTC_DCHECK_RUN_ON(&thread_check_);
     func(shared_from_this());
   } else {
-   async_task(func);
+   async_task(func, RTC_FROM_HERE);
   }
 }
 
@@ -371,7 +370,7 @@ void MediaSource::OnMessage(std::shared_ptr<MediaMessage> msg) {
         // TODO support meta 
       }
     }
-  });
+  }, RTC_FROM_HERE);
 }
 
 void MediaSource::OnFrame(std::shared_ptr<owt_base::Frame> msg) {
@@ -379,16 +378,17 @@ void MediaSource::OnFrame(std::shared_ptr<owt_base::Frame> msg) {
     if (p->rtc_source_) {
       p->rtc_source_->OnFrame(std::move(frm));
     }
-  });
+  }, RTC_FROM_HERE);
 }
 
-void MediaSource::async_task
-    (std::function<void(std::shared_ptr<MediaSource>)> f) {
+void MediaSource::async_task(
+    std::function<void(std::shared_ptr<MediaSource>)> f, 
+    const rtc::Location& l) {
   worker_->task([weak_this = weak_from_this(), f] {
     if (auto this_ptr = weak_this.lock()) {
       f(this_ptr);
     }
-  });
+  }, l);
 }
 
 } //namespace ma
