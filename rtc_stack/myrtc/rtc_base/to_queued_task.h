@@ -26,6 +26,10 @@ class ClosureTask : public QueuedTask {
   explicit ClosureTask(Closure&& closure)
       : closure_(std::forward<Closure>(closure)) {}
 
+  explicit ClosureTask(Closure&& closure, const rtc::Location& location)
+      : closure_(std::forward<Closure>(closure)) {
+    location_ = location;
+  }
  private:
   bool Run() override {
     closure_();
@@ -58,6 +62,13 @@ template <typename Closure>
 std::unique_ptr<QueuedTask> ToQueuedTask(Closure&& closure) {
   return std::make_unique<webrtc_new_closure_impl::ClosureTask<Closure>>(
       std::forward<Closure>(closure));
+}
+
+template <typename Closure>
+std::unique_ptr<QueuedTask> ToQueuedTask(Closure&& closure, 
+    const rtc::Location& l) {
+  return std::make_unique<webrtc_new_closure_impl::ClosureTask<Closure>>(
+      std::forward<Closure>(closure), l);
 }
 
 template <typename Closure, typename Cleanup>

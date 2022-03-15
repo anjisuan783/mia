@@ -10,6 +10,10 @@
 #ifndef API_TASK_QUEUE_QUEUED_TASK_H_
 #define API_TASK_QUEUE_QUEUED_TASK_H_
 
+#include <optional>
+
+#include "rtc_base/location.h"
+
 namespace webrtc {
 
 // Base interface for asynchronously executed tasks.
@@ -25,6 +29,8 @@ class QueuedTask {
   // having been transferred.  Returning |false| can be useful if a task has
   // re-posted itself to a different queue or is otherwise being re-used.
   virtual bool Run() = 0;
+
+  std::optional<rtc::Location> location_;
 };
 
 }  // namespace webrtc

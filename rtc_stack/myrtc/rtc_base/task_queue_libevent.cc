@@ -109,7 +109,8 @@ rtc::ThreadPriority TaskQueuePriorityToThreadPriority(Priority priority) {
   }
   return rtc::kNormalPriority;
 }
-
+
+
 class SpinLock {
  public:
   inline void lock() {
@@ -392,13 +393,15 @@ void TaskQueueLibevent::OnWakeup(int socket,
 #if RTC_DCHECK_IS_ON
     Timestamp before_ts = me->clock_->CurrentTime();
 #endif
-    std::for_each(task_list.begin(), task_list.end(), [](auto& task) {
-      if (!task->Run())
-        task.release();
-    });
-      
+    std::vector<std::unique_ptr<QueuedTask>*> release_flag;
+    for(size_t i = 0; i < get_count; ++i) {
+      if (!task_list[i]->Run()) {
+        release_flag.push_back(&task_list[i]);
+      }
+    }
+    
 #if RTC_DCHECK_IS_ON
-    static constexpr int kMaxExecuteMs = 20;
+    static constexpr int kMaxExecuteMs = 50;
     static constexpr size_t events_water_mark = 500;
     static constexpr int64_t report_interval = 5000;
     Timestamp atfer_ts = me->clock_->CurrentTime();
@@ -406,13 +409,24 @@ void TaskQueueLibevent::OnWakeup(int socket,
     if (cost_ts.ms() > kMaxExecuteMs || remain > events_water_mark) {
       TimeDelta cost_ts1 = atfer_ts - me->wakeup_last_report_ts_;
       if (cost_ts1.ms() > report_interval) {
+        std::string call_info;
+        for(auto& m : task_list) {
+          if (m->location_) {
+            call_info += m->location_->ToString() + ";";
+          }
+        }
         RTC_LOG(WARNING) << "event timeout or acumulate, cost:" << 
           cost_ts.ms() << ", apending event:" << remain <<
+          (call_info.empty()?" ":", call from:") << call_info << 
           ", worker name:" << me->thread_.name();
         me->wakeup_last_report_ts_ = atfer_ts;
       }
     }
-#endif    
+#endif
+    for(auto& x : release_flag) {
+      x->release();
+    }
+
     if (remain > 0) {
       me->NotifyWakeup();
     }

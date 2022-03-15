@@ -37,8 +37,8 @@ class MediaStatistics final {
                 std::shared_ptr<MediaRequest>, 
                 ClientType);
   void OnDisconnect(const std::string& client_id);
-  void DumpClients(json::Object& objs, int start, int count);
-  void DumpStreams(json::Object& objs, int start, int count);
+  bool DumpClients(json::Object& objs, int start, int count);
+  bool DumpStreams(json::Object& objs, int start, int count);
 
   size_t Clients();
   size_t Streams();

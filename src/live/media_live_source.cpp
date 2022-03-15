@@ -199,16 +199,12 @@ void MediaLiveSource::OnAudio_i(
         SrsFlvAudio::sh(shared_audio->payload_->GetFirstMsgReadPtr(),
                         shared_audio->payload_->GetFirstMsgLength());
 
-  //std::cout << "ts:" << shared_audio->timestamp_  << ". len:" << 
-  //    shared_audio->size_ << 
-  //    (is_sequence_header?", seq":"") <<  std::endl;
-
   // whether consumer should drop for the duplicated sequence header.
   bool drop_for_reduce = false;
   if (is_sequence_header && meta_->ash()) {
     drop_for_reduce = (*(meta_->ash()->payload_)==*(shared_audio->payload_));
   }
-
+ 
   // cache the sequence header of aac, or first packet of mp3.
   if (is_sequence_header || !meta_->ash()) {
     if ((err = meta_->update_ash(shared_audio)) != srs_success) {
@@ -217,7 +213,7 @@ void MediaLiveSource::OnAudio_i(
       return ;
     }
 
-    if (is_sequence_header) {
+    if (is_sequence_header && !drop_for_reduce) {
       MLOG_TRACE("audio seq header update, size=" << shared_audio->size_);
     }
   }

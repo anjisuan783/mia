@@ -12,6 +12,7 @@
 #include <future>  // NOLINT
 #include <vector>
 
+#include "myrtc/rtc_base/location.h"
 #include "myrtc/rtc_base/task_queue.h"
 #include "myrtc/api/task_queue_factory.h"
 #include "utils/Clock.h"
@@ -36,17 +37,21 @@ class Worker final : public std::enable_shared_from_this<Worker> {
       std::shared_ptr<Clock> the_clock = std::make_shared<SteadyClock>());
   ~Worker() = default;
 
-  inline void task(Task f) {
-    task_queue_->PostTask(f);
-  }
+  void task(Task t);
+  void task(Task t, const rtc::Location&);
 
   void start(const std::string& name);
   void start(std::shared_ptr<std::promise<void>> start_promise,
              const std::string& name);
   void close();
 
-  std::shared_ptr<ScheduledTaskReference> scheduleFromNow(Task f, duration delta);
+  std::shared_ptr<ScheduledTaskReference> 
+      scheduleFromNow(Task f, duration delta);
+  std::shared_ptr<ScheduledTaskReference> 
+      scheduleFromNow(Task f, duration delta, const rtc::Location&);
+      
   void scheduleEvery(ScheduledTask f, duration period);
+  void scheduleEvery(ScheduledTask f, duration period, const rtc::Location&);
   void unschedule(std::shared_ptr<ScheduledTaskReference> id);
   
   webrtc::TaskQueueBase* getTaskQueue() {
@@ -62,7 +67,8 @@ class Worker final : public std::enable_shared_from_this<Worker> {
   }
 
  private:
-  void scheduleEvery(ScheduledTask f, duration period, duration next_delay);
+  void scheduleEvery(ScheduledTask&& f, duration period, 
+      duration next_delaym, const rtc::Location& l);
 
  protected:
   int next_scheduled_ = 0;

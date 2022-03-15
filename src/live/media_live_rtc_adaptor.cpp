@@ -415,7 +415,7 @@ srs_error_t MediaLiveRtcAdaptor::Open(wa::Worker* worker,
       return this_ptr->OnTimer();
     }
     return false;
-  }, TIME_OUT);
+  }, TIME_OUT, RTC_FROM_HERE);
 
   std::string streamName = srs_string_replace(source->StreamName(), "/", "_");
 

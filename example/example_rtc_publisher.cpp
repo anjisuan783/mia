@@ -31,13 +31,13 @@ srs_error_t ExpRtcPublish::Open(const std::string& v) {
 
   audio_.reset(new AudioTransform);
   if (srs_success != (err = audio_->Open(
-    this, true, "/tmp/ExpRtcPublish.aac"))) {
+    this, false, "/tmp/ExpRtcPublish.aac"))) {
     return err;
   }
 
   video_.reset(new Videotransform);
   if (srs_success != (err = video_->Open(
-        this, true, "/tmp/ExpRtcPublish.264"))) {
+        this, false, "/tmp/ExpRtcPublish.264"))) {
     return err;
   }
 

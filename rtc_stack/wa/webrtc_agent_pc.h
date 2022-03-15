@@ -152,7 +152,8 @@ class WrtcAgentPc final : public WrtcAgentPcBase,
                                 const FormatPreference& prefer,
                                 int32_t kframe_s);
   
-  void asyncTask(std::function<void(std::shared_ptr<WrtcAgentPc>)> f);
+  void asyncTask(std::function<void(std::shared_ptr<WrtcAgentPc>)> f, 
+      const rtc::Location&);
 
   enum E_SINKID {
     E_CANDIDATE,

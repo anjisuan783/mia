@@ -41,25 +41,6 @@ class ClockInterface {
   virtual int64_t TimeNanos() const = 0;
 };
 
-// Sets the global source of time. This is useful mainly for unit tests.
-//
-// Returns the previously set ClockInterface, or nullptr if none is set.
-//
-// Does not transfer ownership of the clock. SetClockForTesting(nullptr)
-// should be called before the ClockInterface is deleted.
-//
-// This method is not thread-safe; it should only be used when no other thread
-// is running (for example, at the start/end of a unit test, or start/end of
-// main()).
-//
-// TODO(deadbeef): Instead of having functions that access this global
-// ClockInterface, we may want to pass the ClockInterface into everything
-// that uses it, eliminating the need for a global variable and this function.
-RTC_EXPORT ClockInterface* SetClockForTesting(ClockInterface* clock);
-
-// Returns previously set clock, or nullptr if no custom clock is being used.
-RTC_EXPORT ClockInterface* GetClockForTesting();
-
 #if defined(WINUWP)
 // Synchronizes the current clock based upon an NTP server's epoch in
 // milliseconds.
