@@ -2,21 +2,26 @@
 
 Media stream server library written by c++.
 
-## Build:
+## Usage:
 
+Build MIA from code. Then edit conf/mia.cfg, correct candidates.
+
+```
 git clone https://github.com/anjisuan783/mia.git
-
 cd mia
-
 ./script/buildAll.sh
-
-Edit conf/mia.cfg, correct candidates.
-
 nohup ./mia -l conf/log4cxx.properties -c conf/mia.cfg &
+```
 
 Start players by http_server which is a very simple http server written by python.
+Or replace http_server with apache、ngnix etc.
+The web players pages are located in mia/www/srs_players
 
+```
 ./script/http_server.sh
+```
+
+Open https://localhost/ to check if it works.
 
 CentOS 7 supported only now!
 
