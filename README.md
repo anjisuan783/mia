@@ -14,6 +14,10 @@ Edit conf/mia.cfg, correct candidates.
 
 nohup ./mia -l conf/log4cxx.properties -c conf/mia.cfg &
 
+Start players by http_server which is a very simple http server written by python.
+
+./script/http_server.sh
+
 CentOS 7 supported only now!
 
 ## Features
