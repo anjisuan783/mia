@@ -29,7 +29,7 @@ CentOS 7 supported only now!
 - [x] Supported protocal
   - [x] 1. WebRTC
   - [x] 2. Http(s) flv
-  - [ ] 3. RTMP
+  - [ ] 3. RTMP(doing)
   - [ ] 4. HLS
 - [x] Supported codec
   - [x] H264 
