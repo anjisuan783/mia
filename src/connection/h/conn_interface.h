@@ -7,6 +7,8 @@
 #ifndef __MEDIA_CONNECTION_INTERFACE_H__
 #define __MEDIA_CONNECTION_INTERFACE_H__
 
+#include "common/media_kernel_error.h"
+
 class CDataPackage;
 class ITransport;
 
@@ -17,7 +19,7 @@ class IMediaConnection : public
  public:
   virtual ~IMediaConnection() { }
 
-  virtual void Start() = 0;
+  virtual srs_error_t Start() = 0;
   virtual void Disconnect() = 0;
 
   virtual std::string Ip() = 0;

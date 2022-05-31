@@ -15,7 +15,7 @@
 
 namespace ma {
 
-class SrsOnMetaDataPacket;
+class RtmpOnMetaDataPacket;
 class MediaMessage;
 class SrsRtmpFormat;
 class SrsFormat;
@@ -52,7 +52,7 @@ class MediaMetaCache final {
 
   // Update the cached metadata by packet.
   srs_error_t update_data(MessageHeader* header, 
-      SrsOnMetaDataPacket* metadata, bool& updated);
+      RtmpOnMetaDataPacket* metadata, bool& updated);
   // Update the cached audio sequence header.
   srs_error_t update_ash(std::shared_ptr<MediaMessage> msg);
   // Update the cached video sequence header.

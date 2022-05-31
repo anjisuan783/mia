@@ -57,6 +57,14 @@ namespace ma {
  */
 constexpr int SRS_PERF_MW_MSGS = 10;
 
+/**
+ * how many chunk stream to cache, [0, N].
+ * to imporove about 10% performance when chunk size small, and 5% for large chunk.
+ * @see https://github.com/ossrs/srs/issues/249
+ * @remark 0 to disable the chunk stream cache.
+ */
+constexpr int SRS_PERF_CHUNK_STREAM_CACHE = 16;
+
 } //namespace ma
 
 #endif //!__MEDIA_PERFORMACE_H__

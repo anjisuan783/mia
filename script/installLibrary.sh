@@ -1,4 +1,4 @@
-#!/bin/bash/sh
+#!/bin/bash
 
 buildLibrary() {
   if [ -d $BUILD_DIR ]; then

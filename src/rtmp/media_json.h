@@ -36,7 +36,7 @@ namespace ma {
 ////////////////////////////////////////////////////////////////////////
 // @see: https://github.com/udp/json-parser
 
-class SrsAmf0Any;
+class RtmpAmf0Any;
 class SrsJsonArray;
 class SrsJsonObject;
 
@@ -79,7 +79,7 @@ public:
     virtual SrsJsonArray* to_array();
 public:
     virtual std::string dumps();
-    virtual SrsAmf0Any* to_amf0();
+    virtual RtmpAmf0Any* to_amf0();
 public:
     static SrsJsonAny* str(const char* value = NULL);
     static SrsJsonAny* str(const char* value, int length);
@@ -116,7 +116,7 @@ public:
     virtual SrsJsonAny* value_at(int index);
 public:
     virtual std::string dumps();
-    virtual SrsAmf0Any* to_amf0();
+    virtual RtmpAmf0Any* to_amf0();
 public:
     virtual SrsJsonObject* set(std::string key, SrsJsonAny* value);
     virtual SrsJsonAny* get_property(std::string name);
@@ -148,7 +148,7 @@ public:
     virtual SrsJsonArray* append(SrsJsonAny* value);
 public:
     virtual std::string dumps();
-    virtual SrsAmf0Any* to_amf0();
+    virtual RtmpAmf0Any* to_amf0();
 };
 
 } //namespace  ma

@@ -18,7 +18,7 @@
 namespace ma {
 
 class IMediaConnection;
-class IHttpProtocalFactory;
+class IMediaIOBaseFactory;
 class MediaListenerMgr;
 
 class MediaConnMgr {
@@ -36,7 +36,7 @@ class MediaConnMgr {
   void Close();
  
   std::shared_ptr<IMediaConnection>CreateConnection(ConnType, 
-      std::unique_ptr<IHttpProtocalFactory> factory);
+      std::unique_ptr<IMediaIOBaseFactory> factory);
       
   void RemoveConnection(std::shared_ptr<IMediaConnection> p);
 

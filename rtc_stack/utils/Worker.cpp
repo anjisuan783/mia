@@ -46,7 +46,6 @@ void Worker::start(std::shared_ptr<std::promise<void>> start_promise,
   task_queue_base_ = pQueue.get();
   task_queue_ = std::move(std::make_unique<rtc::TaskQueue>(std::move(pQueue))); 
 
-
   task_queue_->PostTask([start_promise] {
     start_promise->set_value();
   });

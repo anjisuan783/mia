@@ -41,7 +41,8 @@ public:
   // @pmsgs SrsSharedPtrMessage*[], used to store the msgs, user must alloc it.
   // @count the count in array, output param.
   // @max_count the max count to dequeue, must be positive.
-  void fetch_packets(int max_count, std::vector<std::shared_ptr<MediaMessage>>& pmsgs, int& count);
+  void fetch_packets(int max_count, 
+      std::vector<std::shared_ptr<MediaMessage>>& pmsgs, int& count);
   // Dumps packets to consumer, use specified args.
   // @remark the atc/tba/tbv/ag are same to SrsConsumer.enqueue().
   void fetch_packets(MediaConsumer* consumer, JitterAlgorithm ag);
@@ -85,7 +86,8 @@ public:
   // @param msgs the msgs array to dump packets to send.
   // @param count the count in array, intput and output param.
   // @remark user can specifies the count to get specified msgs; 0 to get all if possible.
-  void fetch_packets(int max, std::vector<std::shared_ptr<MediaMessage>>& msgs, int& count);
+  void fetch_packets(int max, 
+      std::vector<std::shared_ptr<MediaMessage>>& msgs, int& count);
 
   // when client send the pause message.
   void on_play_client_pause(bool is_pause);

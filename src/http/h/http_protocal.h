@@ -7,6 +7,7 @@
 
 #include "utils/sigslot.h"
 #include "common/media_kernel_error.h"
+#include "connection/h/media_io.h"
 
 namespace ma {
 
@@ -88,9 +89,9 @@ class IHttpResponseReader {
   virtual void open(IHttpResponseReaderSink*) = 0;
 };
 
-class IHttpProtocalFactory {
+class IHttpProtocalFactory : public IMediaIOBaseFactory {
   public:
-   virtual ~IHttpProtocalFactory() = default;
+   ~IHttpProtocalFactory() override = default;
    
    virtual std::shared_ptr<IHttpRequestReader> 
       CreateRequestReader(IHttpRequestReader::CallBack*) = 0;
@@ -105,7 +106,7 @@ class IHttpProtocalFactory {
       CreateResponseReader() = 0;
 };
 
-std::unique_ptr<IHttpProtocalFactory> 
+std::unique_ptr<IMediaIOBaseFactory>
 CreateDefaultHttpProtocalFactory(void* p1, void* p2);
 
 }

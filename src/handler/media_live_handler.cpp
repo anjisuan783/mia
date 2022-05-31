@@ -11,7 +11,7 @@
 
 #include "common/media_log.h"
 #include "rtc_base/sequence_checker.h"
-#include "http/http_consts.h"
+#include "common/media_consts.h"
 #include "utils/media_protocol_utility.h"
 #include "connection/h/conn_interface.h"
 #include "live/media_consumer.h"

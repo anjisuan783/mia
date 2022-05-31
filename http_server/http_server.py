@@ -84,7 +84,7 @@ class HttpHandler:
       try:
         content = open(os.path.join(self.root, name), "r").read()
       except IOError:
-        logerror('{} not found'.format(name))
+        log_error('{} not found'.format(name))
         return web.Response(status=404)
 
       return web.Response(content_type=ctype, text=content)

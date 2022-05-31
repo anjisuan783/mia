@@ -52,6 +52,10 @@ void MediaRtmpListener::OnNewConnectionEvent(rtc::AsyncPacketSocket* s,
                                              rtc::AsyncPacketSocket* c) {
   MLOG_TRACE("new peer:" << c->GetRemoteAddress().ToString() << 
              ", from:" << s->GetLocalAddress().ToString());
+  auto conn = g_conn_mgr_.CreateConnection(
+      MediaConnMgr::e_rtmp, std::move(CreateTcpIOFactory(s, c)));
+
+  conn->Start();
 }
 
 int MediaRtmpListener::Listen(const rtc::SocketAddress& address, 

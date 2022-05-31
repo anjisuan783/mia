@@ -15,7 +15,7 @@
 
 #include "common/media_define.h"
 #include "common/media_log.h"
-#include "http/http_consts.h"
+#include "common/media_consts.h"
 #include "common/media_kernel_error.h"
 #include "utils/media_protocol_utility.h"
 #include "utils/media_service_utility.h"

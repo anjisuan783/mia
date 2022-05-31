@@ -6,7 +6,7 @@
 
 #include "media_error_handler.h"
 
-#include "http/http_consts.h"
+#include "common/media_consts.h"
 #include "http/http_stack.h"
 #include "http/h/http_protocal.h"
 

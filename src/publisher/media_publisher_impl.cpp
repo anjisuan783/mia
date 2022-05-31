@@ -165,8 +165,10 @@ void MediaRtmpPublisherImp::OnUnpublish() {
 void MediaRtmpPublisherImp::OnVideo(
     const uint8_t* data, uint32_t len, uint32_t timestamp) {
 
-  MessageHeader header{.payload_length = static_cast<int32_t>(len),
-      .message_type = RTMP_MSG_VideoMessage, .timestamp = timestamp};
+  MessageHeader header;
+  header.payload_length = static_cast<int32_t>(len);
+  header.message_type = RTMP_MSG_VideoMessage;
+  header.timestamp = timestamp;
 
   auto msg = MediaMessage::create(&header, (const char*)data);
 
@@ -186,8 +188,10 @@ void MediaRtmpPublisherImp::OnVideo(
 
 void MediaRtmpPublisherImp::OnAudio(
     const uint8_t* data, uint32_t len, uint32_t timestamp) {
-  MessageHeader header{.payload_length = static_cast<int32_t>(len),
-      .message_type = RTMP_MSG_AudioMessage, .timestamp = timestamp};
+  MessageHeader header;
+  header.payload_length = static_cast<int32_t>(len);
+  header.message_type = RTMP_MSG_AudioMessage;
+  header.timestamp = timestamp;
 
   auto msg = MediaMessage::create(&header, (const char*)data);
 

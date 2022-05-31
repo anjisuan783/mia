@@ -3,9 +3,9 @@
 # start a simple http(s) server written by python3
 
 CURRENT_PATH=`pwd`
-HttpRootPath=$CURRENT_PATH/www/srs_players/
+HttpRootPath=$CURRENT_PATH/www/
 INTERPRETER=python3
 
 $INTERPRETER ./http_server/http_server.py \
-	--cert-file ./conf/mia.crt --key-file ./conf/mia.key \
+	--cert-file ./conf/server.cer --key-file ./conf/server.key \
 	--www-path $HttpRootPath -v

@@ -18,7 +18,6 @@ struct DataBlockDeleter {
   }
 };
 
-
 std::shared_ptr<DataBlock> DataBlock::Create(
     int32_t aSize, const char* inData) {
 
@@ -123,7 +122,8 @@ MessageChain::~MessageChain() {
   ++ s_block_destoycount;
 }
 
-int MessageChain::Peek(void* aDst, uint32_t aCount, uint32_t aPos, uint32_t* aBytesRead) {
+int MessageChain::Peek(void* aDst, uint32_t aCount, 
+    uint32_t aPos, uint32_t* aBytesRead) {
   MA_ASSERT(MA_BIT_DISABLED(flag_, READ_LOCKED));
   uint32_t dwLen = GetFirstMsgLength();
   uint32_t dwHaveRead = 0;
@@ -173,13 +173,13 @@ int MessageChain::Peek(void* aDst, uint32_t aCount, uint32_t aPos, uint32_t* aBy
   return error_part_data;
 }
 
-int MessageChain::Read(void* aDst, uint32_t aCount, uint32_t *aBytesRead, bool aAdvance) {
+int MessageChain::Read(void* aDst, uint32_t aCount, 
+    uint32_t *aBytesRead, bool aAdvance) {
   MessageChain *pMbMove = this;
   uint32_t dwHaveRead = 0;
   bool bPartial = true;
 
-  while(pMbMove)
-  {
+  while(pMbMove) {
     MA_ASSERT(MA_BIT_DISABLED(pMbMove->flag_, READ_LOCKED));
     MA_ASSERT(pMbMove->write_ >= pMbMove->read_);
     uint32_t dwLen = pMbMove->GetFirstMsgLength();
@@ -208,7 +208,8 @@ int MessageChain::Read(void* aDst, uint32_t aCount, uint32_t *aBytesRead, bool a
   return bPartial ? error_part_data : error_ok;
 }
 
-int MessageChain::Write(void* aSrc, uint32_t aCount, uint32_t *aBytesWritten) {
+int MessageChain::Write(const void* aSrc, 
+    uint32_t aCount, uint32_t *aBytesWritten) {
   MA_ASSERT(MA_BIT_DISABLED(flag_, WRITE_LOCKED));
   uint32_t dwSpace = GetFirstMsgSpace();
   uint32_t dwHaveWritten = 0;

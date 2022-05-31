@@ -2,7 +2,7 @@
 
 #include "common/media_log.h"
 #include "utils/media_protocol_utility.h"
-#include "http/http_consts.h"
+#include "common/media_consts.h"
 #include "rtmp/media_amf0.h"
 
 namespace ma {
@@ -15,15 +15,14 @@ MediaRequest::MediaRequest() {
   objectEncoding = RTMP_SIG_AMF0_VER;
   duration = -1;
   port = SRS_CONSTS_RTMP_DEFAULT_PORT;
-  args = NULL;
 }
 
 MediaRequest::~MediaRequest() {
   srs_freep(args);
 }
 
-MediaRequest* MediaRequest::copy() {
-  MediaRequest* cp = new MediaRequest();
+std::shared_ptr<MediaRequest> MediaRequest::copy() {
+  auto cp = std::make_shared<MediaRequest>();
   
   cp->ip = ip;
   cp->vhost = vhost;
@@ -39,10 +38,10 @@ MediaRequest* MediaRequest::copy() {
   cp->tcUrl = tcUrl;
   cp->duration = duration;
   if (args) {
-      cp->args = args->copy()->to_object();
+    cp->args = args->copy()->to_object();
   }
   
-  return cp;
+  return std::move(cp);
 }
 
 void MediaRequest::update_auth(MediaRequest* req) {

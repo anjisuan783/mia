@@ -150,7 +150,7 @@ void AsyncSokcetWrapper::OnReadEvent(rtc::AsyncPacketSocket*,
   }
 }
 
-void AsyncSokcetWrapper::OnCloseEvent(rtc::AsyncPacketSocket* socket, int err) {
+void AsyncSokcetWrapper::OnCloseEvent(rtc::AsyncPacketSocket*, int err) {
   RTC_DCHECK_RUN_ON(&thread_check_);
   MLOG_TRACE("code:" << err << (server_?", server":""));
 
@@ -762,7 +762,7 @@ MessageChain* HttpResponseWriter::send_header(const char* data, int) {
   
   // set server if not set.
   if (header_->get("Server").empty()) {
-    header_->set("Server", RTMP_SIG_SRS_SERVER);
+    header_->set("Server", RTMP_SIG_SERVER);
   }
   
   // chunked encoding
@@ -1167,7 +1167,7 @@ class HttpProtocalImplFactory : public IHttpProtocalFactory {
    std::shared_ptr<AsyncSokcetWrapper> socket_;
 };
 
-std::unique_ptr<IHttpProtocalFactory>
+std::unique_ptr<IMediaIOBaseFactory>
 CreateDefaultHttpProtocalFactory(void* p1, void* p2) {
   return std::make_unique<HttpProtocalImplFactory>(true,
       reinterpret_cast<rtc::AsyncPacketSocket*>(p1), 

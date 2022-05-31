@@ -427,7 +427,7 @@ extern bool srs_is_server_gracefully_close(srs_error_t err);
     (void)0
 
 // Error helpers, should use these functions to new or wrap an error.
-#define srs_success 0 // SrsCplxError::success()
+#define srs_success nullptr
 #define srs_error_new(ret, fmt, ...) \
   SrsCplxError::create(__FUNCTION__, __FILE__, __LINE__, ret, fmt, ##__VA_ARGS__)
 #define srs_error_wrap(err, fmt, ...) \

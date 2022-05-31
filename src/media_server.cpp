@@ -9,7 +9,7 @@
 #include "connection/h/media_conn_mgr.h"
 #include "media_source.h"
 #include "rtmp/media_req.h"
-#include "http/http_consts.h"
+#include "common/media_consts.h"
 #include "media_statistics.h"
 #include "utils/media_service_utility.h"
 
@@ -73,7 +73,7 @@ srs_error_t MediaServerImp::OnPublish(std::shared_ptr<MediaSource> s,
 }
 
 void MediaServerImp::OnUnpublish(std::shared_ptr<MediaSource> s, 
-                                  std::shared_ptr<MediaRequest> r) {
+                                 std::shared_ptr<MediaRequest> r) {
   mux_->unmount_service(std::move(s), std::move(r));
 }
 

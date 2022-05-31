@@ -20,7 +20,7 @@
 #include "http/h/http_message.h"
 #include "http/h/http_protocal.h"
 #include "http/http_stack.h"
-#include "http/http_consts.h"
+#include "common/media_consts.h"
 
 namespace ma {
 
