@@ -7,5 +7,5 @@ HttpRootPath=$CURRENT_PATH/www/
 INTERPRETER=python3
 
 $INTERPRETER ./http_server/http_server.py \
-	--cert-file ./conf/server.cer --key-file ./conf/server.key \
+	--cert-file ./conf/mia.crt --key-file ./conf/mia.key \
 	--www-path $HttpRootPath -v

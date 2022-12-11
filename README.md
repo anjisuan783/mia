@@ -13,7 +13,7 @@ cd mia
 nohup ./mia -l conf/log4cxx.properties -c conf/mia.cfg &
 ```
 
-Start players by http_server which is a very simple http server written by python.
+Start players by http_server which is a very simple http server written by python2.7.
 Or replace http_server with apache、ngnix etc.
 The web players pages are located in mia/www/srs_players
 
@@ -21,7 +21,7 @@ The web players pages are located in mia/www/srs_players
 ./script/http_server.sh
 ```
 
-Open https://localhost/ to check if it works.
+Open https://[ip]/srs_players/ to check if it works.
 
 CentOS 7 supported only now!
 
