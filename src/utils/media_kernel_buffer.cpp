@@ -79,6 +79,14 @@ void SrsBuffer::skip(int size) {
   p += size;
 }
 
+void SrsBuffer::save_reader() {
+  srs_assert(false);
+}
+
+void SrsBuffer::restore_reader() {
+  srs_assert(false);
+}
+
 int8_t SrsBuffer::read_1bytes() {
   srs_assert(require(1));
   

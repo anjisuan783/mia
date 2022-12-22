@@ -71,6 +71,7 @@ COMMON_FLAG="-std=gnu++17 -DWEBRTC_POSIX -DWEBRTC_LINUX -Wall \
 DEBUG_FLAG="-O3 -g -DNDEBUG"
 
 if [ $DEBUG_MODE = "debug" ]; then
+  echo "build debug version"
   DEBUG_FLAG="-O0 -g3 -ggdb"
 fi
 

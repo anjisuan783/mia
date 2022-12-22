@@ -14,6 +14,7 @@
 #include "common/media_log.h"
 #include "common/media_define.h"
 #include "utils/sigslot.h"
+#include "rtmp/media_rtmp_msg.h"
 
 namespace ma {
 
@@ -56,12 +57,11 @@ class RtmpStackSink {
  public:
   virtual ~RtmpStackSink() = default;
 
-  // client connected, to discovery tcUrl.
-  virtual void OnConnect(std::shared_ptr<MediaRequest>, srs_error_t err) = 0;
+  virtual srs_error_t OnConnect(std::shared_ptr<MediaRequest>) = 0;
   virtual void OnClientInfo(RtmpConnType type, 
       std::string stream_name, srs_utime_t) = 0;
-  virtual void OnMessage(std::shared_ptr<MediaMessage>) = 0;
-  virtual void OnRedirect(bool accepted) = 0;
+  virtual srs_error_t OnMessage(std::shared_ptr<MediaMessage>) = 0;
+  virtual srs_error_t OnRedirect(bool accepted) = 0;
 };
 
 class RtmpBufferIO;
@@ -71,7 +71,8 @@ class RtmpBufferIO;
 // such as connect to vhost/app, play stream, get audio/video data.
 class RtmpServerSide final : 
     public std::enable_shared_from_this<RtmpServerSide>,
-    public sigslot::has_slots<> {
+    public sigslot::has_slots<>,
+    public RtmpProtocalSink {
   MDECLARE_LOGGER();
  public:
   RtmpServerSide(RtmpStackSink*);
@@ -92,19 +93,19 @@ class RtmpServerSide final :
   srs_error_t OnBwDone();
 
   // packet entry
-  void OnPacket(std::shared_ptr<MediaMessage> pkt);
+  srs_error_t OnPacket(std::shared_ptr<MediaMessage> pkt) override;
 
   // callback
   void HandshakeOk(uint32_t real_ip, 
                    MessageChain*, 
                    std::shared_ptr<RtmpBufferIO>);
-  void HandshakeFailed();
+  void HandshakeFailed(srs_error_t);
   
   // Set output ack size to client, client will send ack-size 
   //for each ack window
   srs_error_t SetWinAckSize(int ack_size);
   // Set the default input ack size value.
-  void SetInWinAckSize(int ack_size);
+  srs_error_t SetInWinAckSize(int ack_size);
   // @type: The sender can mark this message hard (0), soft (1), or dynamic (2)
   // using the Limit type field.
   srs_error_t SetPeerBandwidth(int bandwidth, int type);
@@ -149,7 +150,7 @@ class RtmpServerSide final :
   // onStatus(NetStream.Publish.Start)
   srs_error_t StartFlashPublish(int stream_id);
  private:
-  void ConnectApp(RtmpPacket* packet);
+  srs_error_t OnConnectApp(RtmpPacket* packet);
 
   // Recv some message to identify the client.
   // @stream_id, client will createStream to play or publish by flash,

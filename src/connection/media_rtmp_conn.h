@@ -3,6 +3,7 @@
 
 #include <memory>
 
+#include "common/media_log.h"
 #include "connection/h/conn_interface.h"
 #include "rtmp/media_rtmp_stack.h"
 
@@ -13,9 +14,26 @@ class RtmpServerSide;
 class MessageChain;
 class IMediaIOFactory;
 class IMediaIO;
+class MediaResponse;
+
+// client information
+class ClientInfo {
+ public:
+  ClientInfo() = default;
+  ~ClientInfo() = default;
+ public:
+  // The type of client, play or publish.
+  RtmpConnType type = RtmpConnUnknown;
+
+  // Original request object from client.
+  std::shared_ptr<MediaRequest> req_;
+  // Response object to client.
+  std::shared_ptr<MediaResponse> res_;
+};
 
 class MediaRtmpConn final : public IMediaConnection,
                             public RtmpStackSink {
+  MDECLARE_LOGGER();
  public:
   MediaRtmpConn(std::unique_ptr<IMediaIOFactory> fac, 
                 IMediaHttpHandler*);
@@ -26,17 +44,19 @@ class MediaRtmpConn final : public IMediaConnection,
   std::string Ip() override;
 
   // RtmpStackSink implement
-  void OnConnect(std::shared_ptr<MediaRequest>, srs_error_t err) override;
+  srs_error_t OnConnect(std::shared_ptr<MediaRequest>) override;
   void OnClientInfo(RtmpConnType type, 
       std::string stream_name, srs_utime_t) override;
-  void OnMessage(std::shared_ptr<MediaMessage>) override;
-  void OnRedirect(bool accepted) override;
+  srs_error_t OnMessage(std::shared_ptr<MediaMessage>) override;
+  srs_error_t OnRedirect(bool accepted) override;
 
  private:
   std::shared_ptr<IMediaIO> io_;
   std::shared_ptr<RtmpServerSide> rtmp_;
 
   IMediaHttpHandler* handler_;
+
+  ClientInfo cli_info_;
 };
 
 } //namespace ma

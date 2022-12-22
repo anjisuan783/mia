@@ -26,7 +26,14 @@ class MediaSerializerT : public SrsBuffer {
 		return (int)msg_.GetChainedLength() >= required_size;
 	}
 	void skip(int size) override {
+		assert(size >= 0);
 		msg_.AdvanceChainedReadPtr(size);
+	}
+	void save_reader() override {
+		msg_.SaveChainedReadPtr();
+	}
+	void restore_reader() override {
+		msg_.RewindChained(true);
 	}
 	int8_t read_1bytes() override {
 		int8_t ret;
@@ -36,7 +43,6 @@ class MediaSerializerT : public SrsBuffer {
 	int16_t read_2bytes() override {
 		int16_t ret;
 		*this >> ret;
-		Convertor::Swap(ret);
 		return ret;
 	}
   int32_t read_3bytes() override {
@@ -48,13 +54,11 @@ class MediaSerializerT : public SrsBuffer {
   int32_t read_4bytes() override {
 		int32_t ret;
 		*this >> ret;
-		Convertor::Swap(ret);
 		return ret;
 	}
   int64_t read_8bytes() override {
 		int64_t ret;
 		*this >> ret;
-		Convertor::Swap(ret);
 		return ret;
 	}
   std::string read_string(int len) override {
@@ -70,19 +74,16 @@ class MediaSerializerT : public SrsBuffer {
 		*this << value;
 	}
   void write_2bytes(int16_t value) override {
-		Convertor::Swap(value);
 		*this << value;
 	}
-  void write_4bytes(int32_t value) override {
-		Convertor::Swap(value);
-		*this << value;
-	}
-  void write_3bytes(int32_t value) override {
+	void write_3bytes(int32_t value) override {
 		Convertor::Swap24(value);
 		Write(&value, 3);
 	}
+  void write_4bytes(int32_t value) override {
+		*this << value;
+	}
   void write_8bytes(int64_t value) override {
-		Convertor::Swap(value);
 		*this << value;
 	}
   void write_string(const std::string& value) override {
@@ -208,7 +209,7 @@ class MediaSerializerT : public SrsBuffer {
 	
 	bool IsOk() {
 		if (MessageChain::error_ok == write_result_ && 
-				MessageChain::error_ok == read_result_) {
+				MessageChain::error_ok == read_result_) {                           
 			return true;
 		}
 		return false;

@@ -100,6 +100,7 @@
 #define ERROR_SOCKET_ACCEPT                 1081
 #define ERROR_SOCKET_WOULD_BLOCK            1082
 #define ERROR_SOCKET_ERROR                  1083
+#define ERROR_SYSTEM_INVALID_STATE          1084
 
 
 ///////////////////////////////////////////////////////
@@ -161,6 +162,7 @@
 #define ERROR_RTMP_MESSAGE_CREATE           2053
 #define ERROR_RTMP_PROXY_EXCEED             2054
 #define ERROR_RTMP_CREATE_STREAM_DEPTH      2055
+#define ERROR_RTMP_HANDLE_SHAKE_FAILED      2056
 //
 // The system control message,
 // It's not an error, but special control logic.

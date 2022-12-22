@@ -1,5 +1,6 @@
 #include "rtmp/media_io_buffer.h"
 
+#include <iostream>
 #include "utils/media_msg_chain.h"
 #include "connection/h/media_io.h"
 
@@ -8,19 +9,13 @@ namespace ma {
 //BufferSender
 RtmpBufferIO::RtmpBufferIO(MediaIOPtr io, RtmpBufferIOSink* sink)
   : sink_(sink), io_(std::move(io)) {
-  io_->SignalOnRead_.connect(this, &RtmpBufferIO::OnRead);
-  io_->SignalOnWrite_.connect(this, &RtmpBufferIO::OnWrite);
-  io_->SignalOnDisct_.connect(this, &RtmpBufferIO::OnDisc);
+  io_->Open(this);
 }
 
 RtmpBufferIO::~RtmpBufferIO() {
   sink_ = nullptr;
   io_->Close();
-  io_->SignalOnWrite_.disconnect(this);
-  io_->SignalOnRead_.disconnect(this);
-  io_->SignalOnDisct_.disconnect(this);
-  io_ = nullptr;
-
+  
   if (write_buffer_)
     write_buffer_->DestroyChained();
 }
@@ -30,7 +25,7 @@ void RtmpBufferIO::SetSink(RtmpBufferIOSink* sink) {
 }
 
 srs_error_t RtmpBufferIO::Write(MessageChain* msg) {
-  srs_error_t err = ERROR_SUCCESS;
+  srs_error_t err = srs_success;
   if (!msg) 
     return err;
 
@@ -47,31 +42,35 @@ srs_error_t RtmpBufferIO::Write(MessageChain* msg) {
   return TrySend();
 }
 
-void RtmpBufferIO::OnRead(MessageChain* msg) {
+srs_error_t RtmpBufferIO::OnRead(MessageChain* msg) {
   nrecv_ += msg->GetChainedLength();
-  sink_->OnRead(msg);
+  return sink_->OnRead(msg);
 }
 
-void RtmpBufferIO::OnWrite() {
-  if (TrySend() == ERROR_SUCCESS) {
-    sink_->OnWrite();
+srs_error_t RtmpBufferIO::OnWrite() {
+  srs_error_t err = srs_success;
+  if ((err = TrySend()) == srs_success) {
+    err = sink_->OnWrite();
   }
+
+  return err;
 }
 
-void RtmpBufferIO::OnDisc(int reason) {
+void RtmpBufferIO::OnDisconnect(srs_error_t reason) {
   io_->Close();
   sink_->OnDisc(reason);
 }
 
 srs_error_t RtmpBufferIO::TrySend() {
-  assert(write_buffer_);
+  if (!write_buffer_) return srs_success; 
 
   int sent = 0;
   srs_error_t ret = io_->Write(write_buffer_, &sent);
-  if (ret != ERROR_SUCCESS) {
+  if (ret != srs_success) {
     write_buffer_->AdvanceChainedReadPtr(sent);
   } else {
     write_buffer_->DestroyChained();
+    write_buffer_ = nullptr;
   }
 
   return ret;

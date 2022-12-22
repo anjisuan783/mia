@@ -24,7 +24,6 @@
 #include "common/media_io.h"
 #include "http/h/http_protocal.h"
 #include "rtmp/media_req.h"
-#include "common/media_performance.h"
 #include "media_server.h"
 #include "media_statistics.h"
 

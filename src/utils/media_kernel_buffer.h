@@ -114,6 +114,8 @@ class SrsBuffer {
   // @remark to skip(pos()) to reset buffer.
   // @remark assert initialized, the data() not NULL.
   virtual void skip(int size);
+  virtual void save_reader();
+  virtual void restore_reader();
   // Read 1bytes char from buffer.
   virtual int8_t read_1bytes();
   // Read 2bytes int from buffer.

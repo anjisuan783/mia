@@ -4,7 +4,7 @@
 #include <memory>
 
 #include "common/media_kernel_error.h"
-#include "utils/sigslot.h"
+#include "connection/h/media_io.h"
 
 namespace ma {
 class MessageChain;
@@ -15,12 +15,12 @@ using MediaIOPtr = std::shared_ptr<IMediaIO>;
 class RtmpBufferIOSink {
  public:
   virtual ~RtmpBufferIOSink() = default;
-  virtual void OnRead(MessageChain*) = 0;
-  virtual void OnWrite() = 0;
-  virtual void OnDisc(int) = 0;
+  virtual srs_error_t OnRead(MessageChain*) = 0;
+  virtual srs_error_t OnWrite() = 0;
+  virtual void OnDisc(srs_error_t) = 0;
 };
 
-class RtmpBufferIO final : public sigslot::has_slots<> {
+class RtmpBufferIO final : public IMediaIOSink {
  public:
   RtmpBufferIO(MediaIOPtr io, RtmpBufferIOSink* sink);
   ~RtmpBufferIO();
@@ -28,9 +28,9 @@ class RtmpBufferIO final : public sigslot::has_slots<> {
   void SetSink(RtmpBufferIOSink*);
 
   // MediaIO callback
-  void OnRead(MessageChain*);
-  void OnWrite();
-  void OnDisc(int);
+  srs_error_t OnRead(MessageChain*) override;
+  srs_error_t OnWrite() override;
+  void OnDisconnect(srs_error_t) override;
 
   srs_error_t Write(MessageChain*);
   int64_t GetRecvBytes() {

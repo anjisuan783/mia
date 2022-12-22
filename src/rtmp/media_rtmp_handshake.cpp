@@ -6,6 +6,7 @@
 
 #include "rtmp/media_rtmp_handshake.h"
 
+#include <iostream>
 #include <openssl/hmac.h>
 #include <openssl/dh.h>
 #include <openssl/evp.h>
@@ -1616,16 +1617,15 @@ srs_error_t SimpleRtmpHandshake::OnServerAck(
   return err;
 }
 
-void MediaRtmpHandshake::OnWrite() {
-  assert(false);
+srs_error_t MediaRtmpHandshake::OnWrite() {
+  return nullptr;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 //ComplexRtmpHandshake
 ////////////////////////////////////////////////////////////////////////////////
 srs_error_t ComplexRtmpHandshake::ServerHandshakeWithClient(
-    HandshakeHelper* helper, MessageChain* msg, 
-    RtmpBufferIO* sender) {
+    HandshakeHelper* helper, MessageChain* msg, RtmpBufferIO* sender) {
   srs_error_t err = srs_success;
 
   if ((err = helper->Handlec0c1(msg)) != srs_success) {
@@ -1833,11 +1833,11 @@ uint32_t MediaRtmpHandshake::ProxyRealIp() {
   return helper_->proxy_real_ip;
 }
 
-void MediaRtmpHandshake::OnDisc(int reason) {
-  SignalHandshakefailed_(reason);
+void MediaRtmpHandshake::OnDisc(srs_error_t reason) {
+  SignalHandshakefailed_(srs_error_wrap(reason, "peer disconnect"));
 }
 
-void MediaRtmpHandshakeS::OnRead(MessageChain* msg) {
+srs_error_t MediaRtmpHandshakeS::OnRead(MessageChain* msg) {
   srs_error_t err = srs_success;
 
   if (!read_buffer_) {
@@ -1849,26 +1849,23 @@ void MediaRtmpHandshakeS::OnRead(MessageChain* msg) {
   if (waiting_ack_) {
     // checking c2 has been arrived.
     if (read_buffer_->GetChainedLength() < HANDSHAKE_ACK_SIZE)
-      return ;
+      return err;
 
     err = handshake_->OnClientAck(helper_.get(), read_buffer_);
     if (srs_success != err) {
-      MLOG_ERROR("handshake failed desc:" << srs_error_desc(err));
-      SignalHandshakefailed_(srs_error_code(err));
-      delete err;
+      err = srs_error_new(srs_error_code(err), "handshake failed.");
     } else {
       // maybe app data arrived
-
       read_buffer_ = read_buffer_->ReclaimGarbage();
       SignalHandshakeDone_(helper_->proxy_real_ip, 
           read_buffer_, std::move(sender_));
     }
-    return ;
+    return err;
   }
 
   // server mode, at least c0 received
   if (read_buffer_->GetChainedLength() < HANDSHAKE_REQUEST_SIZE) {
-    return ;
+    return err;
   }
 
   read_buffer_->SaveChainedReadPtr();
@@ -1887,15 +1884,16 @@ void MediaRtmpHandshakeS::OnRead(MessageChain* msg) {
 
   if (srs_success != err) {
     if (ERROR_SOCKET_WOULD_BLOCK != srs_error_code(err)) {
-      SignalHandshakefailed_(srs_error_code(err));
-      MLOG_ERROR("handshake failed, desc:" << srs_error_desc(err));
+      return err;
+    } else {
       delete err;
-      return ;
+      err = srs_success;
     }
   }
 
   waiting_ack_ = true;
-  read_buffer_ = read_buffer_->ReclaimGarbage();
+  //read_buffer_ = read_buffer_->ReclaimGarbage();
+  return err;
 }
 
 //MediaRtmpHandshakeC
@@ -1906,8 +1904,9 @@ srs_error_t MediaRtmpHandshakeC::Start(std::shared_ptr<IMediaIO> io) {
       helper_.get(), sender_.get());
 }
 
-void MediaRtmpHandshakeC::OnRead(MessageChain*) {
-
+srs_error_t MediaRtmpHandshakeC::OnRead(MessageChain*) {
+  srs_error_t err = srs_success;
+  return err;
 }
 
 } //namespace ma

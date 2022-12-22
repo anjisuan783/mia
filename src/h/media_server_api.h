@@ -33,6 +33,11 @@ class MediaServerApi {
     JitterAlgorithm jitter_algo_{JitterAlgorithmZERO};
     bool mix_correct_{false};           // fix live timestamp by map
  
+    // for rtmp
+    int out_ack_size_{2500000};
+    int in_ack_size_{0};
+    int chunk_size_{60000};
+
     //for rtc
     uint32_t rtc_workers_{1};
     std::vector<std::string> candidates_;  // candidates [ip]

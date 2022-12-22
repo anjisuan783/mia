@@ -10,18 +10,26 @@
 
 namespace ma {
 
+class IMediaIOSink;
+
 class IMediaIO {
  public:
   virtual ~IMediaIO() = default;
 
-  virtual void Open() = 0;
+  virtual void Open(IMediaIOSink*) = 0;
   virtual void Close() = 0;
-
+  virtual std::string GetLocalAddress() const = 0;
+  virtual std::string GetRemoteAddress() const = 0;
   virtual srs_error_t Write(MessageChain* data, int* sent) = 0;
+};
 
-  sigslot::signal1<MessageChain*> SignalOnRead_;
-  sigslot::signal0<> SignalOnWrite_;
-  sigslot::signal1<int> SignalOnDisct_;
+class IMediaIOSink {
+ public:
+  virtual srs_error_t OnRead(MessageChain*) = 0;
+  virtual srs_error_t OnWrite() = 0;
+  virtual void OnDisconnect(srs_error_t) = 0;
+
+  virtual ~IMediaIOSink() = default;
 };
 
 class IMediaIOBaseFactory {

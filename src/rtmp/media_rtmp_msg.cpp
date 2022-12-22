@@ -1,6 +1,29 @@
+/**
+ * The MIT License (MIT)
+ *
+ * Copyright (c) 2013-2020 Winlin
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy of
+ * this software and associated documentation files (the "Software"), to deal in
+ * the Software without restriction, including without limitation the rights to
+ * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+ * the Software, and to permit persons to whom the Software is furnished to do so,
+ * subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+ * FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+ * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+ * IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ */
+
 #include "media_rtmp_msg.h"
 
-#include "common/media_performance.h"
+#include "common/media_consts.h"
 #include "common/media_log.h"
 #include "utils/media_serializer_T.h"
 #include "connection/h/media_io.h"
@@ -27,47 +50,9 @@ namespace ma {
 
 
 
-/****************************************************************************
- *****************************************************************************
-****************************************************************************/
-/**
- * 6.1.2. Chunk Message Header
- * There are four different formats for the chunk message header,
- * selected by the "fmt" field in the chunk basic header.
- */
-// 6.1.2.1. Type 0
-// Chunks of Type 0 are 11 bytes long. This type MUST be used at the
-// start of a chunk stream, and whenever the stream timestamp goes
-// backward (e.g., because of a backward seek).
 #define RTMP_FMT_TYPE0                          0
-// 6.1.2.2. Type 1
-// Chunks of Type 1 are 7 bytes long. The message stream ID is not
-// included; this chunk takes the same stream ID as the preceding chunk.
-// Streams with variable-sized messages (for example, many video
-// formats) SHOULD use this format for the first chunk of each new
-// message after the first.
 #define RTMP_FMT_TYPE1                          1
-// 6.1.2.3. Type 2
-// Chunks of Type 2 are 3 bytes long. Neither the stream ID nor the
-// message length is included; this chunk has the same stream ID and
-// message length as the preceding chunk. Streams with constant-sized
-// messages (for example, some audio and data formats) SHOULD use this
-// format for the first chunk of each message after the first.
 #define RTMP_FMT_TYPE2                          2
-// 6.1.2.4. Type 3
-// Chunks of Type 3 have no header. Stream ID, message length and
-// timestamp delta are not present; chunks of this type take values from
-// the preceding chunk. When a single message is split into chunks, all
-// chunks of a message except the first one, SHOULD use this type. Refer
-// to example 2 in section 6.2.2. Stream consisting of messages of
-// exactly the same size, stream ID and spacing in time SHOULD use this
-// type for all chunks after chunk of Type 2. Refer to example 1 in
-// section 6.2.1. If the delta between the first message and the second
-// message is same as the time stamp of first message, then chunk of
-// type 3 would immediately follow the chunk of type 0 as there is no
-// need for a chunk of type 2 to register the delta. If Type 3 chunk
-// follows a Type 0 chunk, then timestamp delta for this Type 3 chunk is
-// the same as the timestamp of Type 0 chunk.
 #define RTMP_FMT_TYPE3                          3
 
 /**
@@ -98,9 +83,7 @@ namespace ma {
 #define SRS_BW_CHECK_PLAYING                    "onSrsBandCheckPlaying"
 #define SRS_BW_CHECK_PUBLISHING                 "onSrsBandCheckPublishing"
 
-/****************************************************************************
- *****************************************************************************
-****************************************************************************/
+
 static log4cxx::LoggerPtr logger = log4cxx::Logger::getLogger("ma.rtmp");
 
 static char mh_sizes[] = {11, 7, 3, 0};
@@ -116,8 +99,6 @@ RtmpProtocal::RtmpProtocal() {
     cs->header.perfer_cid = cid;
     cs_cache_[cid] = cs;
   }
-
-  out_c0c3_caches_ = new char[SRS_CONSTS_C0C3_HEADERS_MAX];
 }
 
 RtmpProtocal::~RtmpProtocal() {
@@ -139,16 +120,17 @@ RtmpProtocal::~RtmpProtocal() {
   }
 }
 
-void RtmpProtocal::Open(std::shared_ptr<RtmpBufferIO> io) {
+void RtmpProtocal::Open(std::shared_ptr<RtmpBufferIO> io, RtmpProtocalSink* sink) {
   io_ = std::move(io);
   io_->SetSink(this);
+  sink_ = sink;
 }
 
 void RtmpProtocal::Close() {
   io_ = nullptr;
 }
 
-void RtmpProtocal::OnRead(MessageChain* msg) {
+srs_error_t RtmpProtocal::OnRead(MessageChain* msg) {
   if (read_buffer_) {
     read_buffer_->Append(msg->DuplicateChained());
   } else {
@@ -156,68 +138,87 @@ void RtmpProtocal::OnRead(MessageChain* msg) {
   }
 
   srs_error_t err = srs_success;
-  std::shared_ptr<MediaMessage> parsed_msg; 
-  if (srs_success == (err = ParseMsg(parsed_msg))) {
-  } else {
-    if (ERROR_RTMP_MSG_INVALID_SIZE != srs_error_code(err)) {
-      MLOG_ERROR("ProcessMsg desc:" << srs_error_desc(err));
+  while(read_buffer_ && read_buffer_->GetChainedLength() != 0) {
+    std::shared_ptr<MediaMessage> parsed_msg;
+    if (srs_success != (err = ParseMsg(parsed_msg))) {
+      if (srs_error_code(err) == ERROR_RTMP_MSG_INVALID_SIZE) {
+        delete err;
+        err = srs_success;
+      }
+      break;
     }
-    delete err;
+
+    if (parsed_msg) {
+      if (parsed_msg->header_.is_ackledgement() || 
+          parsed_msg->header_.is_set_chunk_size() || 
+          parsed_msg->header_.is_window_ackledgement_size() || 
+          parsed_msg->header_.is_user_control_message()) {
+        InternalProcessMessage(parsed_msg.get());
+        continue;
+      }
+      err = sink_->OnPacket(std::move(parsed_msg));
+    }
   }
 
-  if (parsed_msg) {
-    InternalProcessMessage(parsed_msg.get());
-    SignalOnPkt_(std::move(parsed_msg));
-  }
+  if(read_buffer_ && read_buffer_->GetChainedLength() == 0) {
+		read_buffer_->DestroyChained();
+		read_buffer_ = nullptr;
+	}
+
+  return err;
 }
 
 srs_error_t RtmpProtocal::ParseMsg(std::shared_ptr<MediaMessage>& out) {
-  char fmt = 0;
-  int cid = 0;
-  bool err = ReadBasicHeader(fmt, cid);
+  RtmpChunkStream*& chunk = current_chunk_;
+  if (!chunk) {
+    read_buffer_->SaveChainedReadPtr();
+    char fmt = 0;
+    int cid = 0;
+    bool err = ReadBasicHeader(fmt, cid);
 
-  if (!err) {
-    return srs_error_new(ERROR_RTMP_MSG_INVALID_SIZE, "read basic header");
-  }
+    if (!err) {
+      // not enough data
+      read_buffer_->RewindChained(true);
+      return srs_error_new(ERROR_RTMP_MSG_INVALID_SIZE, "read basic header");
+    }
 
-  // the cid must not negative.
-  MA_ASSERT(cid >= 0);
+    // the cid must not negative.
+    MA_ASSERT(cid >= 0);
 
-  // ensure there's enough message for ReadMessageHeader
-  uint32_t len = read_buffer_->GetChainedLength();
-  if ((int)len < (int)mh_sizes[(int)fmt]) {
-    return srs_error_new(ERROR_RTMP_MSG_INVALID_SIZE, "read message header");
-  }
-  int32_t ts = 0;
-  read_buffer_->Peek(&ts, 3);
+    // ensure there's enough message for ReadMessageHeader
+    uint32_t len = read_buffer_->GetChainedLength();
+    if ((int)len < (int)mh_sizes[(int)fmt]) {
+      read_buffer_->RewindChained(true);
+      return srs_error_new(ERROR_RTMP_MSG_INVALID_SIZE, "read message header");
+    }
+    int32_t ts = 0;
+    read_buffer_->Peek(&ts, 3);
 
-  if (ts == 0xffffff && (int)len < (int)mh_sizes[(int)fmt] + 3) {
-    return srs_error_new(ERROR_RTMP_MSG_INVALID_SIZE, "read message header");
-  }
-  
-  // get the cached chunk stream.
-  RtmpChunkStream* chunk = nullptr;
-  // use chunk stream cache to get the chunk info.
-  if (cid < SRS_PERF_CHUNK_STREAM_CACHE) {
-    chunk = cs_cache_[cid];
-  } else {
-    // chunk stream cache miss, use map.
-    if (chunk_streams_.find(cid) == chunk_streams_.end()) {
-      chunk = chunk_streams_[cid] = new RtmpChunkStream(cid);
-      // set the perfer cid of chunk,
-      // which will copy to the message received.
-      chunk->header.perfer_cid = cid;
+    // check ReadMessageHeader length when extern timestamp enabled
+    if ((int)fmt < RTMP_FMT_TYPE3 && ts == 0xffffff && (int)len < (int)mh_sizes[(int)fmt] + 4) {
+      read_buffer_->RewindChained(true);
+      return srs_error_new(ERROR_RTMP_MSG_INVALID_SIZE, "read message header");
+    }
+    
+    // get the cached chunk stream.
+    if (cid < SRS_PERF_CHUNK_STREAM_CACHE) {
+      chunk = cs_cache_[cid];
     } else {
-      chunk = chunk_streams_[cid];
+      if (chunk_streams_.find(cid) == chunk_streams_.end()) {
+        chunk = chunk_streams_[cid] = new RtmpChunkStream(cid);
+        chunk->header.perfer_cid = cid;
+      } else {
+        chunk = chunk_streams_[cid];
+      }
     }
-  }
 
-  // chunk stream message header
-  if (true) {
-    srs_error_t err = srs_success;
-    if ((err = ReadMessageHeader(chunk, fmt)) != srs_success) {
-      return srs_error_wrap(err, "read message header");
-    }
+    // chunk stream message header
+    do {
+      srs_error_t err = srs_success;
+      if ((err = ReadMessageHeader(chunk, fmt)) != srs_success) {
+        return srs_error_wrap(err, "read message header");
+      }
+    } while(false);
   }
   
   // read msg payload from chunk stream.
@@ -227,6 +228,9 @@ srs_error_t RtmpProtocal::ParseMsg(std::shared_ptr<MediaMessage>& out) {
   if (!msg_opt) {
     return srs_error_new(ERROR_RTMP_MSG_INVALID_SIZE, "read message chunk");
   }
+
+  chunk = nullptr;
+
   auto msg = std::move(*msg_opt);
   if (msg->size_ <= 0 || msg->header_.payload_length <= 0) {
     MLOG_CTRACE("ignore empty message"
@@ -240,8 +244,9 @@ srs_error_t RtmpProtocal::ParseMsg(std::shared_ptr<MediaMessage>& out) {
   return srs_success;
 }
 
-void RtmpProtocal::SetInWinAckSize(int ack_size) {
+srs_error_t RtmpProtocal::SetInWinAckSize(int ack_size) {
   in_ack_size_.window = ack_size;
+  return srs_success;
 }
 
 srs_error_t RtmpProtocal::DecodeMessage(
@@ -249,13 +254,15 @@ srs_error_t RtmpProtocal::DecodeMessage(
   srs_error_t err = srs_success;
   
   srs_assert(msg != nullptr);
-  srs_assert(msg->payload != nullptr);
-  srs_assert(msg->size > 0);
+  srs_assert(msg->payload_ != nullptr);
+  srs_assert(msg->size_ > 0);
   
   RtmpPacket* packet = nullptr;
   MessageHeader& header = msg->header_;
-  MediaStreamLE stream_helper(*(msg->payload_));
+  MediaStreamBE stream_helper(*(msg->payload_));
   SrsBuffer* stream = dynamic_cast<SrsBuffer*>(&stream_helper);
+
+  msg->payload_->SaveChainedReadPtr();
 
   // decode specified packet type
   if (header.is_amf0_command() || 
@@ -283,7 +290,7 @@ srs_error_t RtmpProtocal::DecodeMessage(
       }
       
       // reset stream, for header read completed.
-      stream->skip(-1 * stream->pos());
+      msg->payload_->RewindChained(true);
       if (header.is_amf3_command()) {
         stream->skip(1);
       }
@@ -318,7 +325,7 @@ srs_error_t RtmpProtocal::DecodeMessage(
     }
     
     // reset to zero(amf3 to 1) to restart decode.
-    stream->skip(-1 * stream->pos());
+    msg->payload_->RewindChained(true);
     if (header.is_amf3_command()) {
       stream->skip(1);
     }
@@ -461,7 +468,7 @@ srs_error_t RtmpProtocal::SendWithBuffer(std::shared_ptr<MediaMessage> msg) {
       first = false;
     
     // header
-    MessageChain chunk_header(nbh, c0c3_cache, MessageChain::DONT_DELETE);
+    MessageChain chunk_header(nbh, c0c3_cache, MessageChain::DONT_DELETE, nbh);
     MessageChain* pchunk_header = chunk_header.DuplicateChained();
     
     // payload
@@ -482,9 +489,8 @@ srs_error_t RtmpProtocal::SendWithBuffer(std::shared_ptr<MediaMessage> msg) {
       break;
   }
   MA_ASSERT(left == nullptr);
+  MLOG_CTRACE("packet len=%d", head->GetChainedLength());
   if ((err = TrySend(head, true)) != srs_success) {
-    head->DestroyChained();
-    // io error, connection is disconnected.
     return srs_error_wrap(err, "try send");
   }
 
@@ -537,11 +543,11 @@ srs_error_t RtmpProtocal::TrySend(MessageChain* msg, bool cache) {
   return err;
 }
 
-void RtmpProtocal::OnWrite() {
-  TrySend(nullptr, false);
+srs_error_t RtmpProtocal::OnWrite() {
+  return TrySend(nullptr, false);
 }
 
-void RtmpProtocal::OnDisc(int) {
+void RtmpProtocal::OnDisc(srs_error_t) {
 
 }
 
@@ -631,56 +637,15 @@ bool RtmpProtocal::ReadBasicHeader(char& fmt, int& cid) {
   return true;
 }
 
-/**
- * parse the message header.
- *   3bytes: timestamp delta,    fmt=0,1,2
- *   3bytes: payload length,     fmt=0,1
- *   1bytes: message type,       fmt=0,1
- *   4bytes: stream id,          fmt=0
- * where:
- *   fmt=0, 0x0X
- *   fmt=1, 0x4X
- *   fmt=2, 0x8X
- *   fmt=3, 0xCX
- */
+
 srs_error_t RtmpProtocal::ReadMessageHeader(RtmpChunkStream* chunk, char fmt) {
   srs_error_t err = srs_success;
-  
-  /**
-   * we should not assert anything about fmt, for the first packet.
-   * (when first packet, the chunk->msg is NULL).
-   * the fmt maybe 0/1/2/3, the FMLE will send a 0xC4 for some audio packet.
-   * the previous packet is:
-   *     04                // fmt=0, cid=4
-   *     00 00 1a          // timestamp=26
-   *     00 00 9d          // payload_length=157
-   *     08                // message_type=8(audio)
-   *     01 00 00 00       // stream_id=1
-   * the current packet maybe:
-   *     c4             // fmt=3, cid=4
-   * it's ok, for the packet is audio, and timestamp delta is 26.
-   * the current packet must be parsed as:
-   *     fmt=0, cid=4
-   *     timestamp=26+26=52
-   *     payload_length=157
-   *     message_type=8(audio)
-   *     stream_id=1
-   * so we must update the timestamp even fmt=3 for first packet.
-   */
-  // fresh packet used to update the timestamp even fmt=3 for first packet.
-  // fresh packet always means the chunk is the first one of message.
+  //when first packet, the chunk->msg is NULL).
   bool is_first_chunk_of_msg = !chunk->msg;
   
   // but, we can ensure that when a chunk stream is fresh,
   // the fmt must be 0, a new stream.
   if (chunk->msg_count == 0 && fmt != RTMP_FMT_TYPE0) {
-    // for librtmp, if ping, it will send a fresh stream with fmt=1,
-    // 0x42             where: fmt=1, cid=2, protocol contorl user-control message
-    // 0x00 0x00 0x00   where: timestamp=0
-    // 0x00 0x00 0x06   where: payload_length=6
-    // 0x04             where: message_type=4(protocol control user-control message)
-    // 0x00 0x06            where: event Ping(0x06)
-    // 0x00 0x00 0x0d 0x0f  where: event data 4bytes ping timestamp.
     if (fmt == RTMP_FMT_TYPE1) {
       MLOG_WARN("fresh chunk starts with fmt=1");
     } else {
@@ -707,22 +672,10 @@ srs_error_t RtmpProtocal::ReadMessageHeader(RtmpChunkStream* chunk, char fmt) {
   char bytes[15];
   int ret = read_buffer_->Read(bytes, mh_size);
   if (mh_size > 0 && (MessageChain::error_part_data == ret)) {
-    return srs_error_wrap(err, "read %d bytes message header", mh_size);
+    // never reach here
+    MA_ASSERT(false);
   }
   
-  /**
-   * parse the message header.
-   *   3bytes: timestamp delta,    fmt=0,1,2
-   *   3bytes: payload length,     fmt=0,1
-   *   1bytes: message type,       fmt=0,1
-   *   4bytes: stream id,          fmt=0
-   * where:
-   *   fmt=0, 0x0X
-   *   fmt=1, 0x4X
-   *   fmt=2, 0x8X
-   *   fmt=3, 0xCX
-   */
-  // see also: ngx_rtmp_recv
   if (fmt <= RTMP_FMT_TYPE2) {
     char* p = bytes;
     char* pp = (char*)&chunk->header.timestamp_delta;
@@ -731,40 +684,12 @@ srs_error_t RtmpProtocal::ReadMessageHeader(RtmpChunkStream* chunk, char fmt) {
     pp[0] = *p++;
     pp[3] = 0;
     
-    // fmt: 0
-    // timestamp: 3 bytes
-    // If the timestamp is greater than or equal to 16777215
-    // (hexadecimal 0x00ffffff), this value MUST be 16777215, and the
-    // 'extended timestamp header' MUST be present. Otherwise, this value
-    // SHOULD be the entire timestamp.
-    //
-    // fmt: 1 or 2
-    // timestamp delta: 3 bytes
-    // If the delta is greater than or equal to 16777215 (hexadecimal
-    // 0x00ffffff), this value MUST be 16777215, and the 'extended
-    // timestamp header' MUST be present. Otherwise, this value SHOULD be
-    // the entire delta.
     chunk->extended_timestamp = 
         (chunk->header.timestamp_delta >= RTMP_EXTENDED_TIMESTAMP);
     if (!chunk->extended_timestamp) {
-      // Extended timestamp: 0 or 4 bytes
-      // This field MUST be sent when the normal timsestamp is set to
-      // 0xffffff, it MUST NOT be sent if the normal timestamp is set to
-      // anything else. So for values less than 0xffffff the normal
-      // timestamp field SHOULD be used in which case the extended timestamp
-      // MUST NOT be present. For values greater than or equal to 0xffffff
-      // the normal timestamp field MUST NOT be used and MUST be set to
-      // 0xffffff and the extended timestamp MUST be sent.
-      if (fmt == RTMP_FMT_TYPE0) {
-        // 6.1.2.1. Type 0
-        // For a type-0 chunk, the absolute timestamp of the message is sent
-        // here.
+      if (RTMP_FMT_TYPE0 == fmt) {
         chunk->header.timestamp = chunk->header.timestamp_delta;
       } else {
-        // 6.1.2.2. Type 1
-        // 6.1.2.3. Type 2
-        // For a type-1 or type-2 chunk, the difference between the previous
-        // chunk's timestamp and the current chunk's timestamp is sent here.
         chunk->header.timestamp += chunk->header.timestamp_delta;
       }
     }
@@ -777,10 +702,7 @@ srs_error_t RtmpProtocal::ReadMessageHeader(RtmpChunkStream* chunk, char fmt) {
       pp[0] = *p++;
       pp[3] = 0;
       
-      // for a message, if msg exists in cache, the size must not changed.
-      // always use the actual msg size to compare, for the cache payload length can changed,
-      // for the fmt type1(stream_id not changed), user can change the payload
-      // length(it's not allowed in the continue chunks).
+      // check message length of fmt 0 and fmt 1
       if (!is_first_chunk_of_msg && 
           chunk->header.payload_length != payload_length) {
         return srs_error_new(ERROR_RTMP_PACKET_SIZE, 
@@ -810,11 +732,8 @@ srs_error_t RtmpProtocal::ReadMessageHeader(RtmpChunkStream* chunk, char fmt) {
   if (chunk->extended_timestamp) {
     mh_size += 4;
     ret = read_buffer_->Peek(bytes, 4);
-    if (MessageChain::error_part_data == ret) {
-      return srs_error_wrap(err, "read 4 bytes ext timestamp");
-    }
-    // the ptr to the slice maybe invalid when grow()
-    // reset the p to get 4bytes slice.
+    MA_ASSERT(MessageChain::error_part_data == ret);
+
     char* p = bytes;
     
     uint32_t timestamp = 0x00;
@@ -827,66 +746,28 @@ srs_error_t RtmpProtocal::ReadMessageHeader(RtmpChunkStream* chunk, char fmt) {
     // always use 31bits timestamp, for some server may use 32bits extended timestamp.
     timestamp &= 0x7fffffff;
     
-    /**
-     * RTMP specification and ffmpeg/librtmp is false,
-     * but, adobe changed the specification, so flash/FMLE/FMS always true.
-     * default to true to support flash/FMLE/FMS.
-     *
-     * ffmpeg/librtmp may donot send this filed, need to detect the value.
-     * @see also: http://blog.csdn.net/win_lin/article/details/13363699
-     * compare to the chunk timestamp, which is set by chunk message header
-     * type 0,1 or 2.
-     *
-     * @remark, nginx send the extended-timestamp in sequence-header,
-     * and timestamp delta in continue C1 chunks, and so compatible with ffmpeg,
-     * that is, there is no continue chunks and extended-timestamp in nginx-rtmp.
-     *
-     * @remark, srs always send the extended-timestamp, to keep simple,
-     * and compatible with adobe products.
-     */
     uint32_t chunk_timestamp = (uint32_t)chunk->header.timestamp;
     
-    /**
-     * if chunk_timestamp<=0, the chunk previous packet has no extended-timestamp,
-     * always use the extended timestamp.
-     */
-    /**
-     * about the is_first_chunk_of_msg.
-     * @remark, for the first chunk of message, always use the extended timestamp.
-     */
     if (!is_first_chunk_of_msg && chunk_timestamp > 0 && 
         chunk_timestamp != timestamp) {
       mh_size -= 4;
     } else {
+      /**
+       * about the is_first_chunk_of_msg.
+       * @remark, for the first chunk of message, always use the extended timestamp.
+       */
+      /**
+       * if chunk_timestamp<=0, the chunk previous packet has no extended-timestamp,
+       * always use the extended timestamp.
+       */
       chunk->header.timestamp = timestamp;
       read_buffer_->AdvanceChainedReadPtr(4);
     }
   }
   
-  // the extended-timestamp must be unsigned-int,
-  //         24bits timestamp: 0xffffff = 16777215ms = 16777.215s = 4.66h
-  //         32bits timestamp: 0xffffffff = 4294967295ms = 4294967.295s = 1193.046h = 49.71d
-  // because the rtmp protocol says the 32bits timestamp is about "50 days":
-  //         3. Byte Order, Alignment, and Time Format
-  //                Because timestamps are generally only 32 bits long, they will roll
-  //                over after fewer than 50 days.
-  //
-  // but, its sample says the timestamp is 31bits:
-  //         An application could assume, for example, that all
-  //        adjacent timestamps are within 2^31 milliseconds of each other, so
-  //        10000 comes after 4000000000, while 3000000000 comes before
-  //        4000000000.
-  // and flv specification says timestamp is 31bits:
-  //        Extension of the Timestamp field to form a SI32 value. This
-  //        field represents the upper 8 bits, while the previous
-  //        Timestamp field represents the lower 24 bits of the time in
-  //        milliseconds.
-  // in a word, 31bits timestamp is ok.
-  // convert extended timestamp to 31bits.
   chunk->header.timestamp &= 0x7fffffff;
   
-  // valid message, the payload_length is 24bits,
-  // so it should never be negative.
+  // valid message, the payload_length is 24bits, so it should never be negative.
   MA_ASSERT(chunk->header.payload_length >= 0);
   
   // copy header to msg
@@ -982,17 +863,6 @@ srs_error_t RtmpProtocal::InternalProcessMessage(MediaMessage* msg) {
       RtmpSetChunkSizePacket* pkt = 
           dynamic_cast<RtmpSetChunkSizePacket*>(packet);
       
-      // for some server, the actual chunk size can greater than the max value(65536),
-      // so we just warning the invalid chunk size, and actually use it is ok,
-      // @see: https://github.com/ossrs/srs/issues/160
-      if (pkt->chunk_size < SRS_CONSTS_RTMP_MIN_CHUNK_SIZE || 
-          pkt->chunk_size > SRS_CONSTS_RTMP_MAX_CHUNK_SIZE) {
-        MLOG_CWARN("accept chunk=%d, should in [%d, %d], please see #160",
-            pkt->chunk_size, SRS_CONSTS_RTMP_MIN_CHUNK_SIZE,
-            SRS_CONSTS_RTMP_MAX_CHUNK_SIZE);
-      }
-      
-      // @see: https://github.com/ossrs/srs/issues/541
       if (pkt->chunk_size < SRS_CONSTS_RTMP_MIN_CHUNK_SIZE) {
         return srs_error_new(ERROR_RTMP_CHUNK_SIZE, 
             "chunk size should be %d+, value=%d", 
@@ -1000,6 +870,7 @@ srs_error_t RtmpProtocal::InternalProcessMessage(MediaMessage* msg) {
       }
       
       in_chunk_size_ = pkt->chunk_size;
+      MLOG_TRACE("set chunk size " << in_chunk_size_);
       break;
     }
     case RTMP_MSG_UserControlMessage: {
@@ -1140,6 +1011,7 @@ srs_error_t RtmpPacket::to_msg(MediaMessage* msg, int stream_id) {
   if ((err = encode_packet(&stream)) != srs_success) {
     return srs_error_wrap(err, "serialize packet");
   }
+  mb.AdvanceChainedWritePtr(size);
 
   // to message
   MessageHeader header;

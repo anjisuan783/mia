@@ -38,12 +38,12 @@ class MediaRtmpHandshake : public RtmpBufferIOSink {
   uint32_t ProxyRealIp();
   
   //RtmpBufferIOSink
-  void OnWrite() override;
-  void OnDisc(int reason) override;
+  srs_error_t OnWrite() override;
+  void OnDisc(srs_error_t reason) override;
 
   sigslot::signal3<uint32_t, MessageChain*, std::shared_ptr<RtmpBufferIO>>
       SignalHandshakeDone_;
-  sigslot::signal1<int> SignalHandshakefailed_;
+  sigslot::signal1<srs_error_t> SignalHandshakefailed_;
  protected:
   std::shared_ptr<RtmpBufferIO> sender_;
   MessageChain* read_buffer_ = nullptr;
@@ -55,7 +55,7 @@ class MediaRtmpHandshake : public RtmpBufferIOSink {
 class MediaRtmpHandshakeS : public MediaRtmpHandshake {
  public:
   //RtmpBufferIOSink
-  void OnRead(MessageChain*) override;
+  srs_error_t OnRead(MessageChain*) override;
 };
 
 class MediaRtmpHandshakeC : public MediaRtmpHandshake {
@@ -63,7 +63,7 @@ class MediaRtmpHandshakeC : public MediaRtmpHandshake {
   srs_error_t Start(std::shared_ptr<IMediaIO> io) override;
 
   //RtmpBufferIOSink
-  void OnRead(MessageChain*) override;
+  srs_error_t OnRead(MessageChain*) override;
 };
 
 } //namespace ma

@@ -1,3 +1,26 @@
+/**
+ * The MIT License (MIT)
+ *
+ * Copyright (c) 2013-2020 Winlin
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy of
+ * this software and associated documentation files (the "Software"), to deal in
+ * the Software without restriction, including without limitation the rights to
+ * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+ * the Software, and to permit persons to whom the Software is furnished to do so,
+ * subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+ * FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+ * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+ * IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ */
+
 #ifndef __MEDIA_RTMP_MESSAGE_H__
 #define __MEDIA_RTMP_MESSAGE_H__
 
@@ -20,6 +43,15 @@ class MessageChain;
 class RtmpChunkStream;
 class RtmpPacket;
 
+
+class RtmpProtocalSink {
+ public:
+  virtual ~RtmpProtocalSink() = default;
+
+  // packet notifier
+  virtual srs_error_t OnPacket(std::shared_ptr<MediaMessage>) = 0;
+};
+
 // The protocol provides the rtmp-message-protocol services,
 // To recv RTMP message from RTMP chunk stream,
 // and to send out RTMP message over RTMP chunk stream.
@@ -28,18 +60,15 @@ class RtmpProtocal final : public RtmpBufferIOSink {
   RtmpProtocal();
   ~RtmpProtocal() override;
 
-  void Open(std::shared_ptr<RtmpBufferIO>);
+  void Open(std::shared_ptr<RtmpBufferIO>, RtmpProtocalSink*);
   void Close();
   srs_error_t Write(RtmpPacket*, int streamid);
-  void OnRead(MessageChain*) override;
-  void OnWrite() override;
-  void OnDisc(int) override;
+  srs_error_t OnRead(MessageChain*) override;
+  srs_error_t OnWrite() override;
+  void OnDisc(srs_error_t) override;
 
-  void SetInWinAckSize(int ack_size);
+  srs_error_t SetInWinAckSize(int ack_size);
   srs_error_t DecodeMessage(MediaMessage* msg, RtmpPacket*& ppacket);
-  
-  // packet notifier
-  sigslot::signal1<std::shared_ptr<MediaMessage>> SignalOnPkt_;
 
 private:
   // parse chunk message
@@ -84,8 +113,12 @@ private:
     uint32_t sequence_number = 0;
   };
 
+  RtmpProtocalSink* sink_;
+
   std::shared_ptr<RtmpBufferIO> io_;
   MessageChain* read_buffer_ = nullptr;
+
+  RtmpChunkStream* current_chunk_ = nullptr;
 
   // The requests sent out, used to build the response.
   // key: transactionId
@@ -107,7 +140,7 @@ private:
   AckWindowSize out_ack_size_;
 
   // fixed size, do not change
-  char* out_c0c3_caches_;
+  char out_c0c3_caches_[SRS_CONSTS_C0C3_HEADERS_MAX];
 
   std::list<MessageChain*> send_list_;
 

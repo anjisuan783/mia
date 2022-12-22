@@ -9,7 +9,25 @@
 #ifndef SRS_KERNEL_CONSTS_HPP
 #define SRS_KERNEL_CONSTS_HPP
 
-//#include <srs_core.hpp>
+#include <chrono>
+
+#define SRS_PERF_MW_SLEEP 100 //ms
+
+/**
+ * how many msgs can be send entirely.
+ * for play clients to get msgs then totally send out.
+ * for the mw sleep set to 1800, the msgs is about 133.
+ * @remark, recomment to 128.
+ */
+constexpr int SRS_PERF_MW_MSGS = 10;
+
+/**
+ * how many chunk stream to cache, [0, N].
+ * to imporove about 10% performance when chunk size small, and 5% for large chunk.
+ * @see https://github.com/ossrs/srs/issues/249
+ * @remark 0 to disable the chunk stream cache.
+ */
+constexpr int SRS_PERF_CHUNK_STREAM_CACHE = 16;
 
 // Default port of rtmp
 #define SRS_CONSTS_RTMP_DEFAULT_PORT 1935
@@ -80,31 +98,9 @@
 // always use fmt0 as cache.
 #define SRS_CONSTS_RTMP_MAX_FMT3_HEADER_SIZE 5
 
-// For performance issue,
-// the iovs cache, @see https://github.com/ossrs/srs/issues/194
-// iovs cache for multiple messages for each connections.
-// suppose the chunk size is 64k, each message send in a chunk which needs only 2 iovec,
-// so the iovs max should be (SRS_PERF_MW_MSGS * 2)
-//
-// @remark, SRS will realloc when the iovs not enough.
+// For performance
 #define SRS_CONSTS_IOVS_MAX (SRS_PERF_MW_MSGS * 2)
-// For performance issue,
-// the c0c3 cache, @see https://github.com/ossrs/srs/issues/194
-// c0c3 cache for multiple messages for each connections.
-// each c0 <= 16byes, suppose the chunk size is 64k,
-// each message send in a chunk which needs only a c0 header,
-// so the c0c3 cache should be (SRS_PERF_MW_MSGS * 16)
-//
-// @remark, SRS will try another loop when c0c3 cache dry, for we cannot realloc it.
-//       so we use larger c0c3 cache, that is (SRS_PERF_MW_MSGS * 32)
 #define SRS_CONSTS_C0C3_HEADERS_MAX (SRS_PERF_MW_MSGS * 32)
-
-///////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////
 
 ///////////////////////////////////////////////////////////
 // SRS consts values

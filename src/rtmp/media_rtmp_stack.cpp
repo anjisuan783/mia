@@ -92,7 +92,12 @@ srs_error_t RtmpServerSide::Handshake(std::shared_ptr<IMediaIO> io) {
   
   if ((err = handshake_->Start(io)) != srs_success) {
     return srs_error_wrap(err, "server handshake start");
+    return err;
   }
+
+  handshake_->SignalHandshakeDone_.connect(this, &RtmpServerSide::HandshakeOk);
+  handshake_->SignalHandshakefailed_.connect(this, &RtmpServerSide::HandshakeFailed);
+
   return err;
 }
 
@@ -137,65 +142,63 @@ srs_error_t RtmpServerSide::ResponseConnect(
 void RtmpServerSide::HandshakeOk(uint32_t real_ip, 
     MessageChain* app_data, std::shared_ptr<RtmpBufferIO> sender) {
   state_ = RTMP_HANDSHAKE_DONE;
-  handshake_->SignalHandshakeDone_.disconnect(this);
-  handshake_->SignalHandshakefailed_.disconnect(this);
-  handshake_.reset(nullptr);
-
   real_ip_ = real_ip;
   protocol_.reset(new RtmpProtocal);
-  protocol_->Open(sender);
-  protocol_->SignalOnPkt_.connect(this, &RtmpServerSide::OnPacket);
+  protocol_->Open(sender, this);
 
   if (app_data)
     protocol_->OnRead(app_data);
 
   sender_ = std::move(sender);
-}
-
-void RtmpServerSide::HandshakeFailed() {
   handshake_->SignalHandshakeDone_.disconnect(this);
   handshake_->SignalHandshakefailed_.disconnect(this);
   handshake_.reset(nullptr);
 }
 
-void RtmpServerSide::OnPacket(std::shared_ptr<MediaMessage> msg) {
+void RtmpServerSide::HandshakeFailed(srs_error_t err) {
+  handshake_->SignalHandshakeDone_.disconnect(this);
+  handshake_->SignalHandshakefailed_.disconnect(this);
+  handshake_.reset(nullptr);
+}
+
+srs_error_t RtmpServerSide::OnPacket(std::shared_ptr<MediaMessage> msg) {
   if(state_ == RTMP_DISCONNECTED)
-    return ;
+    return srs_error_new(ERROR_SYSTEM_INVALID_STATE, "RtmpServerSide state:%d", state_);
+
+  srs_error_t err = srs_success;
 
   if (RTMP_PUBLISHING == state_) {
-    sink_->OnMessage(std::move(msg));
-    return ;
+    err = sink_->OnMessage(std::move(msg));
+    return err;
   }
 
   RtmpPacket* packet = nullptr;
 
-  srs_error_t err = protocol_->DecodeMessage(msg.get(), packet);
-  if (srs_success != err) {
-    MLOG_CWARN("decode RtmpPacket failed. desc:%s", srs_error_desc(err));
-    delete err;
-    return ;
+  if (srs_success != (err = protocol_->DecodeMessage(msg.get(), packet))) {
+    return err;
   }
 
   std::unique_ptr<RtmpPacket> packetGuard(packet);
 
   if (packet->get_message_type() != RTMP_MSG_AMF0CommandMessage) {
-    return ;
+    return srs_error_new(ERROR_RTMP_AMF0_INVALID, 
+        "invalid command:%d", packet->get_message_type());
   }
 
   if (RTMP_HANDSHAKE_DONE == state_) {
-    ConnectApp(packet);
+    err = OnConnectApp(packet);
   } else if (RTMP_CONNECT_DONE == state_) {
     MessageHeader& h = msg->header_;
     if (h.is_ackledgement() || 
         h.is_set_chunk_size() || 
         h.is_window_ackledgement_size() || 
         h.is_user_control_message()) {
-      return ;
+      return err;
     }
 
     if (!h.is_amf0_command() && !h.is_amf3_command()) {
       MLOG_CINFO("ignore message type=%#x", h.message_type);
-      return ;
+      return err;
     }
 
     int stream_id = 0;
@@ -204,21 +207,18 @@ void RtmpServerSide::OnPacket(std::shared_ptr<MediaMessage> msg) {
     srs_utime_t duration;
     err = IdentifyClient(packet, stream_id, type, stream_name, duration);
     if (srs_success != err) {
-      MLOG_CERROR("dentify client, desc:%s", srs_error_desc(err));
-      delete err;
+      return err;
     }
 
     if (RtmpConnUnknown != type) {
       sink_->OnClientInfo(type, stream_name, duration);
     }
   } else if (RTMP_PUBLISHING_PENDING == state_) {
-     if ((err = ProcessPushingPending(packet)) != srs_success) {
-       MLOG_CERROR("publish pending, desc:%s", srs_error_desc(err));
-       delete err;
-     }
+     err = ProcessPushingPending(packet);
   } else if (RTMP_REDIRECTING == state_) {
-    sink_->OnRedirect(true);
+    err = sink_->OnRedirect(true);
   }
+  return err;
 }
 
 srs_error_t RtmpServerSide::SetWinAckSize(int ack_size) {
@@ -231,8 +231,10 @@ srs_error_t RtmpServerSide::SetWinAckSize(int ack_size) {
   return err;
 }
 
-void RtmpServerSide::SetInWinAckSize(int ack_size) {
+srs_error_t RtmpServerSide::SetInWinAckSize(int ack_size) {
+  srs_error_t err = srs_success;
   protocol_->SetInWinAckSize(ack_size);
+  return err;
 }
 
 srs_error_t RtmpServerSide::SetPeerBandwidth(int bandwidth, int type) {
@@ -557,14 +559,12 @@ srs_error_t RtmpServerSide::FmleUnpublish(int stream_id, double unpublish_tid) {
   return err;
 }
 
-void RtmpServerSide::ConnectApp(RtmpPacket* packet) {
+srs_error_t RtmpServerSide::OnConnectApp(RtmpPacket* packet) {
   RtmpConnectAppPacket* pkt = dynamic_cast<RtmpConnectAppPacket*>(packet);
 
   RtmpAmf0Any* prop = pkt->command_object->ensure_property_string("tcUrl");
   if (nullptr == prop) {
-    sink_->OnConnect(nullptr, srs_error_new(ERROR_RTMP_REQ_CONNECT,
-        "invalid request without tcUrl"));
-    return ;
+    return srs_error_new(ERROR_RTMP_REQ_CONNECT, "invalid request without tcUrl");
   }
 
   auto req = std::make_shared<MediaRequest>();
@@ -592,7 +592,7 @@ void RtmpServerSide::ConnectApp(RtmpPacket* packet) {
   srs_discovery_tc_url(req->tcUrl, req->schema, req->host, 
       req->vhost, req->app, req->stream, req->port, req->param);
   req->strip();
-  sink_->OnConnect(std::move(req), srs_success);
+  return sink_->OnConnect(std::move(req));
 }
 
 srs_error_t RtmpServerSide::IdentifyClient(

@@ -385,10 +385,10 @@ srs_error_t RtmpAmf0Any::discovery(SrsBuffer* stream, RtmpAmf0Any** ppvalue) {
       return srs_error_new(ERROR_RTMP_AMF0_DECODE, "marker requires 1 only %d bytes", stream->left());
   }
   
+  stream->save_reader();
   char marker = stream->read_1bytes();
-  
   // backward the 1byte marker.
-  stream->skip(-1);
+  stream->restore_reader();
   
   switch (marker) {
       case RTMP_AMF0_String: {
@@ -1765,8 +1765,9 @@ srs_error_t srs_amf0_write_utf8(SrsBuffer* stream, string value) {
 bool srs_amf0_is_object_eof(SrsBuffer* stream)  {
   // detect the object-eof specially
   if (stream->require(3)) {
+    stream->save_reader();
     int32_t flag = stream->read_3bytes();
-    stream->skip(-3);
+    stream->restore_reader();
     
     return 0x09 == flag;
   }
