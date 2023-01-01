@@ -59,28 +59,20 @@ srs_error_t MediaTcpIO::Write(MessageChain* msg, int* sent) {
   }
 
   srs_error_t err = srs_success;
-  int isent = 0;
-  MessageChain* pnext = msg;
-  while (pnext) {
-    int msg_sent = 0;
-    uint32_t len = pnext->GetFirstMsgLength();
-    if (len != 0) {
-      const char* c_data = pnext->GetFirstMsgReadPtr();
-      MA_ASSERT(c_data + len == pnext->GetFirstMsgWritePtr());
-      err = Write_i(c_data, len, &msg_sent);
-      isent += msg_sent;
-      if (err != srs_success) {
-        //error occur, mybe would block
-        MA_ASSERT(srs_error_code(err) == ERROR_SOCKET_WOULD_BLOCK);
-        if (srs_error_code(err) == ERROR_SOCKET_WOULD_BLOCK) {
-        }
-        break;
-      }
+  std::string str_msg = msg->FlattenChained();
+
+  int msg_sent = 0;
+  size_t len = str_msg.length();
+  if (len != 0) {
+    const char* c_data = str_msg.c_str();
+    if ((err = Write_i(c_data, len, &msg_sent)) != srs_success) {
+      //error occur, mybe would block
+      MA_ASSERT(srs_error_code(err) == ERROR_SOCKET_WOULD_BLOCK);
     }
-    pnext = pnext->GetNext();
   }
+
   if (sent) {
-    *sent = isent;
+    *sent = msg_sent;
   }
   
   return err;

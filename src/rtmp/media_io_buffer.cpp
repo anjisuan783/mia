@@ -10,6 +10,7 @@ namespace ma {
 RtmpBufferIO::RtmpBufferIO(MediaIOPtr io, RtmpBufferIOSink* sink)
   : sink_(sink), io_(std::move(io)) {
   io_->Open(this);
+  max_buffer_length_ = 8 * 1024;
 }
 
 RtmpBufferIO::~RtmpBufferIO() {
@@ -24,22 +25,36 @@ void RtmpBufferIO::SetSink(RtmpBufferIOSink* sink) {
   sink_ = sink;
 }
 
+void RtmpBufferIO::SetMaxBuffer(int64_t s) {
+  max_buffer_length_ = s;
+}
+
 srs_error_t RtmpBufferIO::Write(MessageChain* msg) {
   srs_error_t err = srs_success;
   if (!msg) 
     return err;
 
-  MessageChain* pDup = msg->DuplicateChained();
+  uint32_t msg_length = msg->GetChainedLength();
+
+  if (nbufferd_ >= max_buffer_length_) {
+    return srs_error_new(ERROR_SOCKET_WOULD_BLOCK, "buffer too much %d", nbufferd_);
+  }
 
   // need OnWrite
   if (write_buffer_) {
-    write_buffer_->Append(pDup);
-    return srs_error_wrap(err, "would block");
+    write_buffer_->Append(msg->DuplicateChained());
+    nbufferd_ += msg_length;
+    return err;
   }
 
-  write_buffer_ = pDup;
+  int sent = 0;
+  err = io_->Write(msg, &sent);
+  if (err != srs_success) {
+    write_buffer_ = msg->Disjoint(sent);
+    nbufferd_ += msg_length - sent;
+  }
 
-  return TrySend();
+  return err;
 }
 
 srs_error_t RtmpBufferIO::OnRead(MessageChain* msg) {
@@ -50,7 +65,6 @@ srs_error_t RtmpBufferIO::OnRead(MessageChain* msg) {
 srs_error_t RtmpBufferIO::OnWrite() {
   srs_error_t err = srs_success;
   if ((err = TrySend()) == srs_success) {
-    err = sink_->OnWrite();
   }
 
   return err;
@@ -65,15 +79,15 @@ srs_error_t RtmpBufferIO::TrySend() {
   if (!write_buffer_) return srs_success; 
 
   int sent = 0;
-  srs_error_t ret = io_->Write(write_buffer_, &sent);
-  if (ret != srs_success) {
+  srs_error_t err = io_->Write(write_buffer_, &sent);
+  if (err != srs_success) {
     write_buffer_->AdvanceChainedReadPtr(sent);
   } else {
     write_buffer_->DestroyChained();
     write_buffer_ = nullptr;
   }
 
-  return ret;
+  return err;
 }
 
 }  //namespace ma

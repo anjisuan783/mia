@@ -16,7 +16,6 @@ class RtmpBufferIOSink {
  public:
   virtual ~RtmpBufferIOSink() = default;
   virtual srs_error_t OnRead(MessageChain*) = 0;
-  virtual srs_error_t OnWrite() = 0;
   virtual void OnDisc(srs_error_t) = 0;
 };
 
@@ -26,6 +25,8 @@ class RtmpBufferIO final : public IMediaIOSink {
   ~RtmpBufferIO();
   
   void SetSink(RtmpBufferIOSink*);
+
+  void SetMaxBuffer(int64_t);
 
   // MediaIO callback
   srs_error_t OnRead(MessageChain*) override;
@@ -43,7 +44,8 @@ class RtmpBufferIO final : public IMediaIOSink {
   RtmpBufferIOSink* sink_ = nullptr;
   MediaIOPtr io_;
   MessageChain* write_buffer_ = nullptr;
-
+  int64_t max_buffer_length_;
+  int64_t nbufferd_ = 0;
   int64_t nrecv_ = 0;
 };
 

@@ -162,7 +162,7 @@ void RtmpServerSide::HandshakeFailed(srs_error_t err) {
 }
 
 srs_error_t RtmpServerSide::OnPacket(std::shared_ptr<MediaMessage> msg) {
-  if(state_ == RTMP_DISCONNECTED)
+  if(RTMP_DISCONNECTED == state_)
     return srs_error_new(ERROR_SYSTEM_INVALID_STATE, "RtmpServerSide state:%d", state_);
 
   srs_error_t err = srs_success;
@@ -211,7 +211,7 @@ srs_error_t RtmpServerSide::OnPacket(std::shared_ptr<MediaMessage> msg) {
     }
 
     if (RtmpConnUnknown != type) {
-      sink_->OnClientInfo(type, stream_name, duration);
+      err = sink_->OnClientInfo(type, stream_name, duration);
     }
   } else if (RTMP_PUBLISHING_PENDING == state_) {
      err = ProcessPushingPending(packet);
@@ -490,8 +490,6 @@ srs_error_t RtmpServerSide::ProcessPushingPending(RtmpPacket* packet) {
     }
   }
 
-  state_ = RTMP_PUBLISHING;
-
   // publish
   if (dynamic_cast<RtmpPublishPacket*>(packet)) {
     // publish response onFCPublish(NetStream.Publish.Start)
@@ -518,6 +516,7 @@ srs_error_t RtmpServerSide::ProcessPushingPending(RtmpPacket* packet) {
         return srs_error_wrap(err, "send NetStream.Publish.Start");
       }
     }
+    state_ = RTMP_PUBLISHING;
   }
 
   return err;

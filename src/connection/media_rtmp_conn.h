@@ -28,7 +28,7 @@ class ClientInfo {
   // Original request object from client.
   std::shared_ptr<MediaRequest> req_;
   // Response object to client.
-  std::shared_ptr<MediaResponse> res_;
+  int stream_id_ = 1;
 };
 
 class MediaRtmpConn final : public IMediaConnection,
@@ -45,7 +45,7 @@ class MediaRtmpConn final : public IMediaConnection,
 
   // RtmpStackSink implement
   srs_error_t OnConnect(std::shared_ptr<MediaRequest>) override;
-  void OnClientInfo(RtmpConnType type, 
+  srs_error_t OnClientInfo(RtmpConnType type, 
       std::string stream_name, srs_utime_t) override;
   srs_error_t OnMessage(std::shared_ptr<MediaMessage>) override;
   srs_error_t OnRedirect(bool accepted) override;

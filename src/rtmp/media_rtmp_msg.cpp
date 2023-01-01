@@ -489,62 +489,11 @@ srs_error_t RtmpProtocal::SendWithBuffer(std::shared_ptr<MediaMessage> msg) {
       break;
   }
   MA_ASSERT(left == nullptr);
-  MLOG_CTRACE("packet len=%d", head->GetChainedLength());
-  if ((err = TrySend(head, true)) != srs_success) {
-    return srs_error_wrap(err, "try send");
-  }
-
-  return err;
-}
-
-srs_error_t RtmpProtocal::TrySend(MessageChain* msg, bool cache) {
-  MA_ASSERT(io_);
-  srs_error_t err = srs_success;
-
-  // is not called from OnWrite
-  if (msg) {
-    // need on send
-    if (!send_list_.empty()) {
-      if (cache) {
-        send_list_.push_back(msg);
-      }
-      return srs_error_new(ERROR_SOCKET_WOULD_BLOCK, "need on send");
-    }
-  }
-
-  while(!send_list_.empty()) {
-    MessageChain* pMsg = send_list_.front();
-    if ((err = io_->Write(pMsg)) != ERROR_SUCCESS) {
-      if (srs_error_code(err) != ERROR_SOCKET_WOULD_BLOCK) {
-        err = srs_error_wrap(err, "io write");
-      }
-      
-      // send msg in OnWrite
-      if (cache && msg) {
-        send_list_.push_back(msg);
-      }
-      return err;
-    }
-
-    send_list_.pop_front();
-    pMsg->DestroyChained();
-  }
-
   // now send msg
-  int ret = ERROR_SUCCESS;
-  if (msg && (err = io_->Write(msg)) != ERROR_SUCCESS) {
-    if (srs_error_code(err) != ERROR_SOCKET_WOULD_BLOCK) {
-      err = srs_error_wrap(err, "io write");
-    }
-    if (cache) {
-      send_list_.push_back(msg);
-    }
+  if (head && (err = io_->Write(head)) != srs_success) {
   }
-  return err;
-}
 
-srs_error_t RtmpProtocal::OnWrite() {
-  return TrySend(nullptr, false);
+  return err;
 }
 
 void RtmpProtocal::OnDisc(srs_error_t) {
@@ -1528,7 +1477,7 @@ int RtmpCreateStreamResPacket::get_message_type() {
 
 int RtmpCreateStreamResPacket::get_size() {
   return RtmpAmf0Size::str(command_name) + RtmpAmf0Size::number()
-  + RtmpAmf0Size::null() + RtmpAmf0Size::number();
+    + RtmpAmf0Size::null() + RtmpAmf0Size::number();
 }
 
 srs_error_t RtmpCreateStreamResPacket::encode_packet(SrsBuffer* stream) {
@@ -1727,7 +1676,7 @@ int RtmpFMLEStartResPacket::get_message_type() {
 
 int RtmpFMLEStartResPacket::get_size() {
   return RtmpAmf0Size::str(command_name) + RtmpAmf0Size::number()
-  + RtmpAmf0Size::null() + RtmpAmf0Size::undefined();
+    + RtmpAmf0Size::null() + RtmpAmf0Size::undefined();
 }
 
 srs_error_t RtmpFMLEStartResPacket::encode_packet(SrsBuffer* stream) {

@@ -58,7 +58,7 @@ class RtmpStackSink {
   virtual ~RtmpStackSink() = default;
 
   virtual srs_error_t OnConnect(std::shared_ptr<MediaRequest>) = 0;
-  virtual void OnClientInfo(RtmpConnType type, 
+  virtual srs_error_t OnClientInfo(RtmpConnType type, 
       std::string stream_name, srs_utime_t) = 0;
   virtual srs_error_t OnMessage(std::shared_ptr<MediaMessage>) = 0;
   virtual srs_error_t OnRedirect(bool accepted) = 0;

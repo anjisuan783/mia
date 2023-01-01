@@ -38,7 +38,6 @@ class MediaRtmpHandshake : public RtmpBufferIOSink {
   uint32_t ProxyRealIp();
   
   //RtmpBufferIOSink
-  srs_error_t OnWrite() override;
   void OnDisc(srs_error_t reason) override;
 
   sigslot::signal3<uint32_t, MessageChain*, std::shared_ptr<RtmpBufferIO>>

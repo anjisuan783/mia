@@ -76,13 +76,6 @@ public:
     MediaRequest* as_http();
 };
 
-// The response to client.
-class MediaResponse final {
-public:
-  // The stream id to response client createStream.
-  int stream_id = 0;
-};
-
 }
 
 #endif //!__MEDIA_REQUEST_H__

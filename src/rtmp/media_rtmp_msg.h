@@ -64,7 +64,6 @@ class RtmpProtocal final : public RtmpBufferIOSink {
   void Close();
   srs_error_t Write(RtmpPacket*, int streamid);
   srs_error_t OnRead(MessageChain*) override;
-  srs_error_t OnWrite() override;
   void OnDisc(srs_error_t) override;
 
   srs_error_t SetInWinAckSize(int ack_size);
@@ -98,8 +97,6 @@ private:
 
   // Auto response the ping message.
   srs_error_t ResponsePingMessage(int32_t timestamp);
-
-  srs_error_t TrySend(MessageChain* msg = nullptr, bool cache = true);
 
   void print_debug_info() { }
   
@@ -141,8 +138,6 @@ private:
 
   // fixed size, do not change
   char out_c0c3_caches_[SRS_CONSTS_C0C3_HEADERS_MAX];
-
-  std::list<MessageChain*> send_list_;
 
   // The buffer length set by peer.
   int32_t in_buffer_length_ = 0;
