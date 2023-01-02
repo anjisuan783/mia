@@ -29,7 +29,7 @@ void RtmpBufferIO::SetMaxBuffer(int64_t s) {
   max_buffer_length_ = s;
 }
 
-srs_error_t RtmpBufferIO::Write(MessageChain* msg) {
+srs_error_t RtmpBufferIO::Write(MessageChain* msg, bool force) {
   srs_error_t err = srs_success;
   if (!msg) 
     return err;
@@ -37,6 +37,11 @@ srs_error_t RtmpBufferIO::Write(MessageChain* msg) {
   uint32_t msg_length = msg->GetChainedLength();
 
   if (nbufferd_ >= max_buffer_length_) {
+    if (force) {
+      write_buffer_->Append(msg->DuplicateChained());
+      nbufferd_ += msg_length;
+      return err;
+    }
     return srs_error_new(ERROR_SOCKET_WOULD_BLOCK, "buffer too much %d", nbufferd_);
   }
 
@@ -83,8 +88,15 @@ srs_error_t RtmpBufferIO::TrySend() {
   if (err != srs_success) {
     write_buffer_->AdvanceChainedReadPtr(sent);
   } else {
+    sent = write_buffer_->GetChainedLength();
     write_buffer_->DestroyChained();
     write_buffer_ = nullptr;
+  }
+
+  nbufferd_ -= sent;
+
+  if (!write_buffer_) {
+    assert(nbufferd_ == 0);
   }
 
   return err;

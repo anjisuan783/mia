@@ -101,6 +101,10 @@
 #define ERROR_SOCKET_WOULD_BLOCK            1082
 #define ERROR_SOCKET_ERROR                  1083
 #define ERROR_SYSTEM_INVALID_STATE          1084
+#define ERROR_SYSTEM_NOT_FOUND              1085
+#define ERROR_SYSTEM_EXISTED                1086
+#define ERROR_SYSTEM_INVALID_ARGS           1087
+#define ERROR_SYSTEM_FAILURE                1088
 
 
 ///////////////////////////////////////////////////////
@@ -363,7 +367,7 @@
 // For user-define error.
 ///////////////////////////////////////////////////////
 #define ERROR_USER_START                    9000
-//#define ERROR_USER_DISCONNECT               9001
+//#define ERROR_USER_DISCONNECT             9001
 #define ERROR_SOURCE_NOT_FOUND              9002
 #define ERROR_USER_END                      9999
 

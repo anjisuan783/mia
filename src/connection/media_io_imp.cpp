@@ -84,6 +84,7 @@ void MediaTcpIO::OnReadEvent(rtc::AsyncPacketSocket*,
                   const rtc::SocketAddress&,
                   const int64_t&) {
   srs_error_t err = srs_success;
+  MLOG_TRACE("OnReadEvent data length:" << cb);
   MessageChain msg(cb, data, MessageChain::DONT_DELETE, cb);
   if (sink_) {
     err = sink_->OnRead(&msg);
@@ -93,6 +94,7 @@ void MediaTcpIO::OnReadEvent(rtc::AsyncPacketSocket*,
     if (srs_error_code(err) != ERROR_SOCKET_WOULD_BLOCK) {
       sink_->OnDisconnect(err);
       this->Close();
+      MLOG_ERROR("rtmp onread failure, desc:" << srs_error_desc(err));
     } else {
       delete err;
     }
@@ -112,7 +114,7 @@ void MediaTcpIO::OnWriteEvent(rtc::AsyncPacketSocket*) {
   }
 
   if (srs_success != err) {
-    MLOG_ERROR("rtmp read failure, desc:" << srs_error_desc(err));
+    MLOG_ERROR("rtmp onwrite failure, desc:" << srs_error_desc(err));
     delete err;
   }
 }

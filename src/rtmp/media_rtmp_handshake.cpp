@@ -1557,8 +1557,7 @@ srs_error_t SimpleRtmpHandshake::ServerHandshakeWithClient(
   
   MessageChain res(HANDSHAKE_RESPONSE_SIZE, helper->s0s1s2,
       MessageChain::DONT_DELETE, HANDSHAKE_RESPONSE_SIZE);
-  sender->Write(&res);
-  return err;
+  return sender->Write(&res, true);
 }
 
 srs_error_t SimpleRtmpHandshake::OnClientAck(
@@ -1583,8 +1582,7 @@ srs_error_t SimpleRtmpHandshake::ClientHandshakeWithServer(
   
   MessageChain req(HANDSHAKE_REQUEST_SIZE, helper->c0c1,
       MessageChain::DONT_DELETE, HANDSHAKE_REQUEST_SIZE);
-  sender->Write(&req);
-  return err;
+  return sender->Write(&req, true);
 }
 
 srs_error_t SimpleRtmpHandshake::OnServerAck(
@@ -1606,15 +1604,14 @@ srs_error_t SimpleRtmpHandshake::OnServerAck(
     return srs_error_wrap(err, "create c2");
   }
   
+  MLOG_TRACE("simple handshake success.");
+
   // for simple handshake, copy s1 to c2.
   // @see https://github.com/ossrs/srs/issues/418
   memcpy(helper->c2, helper->s0s1s2 + 1, HANDSHAKE_ACK_SIZE);
   MessageChain mcc2(HANDSHAKE_ACK_SIZE, helper->c2, 
       MessageChain::DONT_DELETE, HANDSHAKE_ACK_SIZE);
-  sender->Write(&mcc2);
-  
-  MLOG_TRACE("simple handshake success.");
-  return err;
+  return sender->Write(&mcc2, true);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1691,8 +1688,7 @@ srs_error_t ComplexRtmpHandshake::ServerHandshakeWithClient(
   MessageChain mcs(HANDSHAKE_RESPONSE_SIZE, helper->s0s1s2,
       MessageChain::DONT_DELETE, HANDSHAKE_RESPONSE_SIZE);
 
-  sender->Write(&mcs);
-  return err;
+  return sender->Write(&mcs, true);
 }
 
 srs_error_t ComplexRtmpHandshake::OnClientAck(HandshakeHelper* helper, 
@@ -1741,9 +1737,7 @@ srs_error_t ComplexRtmpHandshake::ClientHandshakeWithServer(
   
   MessageChain mcr(HANDSHAKE_REQUEST_SIZE, helper->c0c1, 
       MessageChain::DONT_DELETE, HANDSHAKE_REQUEST_SIZE);
-  sender->Write(&mcr);
- 
-  return err;
+  return sender->Write(&mcr, true);
 }
 
 srs_error_t ComplexRtmpHandshake::OnServerAck(HandshakeHelper* helper,
@@ -1785,14 +1779,14 @@ srs_error_t ComplexRtmpHandshake::OnServerAck(HandshakeHelper* helper,
   if ((err = c2.dump(helper->c2, HANDSHAKE_ACK_SIZE)) != srs_success) {
     return srs_error_wrap(err, "dump c2");
   }
+
+  MLOG_TRACE("complex handshake success.");
+
   int nsize = 0;
   MessageChain mc2(HANDSHAKE_ACK_SIZE, helper->c2, 
       MessageChain::DONT_DELETE, HANDSHAKE_ACK_SIZE);
 
-  sender->Write(&mc2);
-  
-  MLOG_TRACE("complex handshake success.");
-  return err;
+  return sender->Write(&mc2, true);
 }
 
 

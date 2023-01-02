@@ -149,6 +149,11 @@ srs_error_t RtmpProtocal::OnRead(MessageChain* msg) {
     }
 
     if (parsed_msg) {
+      // try to response acknowledgement
+      if ((err = ResponseAcknowledgement()) != srs_success) {
+        return srs_error_wrap(err, "response ack");
+      }
+
       if (parsed_msg->header_.is_ackledgement() || 
           parsed_msg->header_.is_set_chunk_size() || 
           parsed_msg->header_.is_window_ackledgement_size() || 
@@ -246,6 +251,7 @@ srs_error_t RtmpProtocal::ParseMsg(std::shared_ptr<MediaMessage>& out) {
 
 srs_error_t RtmpProtocal::SetInWinAckSize(int ack_size) {
   in_ack_size_.window = ack_size;
+  MLOG_TRACE("in_ack_size_.window:" << ack_size);
   return srs_success;
 }
 
@@ -424,7 +430,7 @@ srs_error_t RtmpProtocal::DecodeMessage(
   return err;
 }
 
-srs_error_t RtmpProtocal::Write(RtmpPacket* packet, int stream_id) {
+srs_error_t RtmpProtocal::Write(RtmpPacket* packet, int stream_id, bool force) {
   srs_error_t err = srs_success;
 
   auto shared_msg = std::make_shared<MediaMessage>();
@@ -432,7 +438,7 @@ srs_error_t RtmpProtocal::Write(RtmpPacket* packet, int stream_id) {
     return srs_error_wrap(err, "to message");
   }
 
-  if ((err = SendWithBuffer(shared_msg)) != srs_success) {
+  if ((err = SendWithBuffer(shared_msg, force)) != srs_success) {
     return srs_error_wrap(err, "send packet");
   }
   
@@ -443,7 +449,7 @@ srs_error_t RtmpProtocal::Write(RtmpPacket* packet, int stream_id) {
   return err;
 }
 
-srs_error_t RtmpProtocal::SendWithBuffer(std::shared_ptr<MediaMessage> msg) {
+srs_error_t RtmpProtocal::SendWithBuffer(std::shared_ptr<MediaMessage> msg, bool force) {
   // try to send use the c0c3 header cache,
   srs_error_t err = srs_success;
 
@@ -490,7 +496,7 @@ srs_error_t RtmpProtocal::SendWithBuffer(std::shared_ptr<MediaMessage> msg) {
   }
   MA_ASSERT(left == nullptr);
   // now send msg
-  if (head && (err = io_->Write(head)) != srs_success) {
+  if (head && (err = io_->Write(head, force)) != srs_success) {
   }
 
   return err;
@@ -768,12 +774,7 @@ RtmpProtocal::ReadMessagePayload(RtmpChunkStream* chunk) {
 
 srs_error_t RtmpProtocal::InternalProcessMessage(MediaMessage* msg) {
   srs_error_t err = srs_success;
-  
-  // try to response acknowledgement
-  if ((err = ResponseAcknowledgement()) != srs_success) {
-    return srs_error_wrap(err, "response ack");
-  }
-  
+    
   RtmpPacket* packet = NULL;
   switch (msg->header_.message_type) {
     case RTMP_MSG_SetChunkSize:
@@ -802,9 +803,7 @@ srs_error_t RtmpProtocal::InternalProcessMessage(MediaMessage* msg) {
   
       if (pkt->ackowledgement_window_size > 0) {
         in_ack_size_.window = (uint32_t)pkt->ackowledgement_window_size;
-        // @remark, we ignore this message, for user noneed to care.
-        // but it's important for dev, for client/server will block 
-        // if required ack msg not arrived.
+        MLOG_TRACE("set in ack size " << in_ack_size_.window);
       }
       break;
     }
@@ -904,7 +903,7 @@ srs_error_t RtmpProtocal::ResponseAcknowledgement() {
   if (in_ack_size_.window <= 0) {
     return err;
   }
-  
+
   // ignore when delta bytes not exceed half of window(ack size).
   int64_t recv_bytes = io_->GetRecvBytes();
   uint32_t delta = (uint32_t)(recv_bytes - in_ack_size_.nb_recv_bytes);
@@ -923,6 +922,9 @@ srs_error_t RtmpProtocal::ResponseAcknowledgement() {
   RtmpAcknowledgementPacket pkt;
   pkt.sequence_number = sequence_number;
   
+  MLOG_CTRACE("ack recv:%ld, delta:%u, seq:%u, win:%u", 
+      recv_bytes, delta, sequence_number, in_ack_size_.window);
+
   if ((err = Write(&pkt, 0)) != srs_success) {
     return srs_error_wrap(err, "send ack");
   }

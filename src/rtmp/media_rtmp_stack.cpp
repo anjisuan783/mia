@@ -232,9 +232,7 @@ srs_error_t RtmpServerSide::SetWinAckSize(int ack_size) {
 }
 
 srs_error_t RtmpServerSide::SetInWinAckSize(int ack_size) {
-  srs_error_t err = srs_success;
-  protocol_->SetInWinAckSize(ack_size);
-  return err;
+  return protocol_->SetInWinAckSize(ack_size);
 }
 
 srs_error_t RtmpServerSide::SetPeerBandwidth(int bandwidth, int type) {

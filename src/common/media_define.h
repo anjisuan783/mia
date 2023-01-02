@@ -32,6 +32,9 @@ typedef int64_t srs_utime_t;
 // The time unit in ms, for example 120 * SRS_UTIME_SECONDS means 120s.
 #define SRS_UTIME_SECONDS 1000000LL
 
+#define Media_ONE_SECOND_IN_MSECS SRS_UTIME_MILLISECONDS
+#define Media_ONE_SECOND_IN_USECS SRS_UTIME_SECONDS
+
 // The time unit in minutes, for example 3 * SRS_UTIME_MINUTES means 3m.
 #define SRS_UTIME_MINUTES 60000000LL
 
@@ -116,6 +119,10 @@ constexpr int AUDIO_STERO = 2;
 
 constexpr int VIDEO_SAMPLE_RATE = 90000;
 constexpr int VIDEO_SAMPLES_PER_MS = 90000 / SRS_UTIME_MILLISECONDS;
+
+
+typedef int MEDIA_HANDLE;
+#define MEDIA_INVALID_HANDLE -1
 
 }
 #endif //!__MEDIA_COMMON_DEFINE_H__

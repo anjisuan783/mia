@@ -62,7 +62,7 @@ class RtmpProtocal final : public RtmpBufferIOSink {
 
   void Open(std::shared_ptr<RtmpBufferIO>, RtmpProtocalSink*);
   void Close();
-  srs_error_t Write(RtmpPacket*, int streamid);
+  srs_error_t Write(RtmpPacket*, int streamid, bool force = false);
   srs_error_t OnRead(MessageChain*) override;
   void OnDisc(srs_error_t) override;
 
@@ -72,7 +72,7 @@ class RtmpProtocal final : public RtmpBufferIOSink {
 private:
   // parse chunk message
   srs_error_t ParseMsg(std::shared_ptr<MediaMessage>&);
-  srs_error_t SendWithBuffer(std::shared_ptr<MediaMessage>);
+  srs_error_t SendWithBuffer(std::shared_ptr<MediaMessage>, bool);
 
   // Read the chunk basic header(fmt, cid) from chunk stream.
   // user can discovery a RtmpChunkStream by cid.
