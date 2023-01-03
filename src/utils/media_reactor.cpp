@@ -4,11 +4,11 @@
 #include <memory.h>
 #include "common/media_log.h"
 
-#define RT_BIT_ENABLED(dword, bit) (((dword) & (bit)) != 0)
-#define RT_BIT_DISABLED(dword, bit) (((dword) & (bit)) == 0)
-#define RT_BIT_CMP_MASK(dword, bit, mask) (((dword) & (bit)) == mask)
-#define RT_SET_BITS(dword, bits) (dword |= (bits))
-#define RT_CLR_BITS(dword, bits) (dword &= ~(bits))
+#define RT_BIT_ENABLED(uint32_t, bit) (((uint32_t) & (bit)) != 0)
+#define RT_BIT_DISABLED(uint32_t, bit) (((uint32_t) & (bit)) == 0)
+#define RT_BIT_CMP_MASK(uint32_t, bit, mask) (((uint32_t) & (bit)) == mask)
+#define RT_SET_BITS(uint32_t, bits) (uint32_t |= (bits))
+#define RT_CLR_BITS(uint32_t, bits) (uint32_t &= ~(bits))
 
 namespace ma {
 
@@ -73,23 +73,23 @@ class MediaHandlerRepository {
   srs_error_t UnBind(MEDIA_HANDLE aFd);
 
   bool IsVaildHandle(MEDIA_HANDLE aFd) {
-    if (aFd >= 0 && aFd < m_nMaxHandler)
+    if (aFd >= 0 && aFd < max_)
       return true;
     else
       return false;
   }
 
-  int GetMaxHandlers() { return m_nMaxHandler; }
+  int GetMaxHandlers() { return max_; }
 
-  CElement* GetElement() { return m_pHandlers; }
+  CElement* GetElement() { return handlers_; }
 
   static srs_error_t SetRlimit(int aResource, int aMaxNum, int& aActualNum);
 
   int FillFdSets(fd_set& aFsRead, fd_set& aFsWrite, fd_set& aFsException);
 
  private:
-  CElement* m_pHandlers = nullptr;
-  int m_nMaxHandler = 0;
+  CElement* handlers_ = nullptr;
+  int max_ = 0;
 };
 
 #define DEFAULT_MAX_SOCKET_BUFSIZE 65535
@@ -99,14 +99,14 @@ class MediaPipe {
   MediaPipe();
   ~MediaPipe();
 
-  int Open(int aSize = DEFAULT_MAX_SOCKET_BUFSIZE);
-  int Close();
+  srs_error_t Open(int aSize = DEFAULT_MAX_SOCKET_BUFSIZE);
+  srs_error_t Close();
 
   MEDIA_HANDLE GetReadHandle() const;
   MEDIA_HANDLE GetWriteHandle() const;
 
 private:
-  MEDIA_HANDLE m_Handles[2];
+  MEDIA_HANDLE handles_[2];
 };
 
 class MediaReactorEpoll;
@@ -116,8 +116,8 @@ public:
   ReactorNotifyPipe();
   virtual ~ReactorNotifyPipe();
 
-  int Open(MediaReactorEpoll *aReactor);
-  int Close();
+  srs_error_t Open(MediaReactorEpoll *aReactor);
+  srs_error_t Close();
 
   // interface MediaHandler
   MEDIA_HANDLE GetHandle() const override;
@@ -184,9 +184,9 @@ protected:
     const MediaHandlerRepository::CElement &aHe, 
     MediaHandler::MASK aMask);
 
-  MEDIA_HANDLE m_fdEpoll;
-  struct epoll_event *m_pEvents = nullptr;
-  ReactorNotifyPipe m_Notify;
+  MEDIA_HANDLE epoll_;
+  struct epoll_event *events_ = nullptr;
+  ReactorNotifyPipe notifier_;
   int m_nEventsBeginIndex = 0;
   int m_nEventsEndIndex = 0;
 
@@ -201,7 +201,7 @@ protected:
   CalendarTQ m_CalendarTimer;
   uint32_t m_dwWallTimerJiffies = 0;
 
-  MediaHandlerRepository m_EhRepository;
+  MediaHandlerRepository handler_rep_;
 
   bool stoppedflag_ = false;
 };
@@ -236,63 +236,68 @@ int MediaHandler::OnClose(MEDIA_HANDLE, MASK ) {
 ///////////////////////////////////////////////////////
 //MediaPipe
 MediaPipe::MediaPipe() {
-  m_Handles[0] = MEDIA_INVALID_HANDLE;
-  m_Handles[1] = MEDIA_INVALID_HANDLE;
+  handles_[0] = MEDIA_INVALID_HANDLE;
+  handles_[1] = MEDIA_INVALID_HANDLE;
 }
 
 MediaPipe::~MediaPipe() {
-  Close();
+  srs_error_t err = Close();
+  if (err != srs_success) {
+    delete err;
+  }
 }
 
-int MediaPipe::Open(int aSize) {
-  MA_ASSERT(m_Handles[0] == MEDIA_INVALID_HANDLE && m_Handles[1] == MEDIA_INVALID_HANDLE);
+srs_error_t MediaPipe::Open(int aSize) {
+  MA_ASSERT(handles_[0] == MEDIA_INVALID_HANDLE && handles_[1] == MEDIA_INVALID_HANDLE);
 
   int nRet = 0;
-  nRet = ::socketpair(AF_UNIX, SOCK_STREAM, 0, m_Handles);
+  nRet = ::socketpair(AF_UNIX, SOCK_STREAM, 0, handles_);
   if (nRet == -1) {
-    MLOG_ERROR_THIS("socketpair() failed! err=" << errno);
-    return nRet;
+    return srs_error_new(ERROR_SYSTEM_FAILURE, "socketpair() failed! err:%d, ret:%d", errno, nRet);
   }
 
   if (aSize > DEFAULT_MAX_SOCKET_BUFSIZE)
     aSize = DEFAULT_MAX_SOCKET_BUFSIZE;
 
-  nRet = ::setsockopt(m_Handles[0], SOL_SOCKET, SO_RCVBUF, &aSize, sizeof(aSize));
+  srs_error_t err = srs_success;
+
+  nRet = ::setsockopt(handles_[0], SOL_SOCKET, SO_RCVBUF, &aSize, sizeof(aSize));
   if (nRet == -1) {
-    MLOG_ERROR_THIS("setsockopt(0) failde! err=" << errno);
+    err = srs_error_new(ERROR_SYSTEM_FAILURE, "setsockopt(0) failed, err:%d, ret:%d", errno", nRet);
     goto fail;
   }
-  nRet = ::setsockopt(m_Handles[1], SOL_SOCKET, SO_SNDBUF, &aSize, sizeof(aSize));
+  nRet = ::setsockopt(handles_[1], SOL_SOCKET, SO_SNDBUF, &aSize, sizeof(aSize));
   if (nRet == -1) {
-    MLOG_ERROR_THIS("setsockopt(1) failde! err=" << errno);
+    err = srs_error_new(ERROR_SYSTEM_FAILURE, "setsockopt(1) failed, err:%d, ret:%d", errno", nRet);
     goto fail;
   }
-  return ERROR_SUCCESS;
+  return err;
 
 fail:
   Close();
-  return ERROR_SYSTEM_FAILURE;
+  return err;
 }
 
-int MediaPipe::Close() {
+srs_error_t MediaPipe::Close() {
   int nRet = 0;
-  if (m_Handles[0] != MEDIA_INVALID_HANDLE) {
-    nRet = ::close(m_Handles[0]);
-    m_Handles[0] = MEDIA_INVALID_HANDLE;
+  if (handles_[0] != MEDIA_INVALID_HANDLE) {
+    nRet = ::close(handles_[0]);
+    handles_[0] = MEDIA_INVALID_HANDLE;
   }
-  if (m_Handles[1] != MEDIA_INVALID_HANDLE) {
-    nRet |= ::close(m_Handles[1]);
-    m_Handles[1] = MEDIA_INVALID_HANDLE;
+  if (handles_[1] != MEDIA_INVALID_HANDLE) {
+    nRet |= ::close(handles_[1]);
+    handles_[1] = MEDIA_INVALID_HANDLE;
   }
-  return nRet == 0 ? ERROR_SUCCESS : ERROR_SOCKET_ERROR;
+  return nRet == 0 ? srs_success : 
+      srs_error_new(ERROR_SOCKET_ERROR, "close handler failed, ret:%d", nRet);
 }
 
 MEDIA_HANDLE MediaPipe::GetReadHandle() const {
-  return m_Handles[0];
+  return handles_[0];
 }
 
 MEDIA_HANDLE MediaPipe::GetWriteHandle() const {
-  return m_Handles[1];
+  return handles_[1];
 }
 
 ///////////////////////////////////
@@ -305,25 +310,25 @@ MediaHandlerRepository::~MediaHandlerRepository() {
 
 srs_error_t MediaHandlerRepository::Open() {
   srs_error_t err = srs_success;
-  if (m_pHandlers) {
+  if (handlers_) {
     return err;
   }
 
-  if((err = SetRlimit(RLIMIT_NOFILE, 8192, m_nMaxHandler)) != srs_success) {
+  if((err = SetRlimit(RLIMIT_NOFILE, 8192, max_)) != srs_success) {
     return err;
   }
 
-  m_pHandlers = new CElement[m_nMaxHandler];
+  handlers_ = new CElement[max_];
 
   return err;
 }
 
 srs_error_t MediaHandlerRepository::Close() {
-  if (m_pHandlers) {
-    delete[] m_pHandlers;
-    m_pHandlers = NULL;
+  if (handlers_) {
+    delete[] handlers_;
+    handlers_ = NULL;
   }
-  m_nMaxHandler = 0;
+  max_ = 0;
   return srs_success;
 }
 
@@ -384,7 +389,7 @@ int MediaHandlerRepository::FillFdSets(fd_set& aFsRead,
                                        fd_set& aFsWrite,
                                        fd_set& aFsException) {
   int nMaxFd = -1;
-  for (int i = 0; i < m_nMaxHandler; i++) {
+  for (int i = 0; i < max_; i++) {
     CElement& eleGet = m_pHandlers[i];
     if (!eleGet.IsCleared())
       FdSet_s(aFsRead, aFsWrite, aFsException, eleGet, nMaxFd);
@@ -394,7 +399,7 @@ int MediaHandlerRepository::FillFdSets(fd_set& aFsRead,
 
 srs_error_t MediaHandlerRepository::Find(MEDIA_HANDLE aFd, CElement& aEle) {
   // CAcceptor maybe find fd after closed when program shutting down.
-  if (!m_pHandlers) {
+  if (!handlers_) {
     return srs_error_new(ERROR_SYSTEM_FAILURE, "not initialize");
   }
 
@@ -402,7 +407,7 @@ srs_error_t MediaHandlerRepository::Find(MEDIA_HANDLE aFd, CElement& aEle) {
     return srs_error_new(ERROR_SYSTEM_INVALID_ARGS, "fd:%d", aFd);
   }
 
-  CElement& eleFind = m_pHandlers[aFd];
+  CElement& eleFind = handlers_[aFd];
   if (eleFind.IsCleared()) {
     return srs_error_new(ERROR_SYSTEM_NOT_FOUND, "eleFind.IsCleared");
   }
@@ -419,10 +424,10 @@ srs_error_t MediaHandlerRepository::Bind(MEDIA_HANDLE aFd, const CElement& aEle)
     return srs_error_new(ERROR_SYSTEM_NOT_FOUND, "aEle.IsCleared");
   }
 
-  if (!m_pHandlers) {
+  if (!handlers_) {
     return srs_error_new(ERROR_SYSTEM_FAILURE, "not initialize");
   }
-  CElement& eleBind = m_pHandlers[aFd];
+  CElement& eleBind = handlers_[aFd];
 
   bool bNotBound = eleBind.IsCleared();
   eleBind = aEle;
@@ -435,10 +440,10 @@ srs_error_t MediaHandlerRepository::UnBind(MEDIA_HANDLE aFd) {
     return srs_error_new(ERROR_SYSTEM_INVALID_ARGS, "fd:%d", aFd);
   }
 
-  if (!m_pHandlers) {
+  if (!handlers_) {
     return srs_error_new(ERROR_SYSTEM_FAILURE, "not initialize");
   }
-  m_pHandlers[aFd].Clear();
+  handlers_[aFd].Clear();
 
   return srs_success;
 }
@@ -451,32 +456,31 @@ ReactorNotifyPipe::~ReactorNotifyPipe() {
   Close();
 }
 
-int ReactorNotifyPipe::Open(MediaReactorEpoll *aReactor) {
-  RT_IPC_SAP ipcNonblock;
+srs_error_t ReactorNotifyPipe::Open(MediaReactorEpoll *aReactor) {
+  srs_error_t err = srs_success;
+  MEDIA_IPC_SAP ipcNonblock;
   
   m_pReactor = aReactor;
 
-  int rv = m_PipeNotify.Open();
-  if (rv != ERROR_SUCCESS) 
+  err = m_PipeNotify.Open();
+  if (err != ERROR_SUCCESS) 
     goto fail;
 
   ipcNonblock.SetHandle(m_PipeNotify.GetReadHandle());
   if (ipcNonblock.Enable(RT_IPC_SAP::NON_BLOCK) == -1) {
-    MLOG_ERROR_THIS("Enable(NON_BLOCK) failed! err=" << errno);
-    rv = ERROR_SOCKET_ERROR;
+    err = srs_error_new(ERROR_SOCKET_ERROR, "Enable(NON_BLOCK) failed! err:", errno")
     goto fail;
   }
   
-  rv = m_pReactor->RegisterHandler(this, MediaHandler::READ_MASK);
-  if (rv != ERROR_SUCCESS) 
+  err = m_pReactor->RegisterHandler(this, MediaHandler::READ_MASK);
+  if (err != srs_success) 
     goto fail;
   
   MLOG_TRACE_THIS("read_fd=" << m_PipeNotify.GetReadHandle() << " write_fd=" << m_PipeNotify.GetWriteHandle());
-  return ERROR_SUCCESS;
+  return err;
 
 fail:
-  Close();
-  return rv;
+  return srs_error_wrapper(Close(), "%s", srs_error_desc(err));
 }
 
 MEDIA_HANDLE ReactorNotifyPipe::GetHandle() const {
@@ -534,7 +538,7 @@ Notify(MediaHandler *aEh, MediaHandler::MASK aMask) {
   return ERROR_SUCCESS;
 }
 
-int ReactorNotifyPipe::Close() {
+srs_error_t ReactorNotifyPipe::Close() {
   if (m_pReactor) {
     m_pReactor->RemoveHandler(this, READ_MASK);
     m_pReactor = NULL;
@@ -553,7 +557,7 @@ static void s_TimerTickFun(int) {
 }
 
 MediaReactorEpoll::MediaReactorEpoll()
-  : m_fdEpoll(MEDIA_INVALID_HANDLE),
+  : epoll_(MEDIA_INVALID_HANDLE),
     m_CalendarTimer(g_dwDefaultTimerTickInterval, 
                     1000*60*60*2, 
                     static_cast<MediaMsgQueueWithMutex*>(this)) {
@@ -564,40 +568,34 @@ MediaReactorEpoll::~MediaReactorEpoll() {
 }
 
 srs_error_t MediaReactorEpoll::Open() {
-  int rv;
   MediaMsgQueueWithMutex::ResetThd();
   stoppedflag_ = false;
-  rv = m_EhRepository.Open();
+  srs_error_t err = handler_rep_.Open();
 
-  if (RT_FAILED(rv))
+  if (srs_success != err)
     goto fail;
 
-  MA_ASSERT(m_EhRepository.GetMaxHandlers() > 0);
+  MA_ASSERT(handler_rep_.GetMaxHandlers() > 0);
 
-  m_fdEpoll = ::epoll_create(m_EhRepository.GetMaxHandlers());
-  if (m_fdEpoll < 0) {
-    RT_ERROR_TRACE_THIS("MediaReactorEpoll::Open, epoll_create() failed!"
-      " max_handler=" << m_EhRepository.GetMaxHandlers() << 
-      " m_fdEpoll=" << m_fdEpoll << 
-      " err=" << errno);
-    m_fdEpoll = MEDIA_INVALID_HANDLE;
-    rv = RT_ERROR_FAILURE;
+  epoll_ = ::epoll_create(handler_rep_.GetMaxHandlers());
+  if (epoll_ < 0) {
+    err = srs_error_new(ERROR_SYSTEM_FAILURE, 
+        "epoll_create() failed, max_handler:%d, err:%d", 
+        handler_rep_.GetMaxHandlers(), errno);
+    epoll_ = MEDIA_INVALID_HANDLE;
     goto fail;
   }
 
-  RT_ASSERTE(!m_pEvents);
-  m_pEvents = new struct epoll_event[m_EhRepository.GetMaxHandlers()];
+  MA_ASSERT(!events_);
+  events_ = new struct epoll_event[handler_rep_.GetMaxHandlers()];
   
-  rv = m_Notify.Open(this);
-  if (RT_FAILED(rv))
+  err = notifier_.Open(this);
+  if (srs_success != err)
     goto fail;
 
-  if (!s_IsTimerSet)
-  {
-    if (::signal(SIGALRM, s_TimerTickFun) == SIG_ERR) 
-    {
-      RT_ERROR_TRACE_THIS("MediaReactorEpoll::Open, signal(SIGALARM) failed! err=" << errno);
-      rv = RT_ERROR_FAILURE;
+  if (!s_IsTimerSet) {
+    if (::signal(SIGALRM, s_TimerTickFun) == SIG_ERR) {
+      err = srs_error_new(ERROR_SYSTEM_FAILURE, "signal(SIGALARM) failed! err%d", errno);
       goto fail;
     }
     
@@ -606,10 +604,8 @@ srs_error_t MediaReactorEpoll::Open() {
     itvInterval.it_value.tv_usec = 100;
     itvInterval.it_interval.tv_sec = 0;
     itvInterval.it_interval.tv_usec = g_dwDefaultTimerTickInterval * 1000;
-    if (::setitimer(ITIMER_REAL, &itvInterval, NULL) == -1) 
-    {
-      RT_ERROR_TRACE_THIS("MediaReactorEpoll::Open, setitimer() failed! err=" << errno);
-      rv = RT_ERROR_FAILURE;
+    if (::setitimer(ITIMER_REAL, &itvInterval, NULL) == -1) {
+      err = srs_error_new(ERROR_SYSTEM_FAILURE, "setitimer() failed! err:%d", errno)
       goto fail;
     }
     
@@ -618,43 +614,35 @@ srs_error_t MediaReactorEpoll::Open() {
     s_IsTimerSet = true;
   }
   
-  CRtStopFlag::SetStartFlag();
-  RT_DEBUG_TRACE_THIS("MediaReactorEpoll::Open, successful,"
-    " max_handler=" << m_EhRepository.GetMaxHandlers() << 
-    " m_fdEpoll=" << m_fdEpoll);
-  return RT_OK;
+  stoppedflag_ = false;
+  MLOG_TRACE_THIS("successful, max_handler=" << handler_rep_.GetMaxHandlers() << 
+    " epoll_=" << epoll_);
+  return err;
 
 fail:
   Close();
-  return rv;
+  return err;
 }
 
-int MediaReactorEpoll::NotifyHandler(MediaHandler *aEh, MediaHandler::MASK aMask)
-{
+int MediaReactorEpoll::NotifyHandler(MediaHandler *aEh, MediaHandler::MASK aMask) {
   return m_Notify.Notify(aEh, aMask);
 }
 
-int MediaReactorEpoll::RunEventLoop()
-{
-  RT_DEBUG_TRACE_THIS("MediaReactorEpoll::RunEventLoop");
-  Est_.EnsureSingleThread();
-
-  while (!CRtStopFlag::IsFlagStopped()) 
-  {
+srs_error_t MediaReactorEpoll::RunEventLoop() {
+  while (!stoppedflag_) {
     // <s_dwTimerJiffies> alaways be greater than <m_dwWallTimerJiffies> even if it equals 0, 
     // becausae <m_dwWallTimerJiffies> is increased following by <s_dwTimerJiffies>.
-    DWORD dwTimerJiffiesTmp = s_dwTimerJiffies;
-    DWORD dwTicks = dwTimerJiffiesTmp - m_dwWallTimerJiffies;
-    if( dwTicks >= 0xFFFF0000)
-    {
-      RT_ERROR_TRACE_THIS("MediaReactorEpoll::RunEventLoop,  expected error."
+    uint32_t dwTimerJiffiesTmp = s_dwTimerJiffies;
+    uint32_t dwTicks = dwTimerJiffiesTmp - m_dwWallTimerJiffies;
+    if( dwTicks >= 0xFFFF0000) {
+      MLOG_ERROR_THIS("expected error."
         " dwTimerJiffiesTmp=" << dwTimerJiffiesTmp << 
         " m_dwWallTimerJiffies=" << m_dwWallTimerJiffies << 
         " dwTicks=" << dwTicks);
       continue;
     }
     if (dwTicks > 33)
-      RT_ERROR_TRACE_THIS("MediaReactorEpoll::RunEventLoop, time too long."
+      MLOG_ERROR_THIS("time too long."
         " dwTimerJiffiesTmp=" << dwTimerJiffiesTmp << 
         " m_dwWallTimerJiffies=" << m_dwWallTimerJiffies << 
         " dwTicks=" << dwTicks);
@@ -663,30 +651,18 @@ int MediaReactorEpoll::RunEventLoop()
 
     while (dwTicks-- > 0) m_CalendarTimer.TimerTick();
 
-    int nRetFds = ::epoll_wait(m_fdEpoll, m_pEvents, m_EhRepository.GetMaxHandlers(), (int)g_dwDefaultTimerTickInterval);
-    if (nRetFds < 0) 
-    {
+    int nRetFds = ::epoll_wait(epoll_, events_, handler_rep_.GetMaxHandlers(), (int)g_dwDefaultTimerTickInterval);
+    if (nRetFds < 0)  {
       if (errno == EINTR) continue;
-      
-      RT_ERROR_TRACE_THIS("MediaReactorEpoll::RunEventLoop, epoll_wait() failed!"
-        " max_handler=" << m_EhRepository.GetMaxHandlers() << 
-        " m_fdEpoll=" << m_fdEpoll << 
-        " nTimeout=" << g_dwDefaultTimerTickInterval << 
-        " err=" << errno);
-      return RT_ERROR_FAILURE; 
+
+      return srs_error_new(ERROR_SYSTEM_FAILURE, "epoll_wait() failed!"
+        " max_handler:%d, epoll:%d, nTimeout:%d, err:%d",
+        handler_rep_.GetMaxHandlers(), epoll_, g_dwDefaultTimerTickInterval, errno);
     }
 
     m_nEventsEndIndex = nRetFds;
-    struct epoll_event *pEvent = m_pEvents;
-    for (m_nEventsBeginIndex = 0; m_nEventsBeginIndex < m_nEventsEndIndex; m_nEventsBeginIndex++, pEvent++) 
-    {
-      // TODO: 
-      // 1. test UDP, packets merge?
-      // 2. test send data before wait.
-      // 3. test SSL, read return value less than parameter
-      // 4. PUSH & FIN before epoll_wait().
-      // 5. PUSH & FIN before epoll_ctl().
-
+    struct epoll_event *pEvent = events_;
+    for (m_nEventsBeginIndex = 0; m_nEventsBeginIndex < m_nEventsEndIndex; m_nEventsBeginIndex++, pEvent++) {
       int rvError = RT_OK;
       int fdSig = pEvent->data.fd;
       // fdSing may be modified to MEDIA_INVALID_HANDLE due to OnHandleRemoved() function.
@@ -694,13 +670,10 @@ int MediaReactorEpoll::RunEventLoop()
         
       MediaHandler::MASK maskSig = MediaHandler::NULL_MASK;
       long lSigEvent = pEvent->events;
-      if (lSigEvent & (EPOLLERR | EPOLLHUP)) 
-      {
+      if (lSigEvent & (EPOLLERR | EPOLLHUP)) {
         rvError = RT_ERROR_NETWORK_SOCKET_CLOSE;
         RT_SET_BITS(maskSig, MediaHandler::CLOSE_MASK);
-      }
-      else 
-      {
+      } else {
         if (lSigEvent & EPOLLIN)
           maskSig |= MediaHandler::READ_MASK | MediaHandler::ACCEPT_MASK | MediaHandler::CONNECT_MASK;
         if (lSigEvent & EPOLLOUT)
@@ -714,20 +687,17 @@ int MediaReactorEpoll::RunEventLoop()
     m_nEventsEndIndex = 0;
   }
   
-  return RT_OK;
+  return srs_success;
 }
 
 int MediaReactorEpoll::ProcessHandleEvent(MEDIA_HANDLE aFd, MediaHandler::MASK aMask, 
-           int aReason, bool aIsNotify, bool aDropConnect)
-{
-  Est_.EnsureSingleThread();
-  if (aFd == MEDIA_INVALID_HANDLE) 
-  {
-    RT_ASSERTE(aMask == MediaHandler::EVENTQUEUE_MASK);
+           int aReason, bool aIsNotify, bool aDropConnect) {
+  if (aFd == MEDIA_INVALID_HANDLE) {
+    MA_ASSERT(aMask == MediaHandler::EVENTQUEUE_MASK);
 
-    DWORD dwRemainSize = 0;
-    CRtEventQueueBase::EventsType listEvents;
-    int rv = CRtEventQueueUsingMutex::PopPendingEventsWithoutWait(
+    uint32_t dwRemainSize = 0;
+    MediaMsgQueueImp::EventsType listEvents;
+    int rv = MediaMsgQueueWithMutex::PopPendingEventsWithoutWait(
       listEvents, CRtEventQueueBase::MAX_GET_ONCE, &dwRemainSize);
     if (RT_SUCCEEDED(rv))
       rv = CRtEventQueueBase::ProcessEvents(listEvents);
@@ -742,7 +712,7 @@ int MediaReactorEpoll::ProcessHandleEvent(MEDIA_HANDLE aFd, MediaHandler::MASK a
 #endif // !RT_DISABLE_EVENT_REPORT
 
   MediaHandlerRepository::CElement eleFind;
-  int rv = m_EhRepository.Find(aFd, eleFind);
+  int rv = handler_rep_.Find(aFd, eleFind);
   if (RT_FAILED(rv)) 
   {
     if (!aDropConnect) 
@@ -806,7 +776,7 @@ int MediaReactorEpoll::ProcessHandleEvent(MEDIA_HANDLE aFd, MediaHandler::MASK a
       // maybe the handle is reregiested or removed when doing callbacks. 
       // so we have to refind it.
       MediaHandlerRepository::CElement eleFindAgain;
-      rv = m_EhRepository.Find(aFd, eleFindAgain);
+      rv = handler_rep_.Find(aFd, eleFindAgain);
       if (RT_FAILED(rv) || eleFind.m_pEh != eleFindAgain.m_pEh) {
         //RT_ERROR_TRACE("MediaReactorEpoll::ProcessHandleEvent,"
         //  " callback shouldn't return fail after the fd is reregiested or removed!"
@@ -866,7 +836,7 @@ RemoveHandleWithoutFinding_i(MEDIA_HANDLE aFd,
   
   if (maskSelect == MediaHandler::NULL_MASK) 
   {
-    int rv = m_EhRepository.UnBind(aFd);
+    int rv = handler_rep_.UnBind(aFd);
     if (RT_FAILED(rv)) 
       RT_WARNING_TRACE("MediaReactorEpoll::RemoveHandleWithoutFinding_i, UnBind() failed!"
         " aFd=" << aFd <<
@@ -883,7 +853,7 @@ RemoveHandleWithoutFinding_i(MEDIA_HANDLE aFd,
   {
     MediaHandlerRepository::CElement eleBind = aHe;
     eleBind.m_Mask = maskSelect;
-    int rvBind = m_EhRepository.Bind(aFd, eleBind);
+    int rvBind = handler_rep_.Bind(aFd, eleBind);
     RT_ASSERTE(rvBind == RT_ERROR_FOUND);
     return rvBind;
   }
@@ -899,10 +869,8 @@ int MediaReactorEpoll::StopEventLoop()
   return RT_OK;
 }
 
-int MediaReactorEpoll::Close()
-{
-  if (s_IsTimerSet)
-  {
+srs_error_t MediaReactorEpoll::Close() {
+  if (s_IsTimerSet) {
     if (::signal(SIGALRM, SIG_IGN) == SIG_ERR) 
       RT_ERROR_TRACE_THIS("MediaReactorEpoll::Close, signal(SIGALARM) failed! err=" << errno);
     
@@ -919,28 +887,25 @@ int MediaReactorEpoll::Close()
 
   m_dwWallTimerJiffies = 0;
 
-  if (m_pEvents) 
-  {
-    delete []m_pEvents;
-    m_pEvents = NULL;
+  if (events_) {
+    delete []events_;
+    events_ = NULL;
   }
   
   m_Notify.Close();
 
-  if (m_fdEpoll != MEDIA_INVALID_HANDLE) 
-  {
-    ::close(m_fdEpoll);
-    m_fdEpoll = MEDIA_INVALID_HANDLE;
+  if (epoll_ != MEDIA_INVALID_HANDLE) {
+    ::close(epoll_);
+    epoll_ = MEDIA_INVALID_HANDLE;
   }
 
-  m_EhRepository.Close();
-  CRtEventQueueBase::DestoryPendingEvents();
-  return RT_OK;
+  MediaMsgQueueWithMutex::DestoryPendingMsgs();
+  return handler_rep_.Close();
 }
 
 int MediaReactorEpoll::OnHandleRegister(MEDIA_HANDLE aFd, MediaHandler::MASK aMask, MediaHandler *aEh)
 {
-  if (m_fdEpoll==MEDIA_INVALID_HANDLE) 
+  if (epoll_==MEDIA_INVALID_HANDLE) 
   {
     RT_WARNING_TRACE_THIS("MediaReactorEpoll::OnHandleRegister, epoll not initialized!");
     return RT_ERROR_NOT_INITIALIZED;
@@ -952,21 +917,16 @@ int MediaReactorEpoll::OnHandleRegister(MEDIA_HANDLE aFd, MediaHandler::MASK aMa
 
 void MediaReactorEpoll::OnHandleRemoved(MEDIA_HANDLE aFd)
 {
-//  RT_DEBUG_TRACE_THIS("MediaReactorEpoll::OnHandleRemoved,"
-//    " aFd=" << aFd << 
-//    " m_nEventsBeginIndex=" << m_nEventsBeginIndex << 
-//    " m_nEventsEndIndex=" << m_nEventsEndIndex);
-
-  if (m_fdEpoll==MEDIA_INVALID_HANDLE) 
+  if (epoll_==MEDIA_INVALID_HANDLE) 
   {
     RT_WARNING_TRACE_THIS("MediaReactorEpoll::OnHandleRemoved, epoll not initialized!");
     return;
   }
 
-  if (::epoll_ctl(m_fdEpoll, EPOLL_CTL_DEL, aFd, NULL) < 0) 
+  if (::epoll_ctl(epoll_, EPOLL_CTL_DEL, aFd, NULL) < 0) 
   {
     RT_ERROR_TRACE_THIS("MediaReactorEpoll::OnHandleRemoved, epoll_ctl() failed!"
-      " m_fdEpoll=" << m_fdEpoll << 
+      " epoll_=" << epoll_ << 
       " aFd=" << aFd << 
       " err=" << errno);
   }
@@ -975,7 +935,7 @@ void MediaReactorEpoll::OnHandleRemoved(MEDIA_HANDLE aFd)
     return;
 
   int i = m_nEventsBeginIndex + 1;
-  struct epoll_event *pEvent = m_pEvents + i;
+  struct epoll_event *pEvent = events_ + i;
   for ( ; i < m_nEventsEndIndex; i++, pEvent++) 
   {
     if (pEvent->data.fd == aFd) {
@@ -1006,7 +966,7 @@ RegisterHandler(MediaHandler *aEh, MediaHandler::MASK aMask)
   
   MediaHandlerRepository::CElement eleFind;
   MEDIA_HANDLE fdNew = aEh->GetHandle();
-  rv = m_EhRepository.Find(fdNew, eleFind);
+  rv = handler_rep_.Find(fdNew, eleFind);
   if (maskNew == eleFind.m_Mask && aEh == eleFind.m_pEh)
     return RT_OK;
   
@@ -1021,7 +981,7 @@ RegisterHandler(MediaHandler *aEh, MediaHandler::MASK aMask)
   }
   
   MediaHandlerRepository::CElement eleNew(aEh, maskNew);
-  rv = m_EhRepository.Bind(fdNew, eleNew);
+  rv = handler_rep_.Bind(fdNew, eleNew);
 
   if (rv == RT_ERROR_FOUND) 
   {
@@ -1048,7 +1008,7 @@ RemoveHandler(MediaHandler *aEh, MediaHandler::MASK aMask)
   
   MediaHandlerRepository::CElement eleFind;
   MEDIA_HANDLE fdNew = aEh->GetHandle();
-  rv = m_EhRepository.Find(fdNew, eleFind);
+  rv = handler_rep_.Find(fdNew, eleFind);
 
   if (RT_FAILED(rv))
     return rv;
@@ -1080,10 +1040,10 @@ int MediaReactorEpoll::DoEpollCtl_i(MEDIA_HANDLE aFd, MediaHandler::MASK aMask, 
   if (aMask & MediaHandler::WRITE_MASK)
     epEvent.events |= EPOLLOUT;
 
-  if (::epoll_ctl(m_fdEpoll, aOperation, aFd, &epEvent) < 0) 
+  if (::epoll_ctl(epoll_, aOperation, aFd, &epEvent) < 0) 
   {
     RT_ERROR_TRACE_THIS("MediaReactorEpoll::DoEpollCtl_i, epoll_ctl() failed!"
-      " m_fdEpoll=" << m_fdEpoll << 
+      " epoll_=" << epoll_ << 
       " aFd=" << aFd << 
       " aOperation=" << aOperation << 
       " err=" << errno);
@@ -1095,7 +1055,7 @@ int MediaReactorEpoll::DoEpollCtl_i(MEDIA_HANDLE aFd, MediaHandler::MASK aMask, 
 
 int MediaReactorEpoll::
 ScheduleTimer(IRtTimerHandler *aTh, LPVOID aArg, 
-        const CRtTimeValue &aInterval, DWORD aCount)
+        const CRtTimeValue &aInterval, uint32_t aCount)
 {
   return m_CalendarTimer.ScheduleTimer(aTh, aArg, aInterval, aCount);
 }
@@ -1113,7 +1073,7 @@ int MediaReactorEpoll::SendEvent(IRtEvent *aEvent)
 // this function can be invoked in the different thread.
 int MediaReactorEpoll::PostEvent(IRtEvent* aEvent, EPriority aPri)
 {
-  DWORD dwOldSize = 0;
+  uint32_t dwOldSize = 0;
   int rv = CRtEventQueueUsingMutex::
     PostEventWithOldSize(aEvent, aPri, &dwOldSize);
   if (RT_SUCCEEDED(rv) && dwOldSize == 0)
@@ -1122,7 +1082,7 @@ int MediaReactorEpoll::PostEvent(IRtEvent* aEvent, EPriority aPri)
 }
 
 // this function can be invoked in the different thread.
-DWORD MediaReactorEpoll::GetPendingEventsCount()
+uint32_t MediaReactorEpoll::GetPendingEventsCount()
 {
   return CRtEventQueueUsingMutex::GetPendingEventsCount();
 }
