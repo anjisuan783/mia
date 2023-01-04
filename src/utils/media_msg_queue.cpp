@@ -1,11 +1,5 @@
 #include "media_msg_queue.h"
 
-#include <mutex>
-#include <list>
-#include <map>
-#include <deque>
-#include <condition_variable>
-
 #include "common/media_log.h"
 #include "media_time_value.h"
 
@@ -175,11 +169,6 @@ void MediaMsgQueueImp::Process(const MsgType &msgs) {
 void MediaMsgQueueImp::Process(MediaMsg *msg) {
   msg->OnFire();
   msg->OnDelete();
-}
-
-//   functions
-void MediaMsgQueueImp::ResetThd() {
-  tid_ = ::pthread_self();
 }
 
 void MediaMsgQueueImp::Stop() {
@@ -609,14 +598,14 @@ void CalendarTQ::OnDelete() {
 }
 
 CalendarTQ::SlotType* CalendarTQ::
-RemoveUniqueHandler_i(const HandlerType &aHanler) {
-  auto iter = handlers_.find(aHanler);
+RemoveUniqueHandler_i(const HandlerType &handler) {
+  auto iter = handlers_.find(handler);
   if (iter == handlers_.end()) {
     // remove handler in event slot.
     SlotType *pMove = event_slot_;
     SlotType *pPreTmp = NULL;
     while (pMove) {
-      if (pMove->value_.handler_ == aHanler) {
+      if (pMove->value_.handler_ == handler) {
         if (pPreTmp)
           pPreTmp->next_ = pMove->next_;
         else
@@ -636,14 +625,14 @@ RemoveUniqueHandler_i(const HandlerType &aHanler) {
   uint32_t dwIndex = (*iter).second;
   MA_ASSERT(dwIndex <= max_slot_count_);
 
-  SlotType *pRet = RemoveUniqueSlot_i(slots_[dwIndex], aHanler);
+  SlotType *pRet = RemoveUniqueSlot_i(slots_[dwIndex], handler);
   return pRet;
 }
 
 CalendarTQ::SlotType* CalendarTQ::
-RemoveUniqueSlot_i(SlotType *&aFirst, const HandlerType &aHanler) {
+RemoveUniqueSlot_i(SlotType *&aFirst, const HandlerType &handler) {
   if (aFirst) {
-    if (aFirst->value_.handler_ == aHanler) {
+    if (aFirst->value_.handler_ == handler) {
       SlotType *pRet = aFirst;
       aFirst = aFirst->next_;
       return pRet;
@@ -652,7 +641,7 @@ RemoveUniqueSlot_i(SlotType *&aFirst, const HandlerType &aHanler) {
     SlotType *pCur = aFirst;
     SlotType *pNext = pCur->next_;
     while (pNext) {
-      if (pNext->value_.handler_ == aHanler) {
+      if (pNext->value_.handler_ == handler) {
         pCur->next_ = pNext->next_;
         return pNext;
       }
@@ -666,11 +655,11 @@ RemoveUniqueSlot_i(SlotType *&aFirst, const HandlerType &aHanler) {
 }
 
 CalendarTQ::SlotType* 
-CalendarTQ::NewSlot_i(const ValueType &aValue) {
+CalendarTQ::NewSlot_i(const ValueType &value) {
   SlotType *pNew = alloc_.allocate(1, nullptr);
   if (pNew) {
     pNew->next_ = nullptr;
-    new (&pNew->value_) ValueType(aValue);
+    new (&pNew->value_) ValueType(value);
   }
   return pNew;
 }

@@ -8,6 +8,7 @@
 #define __MEDIA_NETWORK_H__
 
 #include "common/media_kernel_error.h"
+#include "common/media_define.h"
 #include "media_msg_queue.h"
 
 namespace ma {
@@ -98,7 +99,7 @@ class MediaReactor : public MediaMsgQueue, public MediaTimerQueue {
 	virtual srs_error_t RunEventLoop() = 0;
 
 	/// this function can be invoked in the different thread.
-	virtual srs_error_t StopEventLoop() = 0;
+	virtual void StopEventLoop() = 0;
 
 	/// Close down and release all resources.
 	virtual srs_error_t Close() = 0;

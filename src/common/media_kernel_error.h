@@ -29,12 +29,6 @@
 #define ERROR_SOCKET_WAIT                   1010
 #define ERROR_SOCKET_TIMEOUT                1011
 #define ERROR_SOCKET_CONNECT                1012
-#define ERROR_ST_SET_EPOLL                  1013
-#define ERROR_ST_INITIALIZE                 1014
-#define ERROR_ST_OPEN_SOCKET                1015
-#define ERROR_ST_CREATE_LISTEN_THREAD       1016
-#define ERROR_ST_CREATE_CYCLE_THREAD        1017
-#define ERROR_ST_CONNECT                    1018
 #define ERROR_SYSTEM_PACKET_INVALID         1019
 #define ERROR_SYSTEM_CLIENT_INVALID         1020
 #define ERROR_SYSTEM_ASSERT_FAILED          1021
@@ -67,7 +61,6 @@
 #define ERROR_SYSTEM_CREATE_PIPE            1048
 #define ERROR_SYSTEM_FILE_SEEK              1049
 #define ERROR_SYSTEM_IO_INVALID             1050
-#define ERROR_ST_EXCEED_THREADS             1051
 #define ERROR_SYSTEM_SECURITY               1052
 #define ERROR_SYSTEM_SECURITY_DENY          1053
 #define ERROR_SYSTEM_SECURITY_ALLOW         1054

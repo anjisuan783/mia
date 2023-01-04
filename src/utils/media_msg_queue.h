@@ -10,6 +10,14 @@
 
 #include "common/media_kernel_error.h"
 
+#include <deque>
+#include <mutex>
+#include <list>
+#include <map>
+#include <condition_variable>
+
+#include "media_time_value.h"
+
 namespace ma {
 
 class MediaTimeValue;
@@ -85,8 +93,13 @@ class MediaTimerQueue {
    */
   virtual srs_error_t Cancel(MediaTimerHandler* th) = 0;
 
+  void ResetThd() {
+    tid_ = ::pthread_self();
+  }
  protected:
   virtual ~MediaTimerQueue() = default;
+
+  pthread_t tid_;
 };
 
 class MediaMsgQueueImp : public MediaMsgQueue {
@@ -115,9 +128,6 @@ protected:
 		uint32_t *remains = nullptr);
 
 	virtual void PopMsg(MediaMsg *&msg, uint32_t *remains = NULL);
-
-  void ResetThd();
-
 private:
   MsgType msgs_;
 	bool stopped_;
@@ -144,7 +154,7 @@ class MediaMsgQueueWithMutex : public MediaMsgQueueImp  {
     
   int GetPendingNum() override;
 private:
-	typedef std::mutex MutexType;
+	using MutexType = std::mutex;
 	MutexType mutex_;
 };
 
@@ -233,8 +243,9 @@ class CalendarTQ : public MediaTimerQueue, public MediaMsg {
 
   // timer tick every <slot_interval>.
   void TimerTick();
+
  private:
-  using HandlerType = MediaTimerHandler*;
+  typedef MediaTimerHandler* HandlerType;
   struct ValueType {
     ValueType(HandlerType handler, void* token, 
           const MediaTimeValue &interval, uint32_t count) 
