@@ -260,7 +260,7 @@ srs_error_t MediaPipe::Open(int aSize) {
   int nRet = 0;
   nRet = ::socketpair(AF_UNIX, SOCK_STREAM, 0, handles_);
   if (nRet == -1) {
-    return srs_error_new(ERROR_SYSTEM_FAILURE, "socketpair() failed! err:%d, ret:%d", errno, nRet);
+    return srs_error_new(ERROR_FAILURE, "socketpair() failed! err:%d, ret:%d", errno, nRet);
   }
 
   if (aSize > DEFAULT_MAX_SOCKET_BUFSIZE)
@@ -270,12 +270,12 @@ srs_error_t MediaPipe::Open(int aSize) {
 
   nRet = ::setsockopt(handles_[0], SOL_SOCKET, SO_RCVBUF, &aSize, sizeof(aSize));
   if (nRet == -1) {
-    err = srs_error_new(ERROR_SYSTEM_FAILURE, "setsockopt(0) failed, err:%d, ret:%d", errno, nRet);
+    err = srs_error_new(ERROR_FAILURE, "setsockopt(0) failed, err:%d, ret:%d", errno, nRet);
     goto fail;
   }
   nRet = ::setsockopt(handles_[1], SOL_SOCKET, SO_SNDBUF, &aSize, sizeof(aSize));
   if (nRet == -1) {
-    err = srs_error_new(ERROR_SYSTEM_FAILURE, "setsockopt(1) failed, err:%d, ret:%d", errno, nRet);
+    err = srs_error_new(ERROR_FAILURE, "setsockopt(1) failed, err:%d, ret:%d", errno, nRet);
     goto fail;
   }
   return err;
@@ -346,7 +346,7 @@ srs_error_t MediaHandlerRepository::SetRlimit(
   int nRet = ::getrlimit((__rlimit_resource_t)aResource, &rlCur);
 
   if (nRet == -1 || rlCur.rlim_cur == RLIM_INFINITY) {
-    return srs_error_new(ERROR_SYSTEM_FAILURE, "getrlimit() failed, err:%d", errno);
+    return srs_error_new(ERROR_FAILURE, "getrlimit() failed, err:%d", errno);
   }
 
   aActualNum = aMaxNum;
@@ -361,7 +361,7 @@ srs_error_t MediaHandlerRepository::SetRlimit(
       if (errno == EPERM) {
         aActualNum = rlCur.rlim_cur;
       } else {
-        return srs_error_new(ERROR_SYSTEM_FAILURE, "setrlimit() failed, err:%d", errno);
+        return srs_error_new(ERROR_FAILURE, "setrlimit() failed, err:%d", errno);
       }
     }
   } else {
@@ -406,16 +406,16 @@ int MediaHandlerRepository::FillFdSets(fd_set& aFsRead,
 srs_error_t MediaHandlerRepository::Find(MEDIA_HANDLE aFd, CElement& aEle) {
   // CAcceptor maybe find fd after closed when program shutting down.
   if (!handlers_) {
-    return srs_error_new(ERROR_SYSTEM_FAILURE, "not initialize");
+    return srs_error_new(ERROR_FAILURE, "not initialize");
   }
 
   if (IsVaildHandle(aFd)) {
-    return srs_error_new(ERROR_SYSTEM_INVALID_ARGS, "fd:%d", aFd);
+    return srs_error_new(ERROR_INVALID_ARGS, "fd:%d", aFd);
   }
 
   CElement& eleFind = handlers_[aFd];
   if (eleFind.IsCleared()) {
-    return srs_error_new(ERROR_SYSTEM_NOT_FOUND, "eleFind.IsCleared");
+    return srs_error_new(ERROR_NOT_FOUND, "eleFind.IsCleared");
   }
 
   aEle = eleFind;
@@ -424,30 +424,30 @@ srs_error_t MediaHandlerRepository::Find(MEDIA_HANDLE aFd, CElement& aEle) {
 
 srs_error_t MediaHandlerRepository::Bind(MEDIA_HANDLE aFd, const CElement& aEle) {
   if (IsVaildHandle(aFd)) {
-    return srs_error_new(ERROR_SYSTEM_INVALID_ARGS, "fd:%d", aFd);
+    return srs_error_new(ERROR_INVALID_ARGS, "fd:%d", aFd);
   }
   if (aEle.IsCleared()) {
-    return srs_error_new(ERROR_SYSTEM_NOT_FOUND, "aEle.IsCleared");
+    return srs_error_new(ERROR_NOT_FOUND, "aEle.IsCleared");
   }
 
   if (!handlers_) {
-    return srs_error_new(ERROR_SYSTEM_FAILURE, "not initialize");
+    return srs_error_new(ERROR_FAILURE, "not initialize");
   }
   CElement& eleBind = handlers_[aFd];
 
   bool bNotBound = eleBind.IsCleared();
   eleBind = aEle;
 
-  return bNotBound ? srs_success : srs_error_new(ERROR_SYSTEM_EXISTED, "found aFd:%d", aFd);
+  return bNotBound ? srs_success : srs_error_new(ERROR_EXISTED, "found aFd:%d", aFd);
 }
 
 srs_error_t MediaHandlerRepository::UnBind(MEDIA_HANDLE aFd) {
   if (IsVaildHandle(aFd)) {
-    return srs_error_new(ERROR_SYSTEM_INVALID_ARGS, "fd:%d", aFd);
+    return srs_error_new(ERROR_INVALID_ARGS, "fd:%d", aFd);
   }
 
   if (!handlers_) {
-    return srs_error_new(ERROR_SYSTEM_FAILURE, "not initialize");
+    return srs_error_new(ERROR_FAILURE, "not initialize");
   }
   handlers_[aFd].Clear();
 
@@ -522,7 +522,7 @@ int ReactorNotifyPipe::OnInput(MEDIA_HANDLE aFd) {
 srs_error_t ReactorNotifyPipe::
 Notify(MediaHandler *handler, MediaHandler::MASK aMask) {
   if (m_PipeNotify.GetWriteHandle() == MEDIA_INVALID_HANDLE) {
-    return srs_error_new(ERROR_SYSTEM_INVALID_STATE, "not initialized");
+    return srs_error_new(ERROR_INVALID_STATE, "not initialized");
   }
 
   MEDIA_HANDLE fdNew = MEDIA_INVALID_HANDLE;
@@ -535,7 +535,7 @@ Notify(MediaHandler *handler, MediaHandler::MASK aMask) {
   int nSend = ::send(m_PipeNotify.GetWriteHandle(), 
       (char*)&bfNew, sizeof(bfNew), 0);
   if (nSend < (int)sizeof(bfNew)) {
-    return srs_error_new(ERROR_SYSTEM_FAILURE, 
+    return srs_error_new(ERROR_FAILURE, 
         "nSend=%d, fd=%d, errno:%d", nSend, m_PipeNotify.GetWriteHandle(), errno);
   }
   return srs_success;
@@ -585,7 +585,7 @@ srs_error_t MediaReactorEpoll::Open() {
 
   epoll_ = ::epoll_create(handler_rep_.GetMaxHandlers());
   if (epoll_ < 0) {
-    err = srs_error_new(ERROR_SYSTEM_FAILURE, 
+    err = srs_error_new(ERROR_FAILURE, 
         "epoll_create() failed, max_handler:%d, err:%d", 
         handler_rep_.GetMaxHandlers(), errno);
     epoll_ = MEDIA_INVALID_HANDLE;
@@ -601,7 +601,7 @@ srs_error_t MediaReactorEpoll::Open() {
 
   if (!s_IsTimerSet) {
     if (::signal(SIGALRM, s_TimerTickFun) == SIG_ERR) {
-      err = srs_error_new(ERROR_SYSTEM_FAILURE, "signal(SIGALARM) failed! err%d", errno);
+      err = srs_error_new(ERROR_FAILURE, "signal(SIGALARM) failed! err%d", errno);
       goto fail;
     }
     
@@ -611,7 +611,7 @@ srs_error_t MediaReactorEpoll::Open() {
     itvInterval.it_interval.tv_sec = 0;
     itvInterval.it_interval.tv_usec = g_dwDefaultTimerTickInterval * 1000;
     if (::setitimer(ITIMER_REAL, &itvInterval, NULL) == -1) {
-      err = srs_error_new(ERROR_SYSTEM_FAILURE, "setitimer() failed! err:%d", errno);
+      err = srs_error_new(ERROR_FAILURE, "setitimer() failed! err:%d", errno);
       goto fail;
     }
     
@@ -661,7 +661,7 @@ srs_error_t MediaReactorEpoll::RunEventLoop() {
     if (nRetFds < 0)  {
       if (errno == EINTR) continue;
 
-      return srs_error_new(ERROR_SYSTEM_FAILURE, "epoll_wait() failed!"
+      return srs_error_new(ERROR_FAILURE, "epoll_wait() failed!"
         " max_handler:%d, epoll:%d, nTimeout:%d, err:%d",
         handler_rep_.GetMaxHandlers(), epoll_, g_dwDefaultTimerTickInterval, errno);
     }
@@ -816,9 +816,9 @@ RemoveHandleWithoutFinding_i(MEDIA_HANDLE aFd,
   MediaHandlerRepository::CElement eleBind = aHe;
   eleBind.m_Mask = maskSelect;
   err = handler_rep_.Bind(aFd, eleBind);
-  MA_ASSERT(srs_error_code(err) == ERROR_SYSTEM_EXISTED);
+  MA_ASSERT(srs_error_code(err) == ERROR_EXISTED);
   delete err;
-  return ERROR_SYSTEM_EXISTED;
+  return ERROR_EXISTED;
 }
 
 void MediaReactorEpoll::StopEventLoop() {
@@ -865,7 +865,7 @@ srs_error_t MediaReactorEpoll::Close() {
 srs_error_t MediaReactorEpoll::OnHandleRegister(
     MEDIA_HANDLE aFd, MediaHandler::MASK aMask, MediaHandler *aEh) {
   if (epoll_== MEDIA_INVALID_HANDLE) {
-    return srs_error_new(ERROR_SYSTEM_INVALID_STATE, "epoll not initialized");
+    return srs_error_new(ERROR_INVALID_STATE, "epoll not initialized");
   }
 
   // Need NOT do CheckPollIn() because epoll_ctl() will do it interval.
@@ -908,7 +908,7 @@ RegisterHandler(MediaHandler *handler, MediaHandler::MASK mask) {
   
   MediaHandler::MASK maskNew = mask & MediaHandler::ALL_EVENTS_MASK;
   if (maskNew == MediaHandler::NULL_MASK) {
-    return srs_error_new(ERROR_SYSTEM_INVALID_ARGS, "NULL_MASK. mask:%s", 
+    return srs_error_new(ERROR_INVALID_ARGS, "NULL_MASK. mask:%s", 
         MediaHandler::GetMaskString(mask).c_str());
   }
   
@@ -933,7 +933,7 @@ RegisterHandler(MediaHandler *handler, MediaHandler::MASK mask) {
   MediaHandlerRepository::CElement eleNew(handler, maskNew);
   err = handler_rep_.Bind(fdNew, eleNew);
 
-  if (srs_error_code(err) == ERROR_SYSTEM_EXISTED) {
+  if (srs_error_code(err) == ERROR_EXISTED) {
     delete err;
     err = DoEpollCtl_i(handler->GetHandle(), mask, EPOLL_CTL_MOD);
   }
@@ -944,7 +944,7 @@ srs_error_t MediaReactorEpoll::
 RemoveHandler(MediaHandler *aEh, MediaHandler::MASK aMask) { 
   MediaHandler::MASK maskNew = aMask & MediaHandler::ALL_EVENTS_MASK;
   if (maskNew == MediaHandler::NULL_MASK) {
-    return srs_error_new(ERROR_SYSTEM_INVALID_ARGS, "NULL_MASK. mask:%s",  
+    return srs_error_new(ERROR_INVALID_ARGS, "NULL_MASK. mask:%s",  
         MediaHandler::GetMaskString(aMask).c_str());
   }
   
@@ -956,7 +956,7 @@ RemoveHandler(MediaHandler *aEh, MediaHandler::MASK aMask) {
     return err;
   
   int rv = RemoveHandleWithoutFinding_i(fdNew, eleFind, maskNew);
-  if (rv == ERROR_SYSTEM_EXISTED) {
+  if (rv == ERROR_EXISTED) {
     err = DoEpollCtl_i(aEh->GetHandle(), aMask, EPOLL_CTL_MOD);
   }
   return err;
@@ -1014,6 +1014,11 @@ srs_error_t MediaReactorEpoll::Post(MediaMsg* msg) {
 
 int MediaReactorEpoll::GetPendingNum() {
   return MediaMsgQueueWithMutex::GetPendingNum();
+}
+
+// CreateReactor
+MediaReactor* CreateReactor() {
+  return new MediaReactorEpoll;
 }
 
 } //namespace ma

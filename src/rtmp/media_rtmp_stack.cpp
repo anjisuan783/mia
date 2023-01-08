@@ -163,7 +163,7 @@ void RtmpServerSide::HandshakeFailed(srs_error_t err) {
 
 srs_error_t RtmpServerSide::OnPacket(std::shared_ptr<MediaMessage> msg) {
   if(RTMP_DISCONNECTED == state_)
-    return srs_error_new(ERROR_SYSTEM_INVALID_STATE, "RtmpServerSide state:%d", state_);
+    return srs_error_new(ERROR_INVALID_STATE, "RtmpServerSide state:%d", state_);
 
   srs_error_t err = srs_success;
 

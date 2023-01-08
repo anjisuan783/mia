@@ -73,7 +73,7 @@ class MediaReactor : public MediaMsgQueue, public MediaTimerQueue {
 	 * Register <aEh> with <aMask>.  The handle will always
 	 * come from <GetHandle> on the <aEh>.
 	 * If success:
-	 *    if <aEh> is registered, return ERROR_SYSTEM_EXISTED;
+	 *    if <aEh> is registered, return ERROR_EXISTED;
 	 *    else return srs_success;
 	 */
 	virtual srs_error_t RegisterHandler(
@@ -85,8 +85,8 @@ class MediaReactor : public MediaMsgQueue, public MediaTimerQueue {
 	 * If success:
 	 *    if <aEh> is registered
 	 *       If <aMask> equals or greater than that registered, return srs_success;
-	 *       else return ERROR_SYSTEM_EXISTED;
-	 *    else return ERROR_SYSTEM_EXISTED;
+	 *       else return ERROR_EXISTED;
+	 *    else return ERROR_EXISTED;
 	 */
 	virtual srs_error_t RemoveHandler(
 		MediaHandler *aEh,
@@ -98,14 +98,16 @@ class MediaReactor : public MediaMsgQueue, public MediaTimerQueue {
 
 	virtual srs_error_t RunEventLoop() = 0;
 
-	/// this function can be invoked in the different thread.
+	// this function can be invoked in the different thread.
 	virtual void StopEventLoop() = 0;
 
-	/// Close down and release all resources.
+	// Close down and release all resources.
 	virtual srs_error_t Close() = 0;
 
 	virtual ~MediaReactor() = default;
 };
+
+MediaReactor* CreateReactor();
 
 } //namespace ma
 

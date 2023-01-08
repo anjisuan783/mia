@@ -31,8 +31,6 @@ private:
   std::mutex mutex_;
 };
 
-
-
 ///////////////////////////////////////////////////////////////
 //SyncMsg
 SyncMsg::SyncMsg(MediaMsg *msg, MediaMsgQueue *eq)
@@ -94,7 +92,7 @@ void MediaMsgQueueImp::DestoryPendingMsgs() {
 srs_error_t MediaMsgQueueImp::Post(MediaMsg *msg) {
   if (stopped_) {
     msg->OnDelete();
-    return srs_error_new(ERROR_SYSTEM_INVALID_STATE, "msg queue stopped.");
+    return srs_error_new(ERROR_INVALID_STATE, "msg queue stopped.");
   }
   msgs_.push_back(msg);
   return nullptr;
@@ -104,7 +102,7 @@ srs_error_t MediaMsgQueueImp::Send(MediaMsg *msg) {
   srs_error_t err = srs_success;
   if (stopped_) {
     msg->OnDelete();
-    return srs_error_new(ERROR_SYSTEM_INVALID_STATE, "msg queue stopped.");
+    return srs_error_new(ERROR_INVALID_STATE, "msg queue stopped.");
   }
 
   // if send event to the current thread, just do callbacks.
@@ -210,6 +208,16 @@ int MediaMsgQueueWithMutex::GetPendingNum() {
   return MediaMsgQueueImp::GetPendingNum();
 }
 
+bool MediaMsgQueueWithMutex::IsEmpty() {
+  std::lock_guard<std::mutex> guard(mutex_);
+  return MediaMsgQueueImp::IsEmpty();
+}
+
+void MediaMsgQueueWithMutex::DestoryPendingMsgs() {
+  std::lock_guard<std::mutex> guard(mutex_);
+  MediaMsgQueueImp::DestoryPendingMsgs();
+}
+
 /////////////////////////////////////////////////////////////
 //MediaTQBase
 int MediaTQBase::Check(MediaTimeValue *aRemainTime) {
@@ -274,9 +282,9 @@ int MediaTQBase::Check(MediaTimeValue *aRemainTime) {
 
 srs_error_t MediaTQBase::Schedule(MediaTimerHandler *handler, void* token, 
     const MediaTimeValue &aInterval, uint32_t aCount) {
-  MA_ASSERT_RETURN(handler, srs_error_new(ERROR_SYSTEM_INVALID_ARGS, "invalid handler"));
+  MA_ASSERT_RETURN(handler, srs_error_new(ERROR_INVALID_ARGS, "invalid handler"));
   MA_ASSERT_RETURN(aInterval > MediaTimeValue::time_zero_ || aCount == 1, 
-      srs_error_new(ERROR_SYSTEM_INVALID_ARGS, "invalid interval(%d) or count(%u)",
+      srs_error_new(ERROR_INVALID_ARGS, "invalid interval(%d) or count(%u)",
           aInterval.GetTimeInMsec(), aCount));
   
   int nRet;
@@ -300,13 +308,13 @@ srs_error_t MediaTQBase::Schedule(MediaTimerHandler *handler, void* token,
     return srs_success;
   } 
   if (nRet == 1)
-    return srs_error_new(ERROR_SYSTEM_EXISTED, "existed handler.");
+    return srs_error_new(ERROR_EXISTED, "existed handler.");
   
-  return srs_error_new(ERROR_SYSTEM_FAILURE, "nRet:%d", nRet);
+  return srs_error_new(ERROR_FAILURE, "nRet:%d", nRet);
 }
 
 srs_error_t MediaTQBase::Cancel(MediaTimerHandler *handler) {
-  MA_ASSERT_RETURN(handler, srs_error_new(ERROR_SYSTEM_INVALID_ARGS, "invalid handler"));
+  MA_ASSERT_RETURN(handler, srs_error_new(ERROR_INVALID_ARGS, "invalid handler"));
   std::lock_guard<std::mutex> theGuard(mutex_);
 
   int nRet = EraseNode_l(handler);
@@ -314,9 +322,9 @@ srs_error_t MediaTQBase::Cancel(MediaTimerHandler *handler) {
     return srs_success;
   
   if (nRet == 1)
-    return srs_error_new(ERROR_SYSTEM_EXISTED, "existed handler.");
+    return srs_error_new(ERROR_EXISTED, "existed handler.");
   
-  return srs_error_new(ERROR_SYSTEM_FAILURE, "nRet:%d", nRet);
+  return srs_error_new(ERROR_FAILURE, "nRet:%d", nRet);
 }
 
 MediaTimeValue MediaTQBase::GetEarliest() {
@@ -495,7 +503,7 @@ srs_error_t CalendarTQ::Schedule(MediaTimerHandler* handler,
 
   InsertUnique_i(interval, pFind);
   if (bFound) {
-    err = srs_error_new(ERROR_SYSTEM_EXISTED, "handler existed:%llu", handler);
+    err = srs_error_new(ERROR_EXISTED, "handler existed:%llu", handler);
   }
   return err;
 }
@@ -539,7 +547,7 @@ srs_error_t CalendarTQ::Cancel(MediaTimerHandler *handler) {
     return err;
   }
   
-  return srs_error_new(ERROR_SYSTEM_NOT_FOUND, "handler:%llu", handler);
+  return srs_error_new(ERROR_NOT_FOUND, "handler:%llu", handler);
 }
 
 void CalendarTQ::TimerTick() {

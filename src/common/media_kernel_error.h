@@ -53,7 +53,7 @@
 #define ERROR_SYSTEM_PID_SET_FILE_INFO      1040
 #define ERROR_SYSTEM_FILE_ALREADY_OPENED    1041
 #define ERROR_SYSTEM_FILE_OPENE             1042
-//#define ERROR_SYSTEM_FILE_CLOSE             1043
+//#define ERROR_SYSTEM_FILE_CLOSE           1043
 #define ERROR_SYSTEM_FILE_READ              1044
 #define ERROR_SYSTEM_FILE_WRITE             1045
 #define ERROR_SYSTEM_FILE_EOF               1046
@@ -93,11 +93,11 @@
 #define ERROR_SOCKET_ACCEPT                 1081
 #define ERROR_SOCKET_WOULD_BLOCK            1082
 #define ERROR_SOCKET_ERROR                  1083
-#define ERROR_SYSTEM_INVALID_STATE          1084
-#define ERROR_SYSTEM_NOT_FOUND              1085
-#define ERROR_SYSTEM_EXISTED                1086
-#define ERROR_SYSTEM_INVALID_ARGS           1087
-#define ERROR_SYSTEM_FAILURE                1088
+#define ERROR_INVALID_STATE                 1084
+#define ERROR_NOT_FOUND                     1085
+#define ERROR_EXISTED                       1086
+#define ERROR_INVALID_ARGS                  1087
+#define ERROR_FAILURE                       1088
 
 
 ///////////////////////////////////////////////////////

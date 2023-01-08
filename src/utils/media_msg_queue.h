@@ -77,7 +77,7 @@ class MediaTimerQueue {
    * this function must be invoked in the own thread.
    * <interval> must be greater than 0.
    * If success:
-   *    if <th> exists in queue, return ERROR_SYSTEM_EXISTED;
+   *    if <th> exists in queue, return ERROR_EXISTED;
    *    else return srs_success;
    */
   virtual srs_error_t Schedule(MediaTimerHandler* th,
@@ -89,7 +89,7 @@ class MediaTimerQueue {
    * this function must be invoked in the own thread.
    * If success:
    *    if <th> exists in queue, return srs_success;
-   *    else return ERROR_SYSTEM_NOT_FOUND;
+   *    else return ERROR_NOT_FOUND;
    */
   virtual srs_error_t Cancel(MediaTimerHandler* th) = 0;
 
@@ -112,9 +112,9 @@ class MediaMsgQueueImp : public MediaMsgQueue {
 	srs_error_t Send(MediaMsg *msg) override;
 	int GetPendingNum() override;
 
-  bool IsEmpty();
+  virtual bool IsEmpty();
 	void Stop();
-	void DestoryPendingMsgs();
+	virtual void DestoryPendingMsgs();
 
   enum { MAX_GET_ONCE = 5};
 	typedef std::deque<MediaMsg*> MsgType;
@@ -146,13 +146,17 @@ class MediaMsgQueueWithMutex : public MediaMsgQueueImp  {
 
 	void PopMsgs(MediaMsgQueueImp::MsgType &msgs, 
 		uint32_t aMaxCount = MAX_GET_ONCE, 
-		uint32_t *remain = NULL) override;
+		uint32_t *remain = nullptr) override;
 
-	void PopMsg(MediaMsg *&msg, uint32_t *aRemainSize = NULL) override;
+	void PopMsg(MediaMsg *&msg, uint32_t *remain_size = nullptr) override;
 
-	srs_error_t PostWithOldSize(MediaMsg *msg, uint32_t *old_size = NULL);
+	srs_error_t PostWithOldSize(MediaMsg *msg, uint32_t *old_size = nullptr);
     
   int GetPendingNum() override;
+
+  bool IsEmpty() override;
+
+  void DestoryPendingMsgs() override;
 private:
 	using MutexType = std::mutex;
 	MutexType mutex_;
