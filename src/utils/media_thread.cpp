@@ -1,19 +1,43 @@
-#include "media_thread.h"
+#include "utils/media_thread.h"
 
 #include <sys/prctl.h>
 #include <sys/syscall.h>
+#include <unistd.h>
 
 #include "common/media_log.h"
 #include "common/media_kernel_error.h"
-#include "media_msg_queue.h"
-#include "media_reactor.h"
+#include "utils/media_msg_queue.h"
+#include "utils/media_reactor.h"
 
 namespace ma {
 
 static log4cxx::LoggerPtr logger = log4cxx::Logger::getLogger("ma.utils");
 
+#define  gettid()                 syscall(__NR_gettid)
+
+// MediaStopMsgT
+template <class QueueType>
+class MediaStopMsgT : public MediaMsg {
+ public:
+	MediaStopMsgT(QueueType *q)
+		: queue_(q) { }
+	
+	srs_error_t OnFire() override {
+		if (queue_)
+			queue_->SetStopFlag();
+		return srs_success;
+	}
+
+	static srs_error_t PostStopMsg(QueueType *q) {
+		return q->MsgQueue()->Post(new MediaStopMsgT<QueueType>(q));
+	}
+
+private:
+	QueueType *queue_;
+};
+
 // class MediaNetThread
-class MediaNetThread final : public MediaThread
+class MediaNetThread final : public MediaThread {
  public:
 	MediaNetThread();
 	~MediaNetThread() override;
@@ -33,7 +57,8 @@ class MediaNetThread final : public MediaThread
 };
 
 // class MediaTaskThread
-class MediaTaskThread final : public MediaThread
+class MediaTaskThread final : public MediaThread {
+  friend class MediaStopMsgT<MediaTaskThread>;
  public:
   MediaTaskThread() = default;
   ~MediaTaskThread() override  = default;
@@ -72,9 +97,9 @@ bool IsThreadRefEqual(const pthread_t& a, const pthread_t& b) {
 void MediaThreadEvent::Wait(int* ms) {
   std::unique_lock<std::mutex> lk(mutex_);
   if (!ms) {
-    cv_.wait(lk, []{return ready_;});
+    cv_.wait(lk, [this]{return ready_;});
   } else {
-    cv_.wait_for(lk, *ms * 1ms, []{return ready_;});
+    cv_.wait_for(lk, std::chrono::milliseconds(*ms), [this]{return ready_;});
   }
 }
 
@@ -86,47 +111,25 @@ void MediaThreadEvent::Signal() {
   cv_.notify_one();
 }
 
-// MediaStopMsgT
-template <class QueueType>
-class MediaStopMsgT : public MediaMsg {
- public:
-	MediaStopMsgT(QueueType *q)
-		: queue_(q) { }
-	
-	srs_error_t OnFire() override {
-		if (queue_)
-			queue_->SetStopFlag();
-		return srs_success;
-	}
-
-	static srs_error_t PostStopMsg(QueueType *q) {
-		MediaStopMsgT<QueueType> msg = new MediaStopMsgT<QueueType>(q);
-		return q->MsgQueue()->Post(msg);
-	}
-
-private:
-	QueueType *queue_;
-};
-
 // class MediaThread
 void SetCurrentThreadName(const char* name) {
   prctl(PR_SET_NAME, reinterpret_cast<unsigned long>(name));  
 }
 
 inline unsigned long int  MediaGetTid() {
-	  return syscall(__NR_gettid);
+	  return gettid();
 }
 
 void MediaThread::Create(const std::string& name) {
   name_ = name;
-  worker_.reset(new std::thread(ThreadProc));
+  worker_.reset(new std::thread(MediaThread::ThreadProc, this));
 
   // Make sure that ThreadManager is created on the main thread before
   // we start a new thread.
   MediaThreadManager::Instance();
 }
 
-void MediaThread::Destory() {
+void MediaThread::Destroy() {
   delete this;
 }
 
@@ -148,18 +151,18 @@ void MediaThread::ThreadProc(void *param) {
   thread->event_.Wait();
 
   thread->OnThreadInit();
-  MLOG_INFO_THIS("Thread begin this=" << thread 
+  MLOG_INFO("Thread begin this=" << thread 
     << ", tid=" << thread->tid_
     << ", thread_name=" << thread->GetName()); 
 
   thread->OnThreadRun();
 
   MediaThreadManager::Instance()->SetCurrentThread(nullptr);
-  handler_ = 0;
+  thread->handler_ = 0;
 
-  MLOG_INFO_THIS("thread quit ... this="<<thread
+  MLOG_INFO("thread quit ... this="<<thread
     << ", tid=" << thread->tid_ 
-    << ", thread_name=" << pThread->GetName());
+    << ", thread_name=" << thread->GetName());
 }
 
 void MediaThread::Join() {
@@ -192,6 +195,7 @@ srs_error_t MediaTaskThread::Stop() {
   // stop event queue after post stop event.
   msg_queue_.Stop();
   stopped_ = true;
+  return err;
 }
 
 void MediaTaskThread::OnThreadInit() {
@@ -231,26 +235,28 @@ void MediaTaskThread::PopOrWaitPendingMsg(MediaMsgQueueImp::MsgType &msgs,
     MediaTimeValue *time_out, uint32_t max) {
 
   if (msg_queue_.IsEmpty()) {
-      event_.Wait(time_out->GetTimeInMsec());
-    }
+    int tv = time_out->GetTimeInMsec();
+    event_.Wait(&tv);
   }
   
   msg_queue_.PopMsgs(msgs, max);
 }
 
 MediaMsgQueue* MediaTaskThread::MsgQueue() {
-  return msg_queue_.get()
+  return &msg_queue_;
 }
 
 MediaTimerQueue* MediaTaskThread::TimerQueue() {
-  return timer_queue_.get();
+  return &timer_queue_;
 }
 
 // class MediaNetThread
 srs_error_t MediaNetThread::Stop() {
-  MLOG_INFO_THIS("");
+  MLOG_INFO_THIS("stop thread, tid:" << this->GetTid());
   reactor_->StopEventLoop();
   stopped_ = true;
+
+  return srs_success;
 }
 
 void MediaNetThread::OnThreadInit() {
@@ -285,11 +291,11 @@ MediaReactor* MediaNetThread::Reactor() {
 }
 
 MediaMsgQueue* MediaNetThread::MsgQueue() {
-  return dynamic_cast<MediaMsgQueue>(reactor_.get());
+  return dynamic_cast<MediaMsgQueue*>(reactor_.get());
 }
 
 MediaTimerQueue* MediaNetThread::TimerQueue() {
-  return dynamic_cast<MediaTimerQueue>(reactor_.get());
+  return dynamic_cast<MediaTimerQueue*>(reactor_.get());
 }
 
 // class MediaThreadManager
@@ -302,6 +308,8 @@ MediaThread* MediaThreadManager::CreateNetThread(const std::string& name) {
   auto p = new MediaNetThread;
   p->Create(name);
   p->Run();
+  if (!default_net_thread_)
+    default_net_thread_ = p;
   return p;
 }
 
@@ -312,8 +320,15 @@ MediaThread* MediaThreadManager::CreateTaskThread(const std::string& name) {
   return p;
 }
 
+MediaThread* MediaThreadManager::GetDefaultNetThread() {
+  if (!default_net_thread_) {
+    return CreateNetThread("net");
+  }
+  return default_net_thread_;
+}
+
 MediaThread* MediaThreadManager::CurrentThread() {
-  return static_cast<Thread*>(pthread_getspecific(key_));
+  return static_cast<MediaThread*>(pthread_getspecific(key_));
 }
 
 void MediaThreadManager::SetCurrentThread(MediaThread* thread) {

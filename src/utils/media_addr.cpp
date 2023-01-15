@@ -10,6 +10,7 @@
 #include "media_msg_queue.h"
 #include "media_time_value.h"
 #include "utils/media_timer_helper.h"
+#include "utils/media_thread.h"
 
 namespace ma {
 
@@ -309,7 +310,7 @@ class DnsRecord final {
       return nullptr;
     }
 
-    bool operator==(const iterator& rand) const { return (addr_ == r.addr_); }
+    bool operator==(const iterator& r) const { return (addr_ == r.addr_); }
 
     bool operator!=(const iterator& r) const { return (!(*this == r)); }
 
@@ -358,42 +359,40 @@ protected:
 
 class DnsManager final : public MediaMsg, public MediaTimerHelpSink {
  public:
+  DnsManager();
+  ~DnsManager();
+
   /**
    * gets ip address from cache or kicks off an asynchronous host lookup.
    *
-   * @param aRecord
+   * @param record
    *        return DNS record corresponding to the given hostname.
-   * @param aHostName
+   * @param hostname
    *        the hostname or IP-address-literal to resolve.
-   * @param aObserver
+   * @param observer
    *        the listener to be notified when the result is available.
-   * @param aBypassCache
+   * @param bypass_cache
    *        if true, the internal DNS lookup cache will be bypassed.
-   * @param aThreadListener
+   * @param thread_listener
    *        optional parameter (may be null).  if non-null, this parameter
    *        specifies the MediaThread on which the listener's
    *        OnObserve should be called.  however, if this parameter is
    *        null, then OnObserve will be called on current thread.
    *
    * @return
-   *        if RT_OK, <aRecord> is filled with corresponding record.
-   *        else if ERROR_WOULD_BLOCK, <aObserver> will be callback late only
+   *        if srs_success, <record> is filled with corresponding record.
+   *        else if ERROR_WOULD_BLOCK, <observer> will be callback late only
    *   once. You should call CancelResolve() before callback.
    *        else resolve hostname failed.
    */
-  int AsyncResolve(std::shared_ptr<DnsRecord>& record,
-                   const std::string& hostname,
-                   MediaObserver* aObserver = nullptr,
-                   bool bypass_cache = false,
-                   MediaThread* thread_listener = nullptr);
+  srs_error_t AsyncResolve(std::shared_ptr<DnsRecord>& record,
+                           const std::string& hostname,
+                           MediaObserver* observer = nullptr,
+                           bool bypass_cache = false,
+                           MediaThread* thread_listener = nullptr);
 
   // <aObserver> will not notified after calling this function.
   int CancelResolve(MediaObserver* observer);
-
-  // clear the <hostname> in the cache and resolve it again.
-  // return ERROR_WOULD_BLOCK: is relsoving.
-  // return ERROR_FAILURE: relsove failed.
-  int RefreshHost(const std::string& hostname);
 
   // close and release any resoruce.
   int Shutdown();
@@ -402,22 +401,20 @@ class DnsManager final : public MediaMsg, public MediaTimerHelpSink {
    * gets ip address from cache or resolve it at once,
    * the current thread will be blocking when resolving.
    *
-   * @param aRecord
+   * @param record
    *        return DNS record corresponding to the given hostname.
-   * @param aHostName
+   * @param hostname
    *        the hostname or IP-address-literal to resolve.
-   * @param aBypassCache
+   * @param bypass_cache
    *        if true, the internal DNS lookup cache will be bypassed.
    *
    * @return
-   *        if RT_OK, <aRecord> is filled with corresponding record.
+   *        if srs_success, <aRecord> is filled with corresponding record.
    *        else resolve hostname failed.
    */
-  int SyncResolve(std::shared_ptr<DnsRecord>& aRecord,
-                  const std::string& hostname,
-                  bool bypass_cache = false);
-
-  int GetLocalIps(DnsRecord*& aRecord);
+  srs_error_t SyncResolve(std::shared_ptr<DnsRecord>& record,
+                        const std::string& hostname,
+                        bool bypass_cache = false);
 
  protected:
   // implement of MediaMsg
@@ -428,71 +425,65 @@ class DnsManager final : public MediaMsg, public MediaTimerHelpSink {
   void OnTimer(MediaTimerHelp* id) override;
 
  private:
-  DnsManager();
-  ~DnsManager();
-
-  int BeginResolve_l(DnsRecord* aRecord);
-  int DoGetHostByName_l(DnsRecord* aRecord);
-  int TryAddObserver_l(MediaObserver* aObserver,
+  srs_error_t BeginResolve_l(std::shared_ptr<DnsRecord> record);
+  int DoGetHostByName_l(DnsRecord* record);
+  srs_error_t TryAddObserver_l(MediaObserver* aObserver,
                       MediaThread* thread_listener,
                       const std::string& hostname);
-  int Resolved_l(DnsRecord* aRecord, int aError, bool callback = true);
+  srs_error_t Resolved_l(std::shared_ptr<DnsRecord> record, int error, bool callback = true);
   int DoCallback_l(int aError, const std::string& hostname);
-  int FindInCache_l(DnsRecord*& aRecord, const std::string& hostname);
+  srs_error_t FindInCache_l(std::shared_ptr<DnsRecord>&, const std::string& hostname);
 
-  void SpawnDnsThread_l();
+  void CreateDnsWorker();
  private:
-  int GetHostByname_i(DnsRecord* aRecord);
-  int GetAddrInfo_i(DnsRecord* aRecord);
+  int GetAddrInfo_i(DnsRecord* record);
 
  private:
   typedef std::map<std::string, std::shared_ptr<DnsRecord>> CacheRecordsType;
-  CacheRecordsType m_CacheRecords;
+  CacheRecordsType record_cache_;
   typedef std::list<std::shared_ptr<DnsRecord>> PendingRecordsType;
-  PendingRecordsType m_PendingRecords;
+  PendingRecordsType pending_records_;
 
   class CObserverAndListener : public MediaMsg {
    public:
     CObserverAndListener(DnsManager* dnsmgr,
-                         MediaObserver* aObserver,
-                         MediaThread* aThreadListener,
-                         int aError,
+                         MediaObserver* obs,
+                         MediaThread* listener,
+                         int e,
                          const std::string& hostname)
-        : m_pDnsManager(dnsmgr),
-          m_pObserver(aObserver),
-          m_pThreadListener(aThreadListener),
-          m_nError(aError),
-          m_strHostName(hostname) {
-      MA_ASSERT(m_pDnsManager);
-      MA_ASSERT(m_pObserver);
-      MA_ASSERT(m_pThreadListener);
+        : manager_(dnsmgr),
+          observer_(obs),
+          listener_thread_(listener),
+          error_(e),
+          host_name_(hostname) {
+      MA_ASSERT(manager_);
+      MA_ASSERT(observer_);
+      MA_ASSERT(listener_thread_);
     }
 
     bool operator==(const CObserverAndListener& r) {
-      return m_pObserver == r.m_pObserver;
+      return observer_ == r.observer_;
     }
 
-    bool operator==(MediaObserver* aObserver) { return m_pObserver == aObserver; }
+    bool operator==(MediaObserver* aObserver) { return observer_ == aObserver; }
 
     // interface Mediamsg
     srs_error_t OnFire() override;
 
-    DnsManager* m_pDnsManager;
-    MediaObserver* m_pObserver;
-    MediaThread* m_pThreadListener;
-    int m_nError;
-    std::string m_strHostName;
+    DnsManager* manager_;
+    MediaObserver* observer_;
+    MediaThread* listener_thread_;
+    int error_;
+    std::string host_name_;
   };
   typedef std::vector<CObserverAndListener> ObserversType;
-  ObserversType m_Observers;
+  ObserversType observers_;
 
   typedef std::mutex MutexType;
-  MutexType m_Mutex;
+  MutexType mutex_;
 
-  MediaThread* m_pThreadDNS = nullptr;
-
-  MediaThread* m_pThreadNetwork;
-  MediaTimerHelp m_TimerExpired;
+  MediaThread* dns_worker_ = nullptr;
+  MediaTimerHelp expired_timer_;
 };
 
 // class DnsRecord
@@ -504,235 +495,142 @@ DnsRecord::DnsRecord(const std::string& host_name)
 
 // class DnsManager
 DnsManager::DnsManager() {
-  m_pThreadNetwork = MediaThreadManager::Instance()->GetDefaultNetworkThread();
-  MA_ASSERT(m_pThreadNetwork);
-
-  m_TimerExpired.Schedule(this, MediaTimeValue(3, 0));
+  expired_timer_.Schedule(this, MediaTimeValue(3, 0));
 }
 
 DnsManager::~DnsManager() {
   Shutdown();
 }
 
-int DnsManager::AsyncResolve(DnsRecord*& aRecord,
-                              const Std::string& aHostName,
-                              MediaObserver* aObserver,
-                              bool aBypassCache,
-                              MediaThread* aThreadListener) {
-  MA_ASSERT(!aRecord);
-  MLOG_INFO_THIS(" aHostName="
-      << aHostName << " aObserver=" << aObserver << " aBypassCache="
-      << aBypassCache << " aThreadListener=" << aThreadListener);
+srs_error_t DnsManager::AsyncResolve(std::shared_ptr<DnsRecord>& record,
+                             const std::string& hostname,
+                             MediaObserver* observer,
+                             bool bypass_cache,
+                             MediaThread* listener) {
+  MA_ASSERT(!record);
+  MLOG_INFO_THIS(" hostname=" << hostname << " observer=" << observer 
+      << " bypass_cache=" << bypass_cache << " listener=" << listener->GetTid());
 
-  std::lock_guard<std::mutex> guard(m_Mutex);
-  if (!aBypassCache) {
-    int rv = FindInCache_l(aRecord, aHostName);
-    if (rv == ERROR_SUCCESS)
-      return rv;
-  }
-  std::shared_ptr<DnsRecord> pRecordNew = new DnsRecord(aHostName);
-  int nErr = BeginResolve_l(pRecordNew.get());
-  if (nErr) {
-    Resolved_l(pRecordNew.get(), nErr, false);
-    return ERROR_FAILURE;
-  }
+  srs_error_t err = srs_success;
 
-  TryAddObserver_l(aObserver, aThreadListener, aHostName);
-  return ERROR_SOCKET_WOULD_BLOCK;
+  std::lock_guard<std::mutex> guard(mutex_);
+  if (!bypass_cache) {
+    if ((err = FindInCache_l(record, hostname)) != srs_success)
+      return err;
+  }
+  std::shared_ptr<DnsRecord> r_new = std::make_shared<DnsRecord>(hostname);
+  if (srs_success != (err = BeginResolve_l(r_new))) {
+    return err;
+  }
+  if (srs_success != (err = Resolved_l(r_new, 0, false))) {
+    return err;
+  }
+  if (srs_success != (err = TryAddObserver_l(observer, listener, hostname))) {
+    return err;
+  }
+  return srs_error_new(ERROR_SOCKET_WOULD_BLOCK, "try to resolve async");
 }
 
-int DnsManager::SyncResolve(std::shared_ptr<DnsRecord>& aRecord,
-                            const std::string& aHostName,
-                            bool aBypassCache) {
-  MA_ASSERT(!aRecord);
-  MLOG_INFO_THIS(" aHostName=" << aHostName 
-      << " aBypassCache=" << aBypassCache);
-
-  std::lock_guard<std::mutex> guard(m_Mutex);
-  if (!aBypassCache) {
-    int rv = FindInCache_l(aRecord, aHostName);
-    if (rv = ERROR_SUCCESS)
-      return rv;
+srs_error_t DnsManager::SyncResolve(std::shared_ptr<DnsRecord>& record,
+    const std::string& hostname, bool bypassCache) {
+  MLOG_INFO_THIS("hostname=" << hostname << (bypassCache?" bypassCache":""));
+  srs_error_t err = srs_success;
+  std::lock_guard<std::mutex> guard(mutex_);
+  if (!bypassCache) {
+    if ((err = FindInCache_l(record, hostname)) != srs_success)
+      return err;
   }
 
-  std::shared_ptr<DnsRecord> pRecordNew;
-  PendingRecordsType::iterator iterPending = m_PendingRecords.begin();
-  for (; iterPending != m_PendingRecords.end(); ++iterPending) {
-    if ((*iterPending)->m_strHostName == aHostName) {
-      MLOG_WARN_THIS(" remove pending for hostname=" << aHostName);
-      pRecordNew = (*iterPending);
-      m_PendingRecords.erase(iterPending);
+  std::shared_ptr<DnsRecord> new_record;
+  for (auto iterPending = pending_records_.begin(); 
+      iterPending != pending_records_.end(); ++iterPending) {
+    if ((*iterPending)->GetHostName() == hostname) {
+      MLOG_WARN_THIS("remove pending for hostname:" << hostname);
+      new_record = (*iterPending);
+      pending_records_.erase(iterPending);
 
       // TODO: If it's processing, wait util reloved.
-      MA_ASSERT(pRecordNew->m_State == DnsRecord::RSV_IDLE);
+      MA_ASSERT(new_record->state_ == DnsRecord::RSV_IDLE);
       break;
     }
   }
 
-  int nErr = -998;
-  if (!pRecordNew) {
-    pRecordNew = new DnsRecord(aHostName);
-    if (!pRecordNew)
-      goto fail;
+  if (!new_record) {
+    new_record = std::make_shared<DnsRecord>(hostname);
   }
 
-  m_PendingRecords.push_front(pRecordNew);
-  nErr = DoGetHostByName_l(pRecordNew.Get());
+  pending_records_.push_front(new_record);
+  int nErr = DoGetHostByName_l(new_record.get());
 
-fail:
-  Resolved_l(pRecordNew.get(), nErr, false);
-  if (!nErr) {
-    aRecord = pRecordNew.get();
-    aRecord->AddReference();
-    return ERROR_SUCCESS;
-  } else {
-    return ERROR_NETWORK_DNS_FAILURE;
+  err = Resolved_l(new_record, nErr, false);
+  if (srs_success == err) {
+    record = std::move(new_record);
+    return err;
   }
+
+  return err;
 }
 
-Int DnsManager::FindInCache_l(DnsRecord*& aRecord,
-                                   const Std::string& aHostName) {
-  MA_ASSERT(!aRecord);
-  CacheRecordsType::iterator iter = m_CacheRecords.find(aHostName);
-  if (iter != m_CacheRecords.end()) {
-    aRecord = (*iter).second.Get();
-    MA_ASSERT(aRecord);
-    MA_ASSERT(aHostName == aRecord->m_strHostName);
+srs_error_t DnsManager::FindInCache_l(std::shared_ptr<DnsRecord>& record,
+                              const std::string& hostname) {
+  srs_error_t err = srs_success;
+  CacheRecordsType::iterator iter = record_cache_.find(hostname);
+  if (iter != record_cache_.end()) {
+    record = (*iter).second;
+    MA_ASSERT(hostname == record->host_name_);
 
-    if (aRecord->m_State == DnsRecord::RSV_SUCCESS) {
-      aRecord->AddReference();
-      return RT_OK;
-    } else if (aRecord->m_State == DnsRecord::RSV_FAILED) {
-      aRecord = NULL;
-      return RT_ERROR_NETWORK_DNS_FAILURE;
+    if (record->state_ == DnsRecord::RSV_SUCCESS) {
+      return err;
+    } else if (record->state_ == DnsRecord::RSV_FAILED) {
+      return srs_error_new(ERROR_SYSTEM_DNS_RESOLVE, "dns resolve failed.");
     } else {
-      MLOG_ERROR_THIS(
-          " error state in m_CacheRecords"
-          " aHostName="
-          << aHostName << " aRecord=" << aRecord
-          << " state=" << aRecord->m_State);
       MA_ASSERT(false);
-      return ERROR_UNEXPECTED;
+      return srs_error_new(ERROR_UNEXPECTED, 
+          "error state in record_cache_, host:%s, state:%d", hostname.c_str(), record->state_);
     }
   }
-  return ERROR_NOT_FOUND;
+  return srs_error_new(ERROR_UNEXPECTED,"hostname:%s not found", hostname.c_str());
 }
 
-int DnsManager::RefreshHost(const Std::string& aHostName) {
-  MLOG_INFO_THIS("DnsManager::RefreshHost,"
-      " aHostName=" << aHostName);
-
-  std::shared_ptr<DnsRecord> m_pOldRecord;
-  std::lock_guard<std::mutex> guard(m_Mutex);
-  CacheRecordsType::iterator iter = m_CacheRecords.find(aHostName);
-  if (iter != m_CacheRecords.end()) {
-    m_pOldRecord = (*iter).second;
-    MA_ASSERT(m_pOldRecord->m_State == DnsRecord::RSV_SUCCESS ||
-               m_pOldRecord->m_State == DnsRecord::RSV_FAILED);
-    MA_ASSERT(m_pOldRecord->m_strHostName == aHostName);
-    m_CacheRecords.erase(iter);
-  }
-  if (!m_pOldRecord) {
-    m_pOldRecord = new DnsRecord(aHostName);
-  } else {
-    m_pOldRecord->m_State = DnsRecord::RSV_IDLE;
-  }
-
-  int nErr = BeginResolve_l(m_pOldRecord.Get());
-  if (nErr) {
-    Resolved_l(m_pOldRecord.Get(), nErr, false);
-    return ERROR_FAILURE;
-  }
-  return ERROR_SOCKET_WOULD_BLOCK;
-}
-
-int DnsManager::GetLocalIps(std::shared_ptr<DnsRecord>& aRecord) {
-  char szBuf[512];
-  int nErr = ::gethostname(szBuf, sizeof(szBuf));
-  if (nErr != 0) {
-
-    MLOG_ERROR_THIS("gethostname() failed! err=" << errno);
-    return ERROR_FAILURE;
-  }
-  int rv = SyncResolve(aRecord, szBuf);
-  return rv;
-}
-
-int DnsManager::BeginResolve_l(DnsRecord* aRecord) {
-  MA_ASSERT_RETURN(aRecord, -999);
-
-  PendingRecordsType::iterator iterPending = m_PendingRecords.begin();
-  for (; iterPending != m_PendingRecords.end(); ++iterPending) {
-    if ((*iterPending)->m_strHostName == aRecord->m_strHostName) {
-      return 0;
+srs_error_t DnsManager::BeginResolve_l(std::shared_ptr<DnsRecord> record) {
+  srs_error_t err = srs_success;
+  for (auto& iter : pending_records_) {
+    if (iter->GetHostName() == record->GetHostName()) {
+      return err;
     }
   }
+  pending_records_.push_back(record);
 
-  std::shared_ptr<DnsRecord> pRecordNew = aRecord;
-  m_PendingRecords.push_back(pRecordNew);
+  if (!dns_worker_)
+    CreateDnsWorker();
 
-  int rv = ERROR_SUCCESS;
-  if (!m_pThreadDNS)
-    rv = SpawnDnsThread_l();
-  if (rv == ERROR_SUCCESS)
-    rv = m_pThreadDNS->MsgQueue()->Post(this);
-  return rv==ERROR_SUCCESS ? 0 : -1;
+  err = dns_worker_->MsgQueue()->Post(this);
+  return err;
 }
 
-int DnsManager::DoGetHostByName_l(DnsRecord* aRecord) {
-  MA_ASSERT(aRecord);
-  MA_ASSERT(aRecord->m_State == DnsRecord::RSV_IDLE);
-  aRecord->m_State = DnsRecord::RSV_PROCESSING;
+int DnsManager::DoGetHostByName_l(DnsRecord* record) {
+  MA_ASSERT(record);
+  MA_ASSERT(record->state_ == DnsRecord::RSV_IDLE);
+  record->state_ = DnsRecord::RSV_PROCESSING;
 
   // unlock the mutex because gethostbyname() will block the current thread.
-  m_Mutex.unlock();
-  int nError = GetAddrInfo_i(aRecord);
-
-  if (nError != ERROR_SUCCESS) {
-    // nError = EADDRNOTAVAIL;
-    MLOG_ERROR_THIS(" failed hostName: " << aRecord->m_strHostName
-                   << " errInfo: " << strerror(nError));
-  }
-  m_Mutex.lock();
+  mutex_.unlock();
+  int nError = GetAddrInfo_i(record);
+  mutex_.lock();
   return nError;
 }
 
-int DnsManager::GetHostByname_i(DnsRecord* aRecord) {
+int DnsManager::GetAddrInfo_i(DnsRecord* record) {
   int nError = 0;
-  ::memset(aRecord->m_szBuffer, 0, sizeof(aRecord->m_szBuffer));
-  struct hostent* pHeResult = ::gethostbyname(aRecord->m_strHostName.c_str());
-  if (pHeResult) {
-    char* pResutBuffer = aRecord->m_szBuffer;
-    struct sockaddr_in addr;
-
-    for (int i = 0; pHeResult->h_addr_list[i]; i++) {
-      ::memset(&addr, 0, sizeof(sockaddr_in));
-      addr.sin_family = AF_INET;
-      addr.sin_addr = *((struct in_addr*)pHeResult->h_addr_list[i]);
-      ::memcpy(pResutBuffer, reinterpret_cast<struct sockaddr*>(&addr),
-               sizeof(sockaddr_in));
-      pResutBuffer += kAi_Addrlen;
-    }
-  } else {
-    nError = errno;
-    if (!nError)
-      nError = EADDRNOTAVAIL;
-  }
-  return nError;
-}
-
-int DnsManager::GetAddrInfo_i(DnsRecord* aRecord) {
-  int nError = 0;
-  ::memset(aRecord->m_szBuffer, 0, sizeof(aRecord->m_szBuffer));
+  ::memset(record->buffer_, 0, sizeof(record->buffer_));
 
   struct addrinfo hints, *pTmp, *pResult;
   memset(&hints, 0, sizeof(hints));
-  // hints.ai_family = PF_UNSPEC;
-  // hints.ai_socktype = SOCK_STREAM;
+
   hints.ai_flags = AI_CANONNAME;
-  nError = ::getaddrinfo(aRecord->m_strHostName.c_str(), "", &hints, &pResult);
+  nError = ::getaddrinfo(record->host_name_.c_str(), "", &hints, &pResult);
   if (nError == ERROR_SUCCESS) {
-    char* pResutBuffer = aRecord->m_szBuffer;
+    char* pResutBuffer = record->buffer_;
     for (pTmp = pResult; pTmp != NULL; pTmp = pTmp->ai_next) {
       ::memcpy(pResutBuffer, pTmp->ai_addr, pTmp->ai_addrlen);
       pResutBuffer += kAi_Addrlen;
@@ -747,176 +645,177 @@ int DnsManager::GetAddrInfo_i(DnsRecord* aRecord) {
   return nError;
 }
 
-int DnsManager::TryAddObserver_l(MediaObserver* aObserver,
-                                  MediaThread* aThreadListener,
-                                  const Std::string& aHostName) {
-  if (!aObserver)
-    return ERROR_INVALID_ARGS;
+srs_error_t DnsManager::TryAddObserver_l(MediaObserver* observer,
+    MediaThread* listener,const std::string& hostname) {
+  if (!observer)
+    return srs_error_new(ERROR_INVALID_ARGS, "invalid args");
 
-  if (!aThreadListener) {
-    aThreadListener = MediaThreadManager::Instance()->CurrentThread();
-    MA_ASSERT(aThreadListener);
+  if (!listener) {
+    listener = MediaThreadManager::Instance()->CurrentThread();
+    MA_ASSERT(listener);
   }
 
-  ObserversType::iterator iter = m_Observers.begin();
-  for (; iter != m_Observers.end(); ++iter) {
-    if ((*iter).m_pObserver == aObserver) {
-      MLOG_WARN_THIS("observer already exist.aObserver="
-          << aObserver << " aThreadListener=" << aThreadListener);
-      return ERROR_EXISTED;
+  for (auto iter = observers_.begin(); iter != observers_.end(); ++iter) {
+    if ((*iter).observer_ == observer) {
+      return srs_error_new(ERROR_EXISTED, 
+          "observer already exist.observer=%lu, listener_threadid=%d", observer, listener->GetTid());
     }
   }
 
-  CObserverAndListener obsNew(this, aObserver, aThreadListener, 0, aHostName);
-  m_Observers.push_back(obsNew);
-  return ERROR_SUCCESS;
+  observers_.push_back(CObserverAndListener(this, observer, listener, 0, hostname));
+  return srs_success;
 }
 
-int DnsManager::Resolved_l(DnsRecord* aRecord,
-                          int aError,
-                          bool aCallback) {
-  MA_ASSERT(aRecord);
-  MA_ASSERT(aRecord->m_State == DnsRecord::RSV_PROCESSING);
-  MLOG_INFO_THIS(" pRecord="
-      << aRecord << " hostname=" << aRecord->m_strHostName
-      << " aError=" << aError);
+srs_error_t DnsManager::Resolved_l(std::shared_ptr<DnsRecord> record, int error, bool aCallback) {
+  MA_ASSERT(record->state_ == DnsRecord::RSV_PROCESSING);
+  MLOG_INFO_THIS("record=" << record << " hostname=" << record->host_name_
+      << " error=" << error);
 
-  if (!aError) {
+  srs_error_t err = srs_success;
+
+  if (!error) {
     // it's successful.
-    aRecord->m_State = DnsRecord::RSV_SUCCESS;
+    record->state_ = DnsRecord::RSV_SUCCESS;
   } else {
-    aRecord->m_State = DnsRecord::RSV_FAILED;
+    record->state_ = DnsRecord::RSV_FAILED;
   }
-  aRecord->m_tvResolve = MediaTimeValue::GetTimeOfDay();
+  record->resolved_ = MediaTimeValue::GetDayTime();
 
-  m_CacheRecords[aRecord->m_strHostName] = aRecord;
+  record_cache_[record->host_name_] = std::move(record);
 
-  PendingRecordsType::iterator iter =
-      std::find(m_PendingRecords.begin(), m_PendingRecords.end(), aRecord);
-  if (iter != m_PendingRecords.end()) {
-    m_PendingRecords.erase(iter);
+  PendingRecordsType::iterator iter = pending_records_.begin();
+  for (; iter!=pending_records_.end(); ++iter) {
+    if ((*iter).get() == record.get())
+      break;
+  }
+
+  if (iter != pending_records_.end()) {
+    pending_records_.erase(iter);
   } else {
-    MLOG_ERROR_THIS("can't find pending."
+    return srs_error_new(ERROR_SYSTEM_DNS_RESOLVE, "can't find pending."
         " maybe it's removed due to Sync and Aysnc resolve the same hostname."
-        " hsotname" << aRecord->m_strHostName);
-    MA_ASSERT(false);
+        " hsotname:%s", record->host_name_.c_str());
   }
 
   if (aCallback)
-    DoCallback_l(aError, aRecord->m_strHostName);
-  return ERROR_SUCCESS;
+    DoCallback_l(error, record->host_name_);
+  return err;
 }
 
-int DnsManager::DoCallback_l(int aError, const Std::string& aHostName) {
-  if (m_Observers.empty())
+int DnsManager::DoCallback_l(int error, const std::string& hostname) {
+  if (observers_.empty())
     return ERROR_SUCCESS;
 
-  ObserversType obvOnCall(m_Observers);
-
-  std::string strHostName(aHostName);
+  ObserversType obvOnCall(observers_);
 
   // don't hold the mutex when doing callback
-  m_Mutex.unlock();
-  ObserversType::iterator iter = obvOnCall.begin();
-  for (; iter != obvOnCall.end(); ++iter) {
-    if ((*iter).m_strHostName != strHostName)
+  mutex_.unlock();
+ 
+  for (auto iter = obvOnCall.begin(); iter != obvOnCall.end(); ++iter) {
+    if ((*iter).host_name_ != hostname)
       continue;
 
-    if (MediaThreadManager::IsEqualCurrentThread((*iter).m_pThreadListener)) {
-      MediaObserver* pObserver = (*iter).m_pObserver;
-      if (pObserver) {
+    if (MediaThreadManager::IsEqualCurrentThread((*iter).listener_thread_)) {
+      MediaObserver* observer = (*iter).observer_;
+      if (observer) {
         // allow OnObserver() once.
-        int rv = CancelResolve(pObserver);
+        int rv = CancelResolve(observer);
         if (rv == ERROR_SUCCESS) {
-          int nErr = aError;
-          pObserver->OnObserve("DnsManager", &nErr);
+          observer->OnObserve("DnsManager", &error);
         }
       }
     } else {
-      MediaMsgQueue* queue = (*iter).m_pThreadListener->MsgQueue();
+      MediaMsgQueue* queue = (*iter).listener_thread_->MsgQueue();
       if (queue) {
-        CObserverAndListener* pEventNew = new CObserverAndListener(*iter);
-        pEventNew->m_nError = aError;
-        queue->Post(pEventNew);
+        CObserverAndListener* msg = new CObserverAndListener(*iter);
+        msg->error_ = error;
+        srs_error_t err = queue->Post(msg);
+        if (err) {
+          MLOG_ERROR_THIS("post dns result failed, listener tid=" 
+              <<  (*iter).listener_thread_->GetTid() << ", desc=" << srs_error_desc(err));
+          delete err;
+        }
       }
     }
   }
-  m_Mutex.lock();
+  mutex_.lock();
   return ERROR_SUCCESS;
 }
 
-int DnsManager::CancelResolve(MediaObserver* aObserver) {
-  std::lock_guard<std::mutex> guard(m_Mutex);
-  ObserversType::iterator iter = m_Observers.begin();
-  for (; iter != m_Observers.end(); ++iter) {
-    if ((*iter).m_pObserver == aObserver) {
-      m_Observers.erase(iter);
+int DnsManager::CancelResolve(MediaObserver* observer) {
+  std::lock_guard<std::mutex> guard(mutex_);
+  for (auto iter = observers_.begin(); iter != observers_.end(); ++iter) {
+    if ((*iter).observer_ == observer) {
+      observers_.erase(iter);
       return ERROR_SUCCESS;
     }
   }
-
   return ERROR_NOT_FOUND;
 }
 
 int DnsManager::Shutdown() {
-  std::lock_guard<std::mutex> guard(m_Mutex);
-  if (m_pThreadDNS) {
-    m_pThreadDNS->Stop();
-    m_pThreadDNS->Destroy();
-    m_pThreadDNS = NULL;
+  std::lock_guard<std::mutex> guard(mutex_);
+  if (dns_worker_) {
+    dns_worker_->Stop();
+    dns_worker_->Destroy();
+    dns_worker_ = NULL;
   }
 
-  m_Observers.clear();
-  m_PendingRecords.clear();
-  m_CacheRecords.clear();
+  observers_.clear();
+  pending_records_.clear();
+  record_cache_.clear();
   return ERROR_SUCCESS;
 }
 
-int DnsManager::CObserverAndListener::OnFire() {
-  MA_ASSERT(MediaThreadManager::IsEqualCurrentThread(m_pThreadListener));
+srs_error_t DnsManager::CObserverAndListener::OnFire() {
+  MA_ASSERT(MediaThreadManager::IsEqualCurrentThread(listener_thread_));
 
-  int rv = m_pDnsManager->CancelResolve(m_pObserver);
-  if (rv == ERROR_SUCCESS && m_pObserver)
-    m_pObserver->OnObserve("DnsManager", &m_nError);
-  return ERROR_SUCCESS;
+  int rv = manager_->CancelResolve(observer_);
+  if (rv == ERROR_SUCCESS && observer_)
+    observer_->OnObserve("DnsManager", &error_);
+  return srs_success;
 }
 
-void DnsManager::SpawnDnsThread_l() {
-  MA_ASSERT(!m_pThreadDNS);
-  m_pThreadDNS = MediaThreadManager::Instance()->CreateTaskThread(m_pThreadDNS);
+void DnsManager::CreateDnsWorker() {
+  if(!dns_worker_)
+    dns_worker_ = MediaThreadManager::Instance()->CreateTaskThread("dns");
 }
 
-int DnsManager::OnFire() {
-  MA_ASSERT(MediaThreadManager::IsEqualCurrentThread(m_pThreadDNS));
-  std::lock_guard<std::mutex> guard(m_Mutex);
-  while (!m_PendingRecords.empty()) {
-    // must use Std::shared_ptr to backup it, because DoGetHostByName_l()
+srs_error_t DnsManager::OnFire() {
+  srs_error_t err = srs_success;
+  MA_ASSERT(MediaThreadManager::IsEqualCurrentThread(dns_worker_));
+  std::lock_guard<std::mutex> guard(mutex_);
+  while (!pending_records_.empty()) {
+    // must use std::shared_ptr to backup it, because DoGetHostByName_l()
     // maybe unlock the mutex and it's may remove in other thread.
-    std::shared_ptr<DnsRecord> pRecord = (*m_PendingRecords.begin());
-    int nErr = DoGetHostByName_l(pRecord.Get());
-    Resolved_l(pRecord.Get(), nErr);
+    std::shared_ptr<DnsRecord> record = (*pending_records_.begin());
+    int nError = DoGetHostByName_l(record.get());
+    if (nError != ERROR_SUCCESS) {
+      MLOG_ERROR_THIS(" failed hostName: " << record->host_name_
+          << " errInfo: " << strerror(nError));
+   }
+    err = Resolved_l(record, nError);
   }
-  return ERROR_SUCCESS;
+  return err;
 }
 
 void DnsManager::OnDelete() {
 }
 
 void DnsManager::OnTimer(MediaTimerHelp* id) {
-  if (m_CacheRecords.empty())
+  if (record_cache_.empty())
     return;
 
   MediaTimeValue tvCurrent = MediaTimeValue::GetDayTime();
   MediaTimeValue tvExpireInterval(3, 0);
-  std::lock_guard<std::mutex> guard(m_Mutex);
-  CacheRecordsType::iterator iter = m_CacheRecords.begin();
-  while (iter != m_CacheRecords.end()) {
-    DnsRecord* pRecord = (*iter).second.Get();
-    if ((pRecord->m_State == DnsRecord::RSV_SUCCESS ||
-         pRecord->m_State == DnsRecord::RSV_FAILED) &&
-        (tvCurrent - pRecord->m_tvResolve > tvExpireInterval)) {
-      CacheRecordsType::iterator iterTmp = iter++;
-      m_CacheRecords.erase(iterTmp);
+  std::lock_guard<std::mutex> guard(mutex_);
+  CacheRecordsType::iterator iter = record_cache_.begin();
+  while (iter != record_cache_.end()) {
+    DnsRecord* record = (*iter).second.get();
+    if ((record->state_ == DnsRecord::RSV_SUCCESS ||
+         record->state_ == DnsRecord::RSV_FAILED) &&
+        (tvCurrent - record->resolved_ > tvExpireInterval)) {
+      iter = record_cache_.erase(iter);
     } else {
       ++iter;
     }
@@ -982,11 +881,16 @@ int MediaAddress::Set(const char* host_name, uint16_t port) {
 
   ::memset(&sock_addr6_, 0, sizeof(sockaddr_in6));
   sock_addr_.sin_family = AF_INET;
-  sock_addr_.sin_port = ::htons(port);
+  sock_addr_.sin_port = htons(port);
   int ret = SetIpAddr(host_name);
   if (ERROR_SUCCESS != ret) {
     host_name_ = host_name;
-    ret = TryResolve();
+    srs_error_t err = srs_success;
+    if (srs_success != (err = TryResolve())) {
+      ret = srs_error_code(err);
+      MLOG_ERROR_THIS(srs_error_desc(err));
+      delete err;
+    }
   }
   return ret;
 }
@@ -1013,26 +917,25 @@ int MediaAddress::SetV4(const char* ip_port) {
   return Set(szBuf, prot);
 }
 
-int MediaAddress::TryResolve() {
+srs_error_t MediaAddress::TryResolve() {
+  srs_error_t err = srs_success;
   if (IsResolved()) {
     MLOG_ERROR_THIS("IsResolved");
-    return ERROR_SUCCESS;
+    return err;
   }
 
   // try to get ip addr from DNS
-  Std::shared_ptr<DnsRecord> pRecord;
-  int ret = g_dns.AsyncResolve(pRecord.ParaOut(), host_name_);
+  std::shared_ptr<DnsRecord> record;
 
-  if (ERROR_SUCCESS == ret) {
+  if (srs_success == (err = g_dns.AsyncResolve(record, host_name_))) {
     char strIpAddr[kAi_Addrlen] = {0};
-    MA_ASSERT_RETURN(NULL != *(pRecord->begin()), ERROR_FAILURE);
-    ::memcpy(strIpAddr, *(pRecord->begin()), kAi_Addrlen);
+    ::memcpy(strIpAddr, *(record->begin()), kAi_Addrlen);
     ((sockaddr_in*)strIpAddr)->sin_port = sock_addr_.sin_port;
     this->SetIpAddr(reinterpret_cast<sockaddr*>(strIpAddr));
   } else {
-    assert(!IsResolved());
+    MA_ASSERT(!IsResolved());
   }
-  return ret;
+  return err;
 }
 
 void MediaAddress::SetPort(uint16_t aPort) {
@@ -1187,7 +1090,7 @@ void MediaAddress::GetIpWithHostName(const char* hostName,
 
   int nRet = getaddrinfo(hostName, "", &hints, &res0);
   if (nRet) {
-    MLOG_ERROR_THIS("getaddrinfo Errinfo: " << gai_strerror(nRet));
+    MLOG_ERROR("getaddrinfo Errinfo: " << gai_strerror(nRet));
     return;
   }
 

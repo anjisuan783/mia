@@ -98,6 +98,7 @@
 #define ERROR_EXISTED                       1086
 #define ERROR_INVALID_ARGS                  1087
 #define ERROR_FAILURE                       1088
+#define ERROR_UNEXPECTED                    1089
 
 
 ///////////////////////////////////////////////////////

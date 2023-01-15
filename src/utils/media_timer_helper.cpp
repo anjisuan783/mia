@@ -14,7 +14,7 @@ MediaTimerHelp::MediaTimerHelp() = default;
 MediaTimerHelp::~MediaTimerHelp() {
   srs_error_t err = Cancel();
   if (err != srs_success) {
-    MLOG_WARN_THIS("Cancel failed, desc:%s", srs_error_desc(err));
+    MLOG_WARN_THIS("Cancel failed, desc:" << srs_error_desc(err));
     delete err;
   }
 }
@@ -35,7 +35,7 @@ srs_error_t MediaTimerHelp::Schedule(const MediaTimerHelpSink* sink,
       timer_queue = pthread_->TimerQueue();
 
     if (!timer_queue) {
-      return srs_error_new(ERROR_NOT_FOUND, "timer queue is null!")
+      return srs_error_new(ERROR_NOT_FOUND, "timer queue is null!");
     }
   }
 

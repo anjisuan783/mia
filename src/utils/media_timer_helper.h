@@ -7,12 +7,12 @@
 namespace ma {
 
 class MediaThread;
-class MediaTimerHelper;
+class MediaTimerHelp;
 class MediaTimeValue;
 
 class MediaTimerHelpSink {
 public:
-	virtual void OnTimer(MediaTimerHelper* id) = 0;
+	virtual void OnTimer(MediaTimerHelp* id) = 0;
 
 protected:
 	virtual ~MediaTimerHelpSink() = default;

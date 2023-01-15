@@ -1,5 +1,6 @@
 #include <vector>
 #include <sys/socket.h>
+#include <arpa/inet.h>
 
 #include "common/media_kernel_error.h"
 
@@ -59,8 +60,7 @@ class MediaAddress {
   // void ConvertV4Tov6();
   bool IsResolved() const { return host_name_.empty(); }
   std::string GetHostName() const { return host_name_; }
-  int TryResolve();
-
+  
  public:
   static char* Inet_ntop(int af, const void* src, char* buf, size_t size);
   static int Inet_pton(int, const char*, void*);
@@ -69,6 +69,8 @@ class MediaAddress {
   static MediaAddress addr_null_;
 
  private:
+  srs_error_t TryResolve();
+
   bool IsIpv4Legal(const char*);
   union {
     sockaddr_in sock_addr_;

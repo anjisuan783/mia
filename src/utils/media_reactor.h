@@ -4,12 +4,12 @@
 // SPDX-License-Identifier: MIT
 //
 
-#ifndef __MEDIA_NETWORK_H__
-#define __MEDIA_NETWORK_H__
+#ifndef __MEDIA_REACTOR_H__
+#define __MEDIA_REACTOR_H__
 
 #include "common/media_kernel_error.h"
 #include "common/media_define.h"
-#include "media_msg_queue.h"
+#include "utils/media_msg_queue.h"
 
 namespace ma {
 
@@ -111,4 +111,4 @@ MediaReactor* CreateReactor();
 
 } //namespace ma
 
-#endif //!__MEDIA_NETWORK_H__
+#endif //!__MEDIA_REACTOR_H__

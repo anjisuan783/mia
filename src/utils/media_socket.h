@@ -3,6 +3,7 @@
 
 #include "common/media_define.h"
 #include "common/media_kernel_error.h"
+#include "utils/media_addr.h"
 
 namespace ma {
 
@@ -46,10 +47,10 @@ class MediaSocketBase : public MEDIA_IPC_SAP {
 
   /// Return the address of the remotely connected peer (if there is
   /// one), in the referenced <aAddr>.
-  int GetRemoteAddr(CRtInetAddr& aAddr) const;
+  int GetRemoteAddr(MediaAddress& aAddr) const;
 
   /// Return the local endpoint address in the referenced <aAddr>.
-  int GetLocalAddr(CRtInetAddr& aAddr) const;
+  int GetLocalAddr(MediaAddress& aAddr) const;
 
   /// Recv an <aLen> byte buffer from the connected socket.
   int Recv(char* aBuf, uint32_t aLen, int aFlag = 0) const;
@@ -72,7 +73,7 @@ class MediaSocketStream : public MediaSocketBase {
   MediaSocketStream();
   ~MediaSocketStream();
 
-  int Open(bool aReuseAddr, const CRtInetAddr& aLocal);
+  int Open(bool aReuseAddr, const MediaAddress& aLocal);
   int Open(bool aReuseAddr, uint16_t family);
   int CloseReader();
 
@@ -85,10 +86,10 @@ class MediaSocketDgram : public MediaSocketBase {
   MediaSocketDgram();
   ~MediaSocketDgram();
 
-  int Open(const CRtInetAddr& aLocal);
+  int Open(const MediaAddress& aLocal);
   int RecvFrom(char* aBuf,
                uint32_t aLen,
-               CRtInetAddr& aAddr,
+               MediaAddress& aAddr,
                int aFlag = 0) const;
   int RecvFrom(char* aBuf,
                uint32_t aLen,
@@ -97,11 +98,11 @@ class MediaSocketDgram : public MediaSocketBase {
                int aFlag = 0) const;
   int SendTo(const char* aBuf,
              uint32_t aLen,
-             const CRtInetAddr& aAddr,
+             const MediaAddress& aAddr,
              int aFlag = 0) const;
   int SendVTo(const iovec aIov[],
               uint32_t aCount,
-              const CRtInetAddr& aAddr) const;
+              const MediaAddress& aAddr) const;
 };
 
 }  // namespace ma

@@ -6,6 +6,8 @@
 #include <condition_variable>
 #include <pthread.h>
 
+#include "common/media_kernel_error.h"
+
 namespace ma {
 
 #define MEDIA_INFINITE 0xFFFFFFFF 
@@ -28,7 +30,7 @@ class MediaThreadEvent {
 class MediaThread {
  public:
 	void Create(const std::string& name);
-	void Destory();
+	void Destroy();
 
 	void Run();
 	virtual srs_error_t Stop() = 0;
@@ -73,6 +75,7 @@ class MediaThreadManager final {
 
 	MediaThread* CreateNetThread(const std::string& name);
 	MediaThread* CreateTaskThread(const std::string& name);
+	MediaThread* GetDefaultNetThread();
 
   MediaThread* CurrentThread();
   void SetCurrentThread(MediaThread* thread);
@@ -86,9 +89,10 @@ class MediaThreadManager final {
   pthread_key_t key_;
 
   const pthread_t main_thread_ref_;
+	MediaThread* default_net_thread_ = nullptr;
 
 	MediaThreadManager(const MediaThreadManager&) = delete;
-	MediaThreadManager& operator=(const MediaThreadManager&) = delete
+	MediaThreadManager& operator=(const MediaThreadManager&) = delete;
 };
 
 } // namespace ma
