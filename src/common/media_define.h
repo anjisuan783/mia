@@ -124,6 +124,12 @@ constexpr int VIDEO_SAMPLES_PER_MS = 90000 / SRS_UTIME_MILLISECONDS;
 typedef int MEDIA_HANDLE;
 #define MEDIA_INVALID_HANDLE -1
 
+#define MEDIA_SOCK_IOBUFFER_SIZE 131072
+
+ #if !defined (IOV_MAX)
+  #define IOV_MAX 64
+ #endif // !IOV_MAX
+
 }
 #endif //!__MEDIA_COMMON_DEFINE_H__
 

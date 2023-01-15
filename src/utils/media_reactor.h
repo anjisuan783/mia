@@ -41,25 +41,25 @@ public:
 	
 	/// Called when input events occur (e.g., data is ready).
 	/// OnClose() will be callbacked if return -1.
-	virtual int OnInput(MEDIA_HANDLE aFd = MEDIA_INVALID_HANDLE);
+	virtual int OnInput(MEDIA_HANDLE fd = MEDIA_INVALID_HANDLE);
 
 	/// Called when output events are possible (e.g., when flow control
 	/// abates or non-blocking connection completes).
 	/// OnClose() will be callbacked if return -1.
-	virtual int OnOutput(MEDIA_HANDLE aFd = MEDIA_INVALID_HANDLE);
+	virtual int OnOutput(MEDIA_HANDLE fd = MEDIA_INVALID_HANDLE);
 
 	/// Called when an exceptional events occur (e.g., OOB data).
 	/// OnClose() will be callbacked if return -1.
 	/// Not implemented yet.
-	virtual int OnException(MEDIA_HANDLE aFd = MEDIA_INVALID_HANDLE);
+	virtual int OnException(MEDIA_HANDLE fd = MEDIA_INVALID_HANDLE);
 
 	/**
 	 * Called when a <On*()> method returns -1 or when the
-	 * <RemoveHandler> method is called on an <CReactor>.  The
+	 * <RemoveHandler> method is called on an <Reactor>.  The
 	 * <aMask> indicates which event has triggered the
-	 * <HandleClose> method callback on a particular <aFd>.
+	 * <HandleClose> method callback on a particular <fd>.
 	 */
-	virtual int OnClose(MEDIA_HANDLE aFd, MASK aMask);
+	virtual int OnClose(MEDIA_HANDLE fd, MASK mask);
 	
 	virtual ~MediaHandler() = default;
 };

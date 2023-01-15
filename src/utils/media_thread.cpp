@@ -3,11 +3,13 @@
 #include <sys/prctl.h>
 #include <sys/syscall.h>
 #include <unistd.h>
+#include <linux/uio.h>
 
 #include "common/media_log.h"
 #include "common/media_kernel_error.h"
 #include "utils/media_msg_queue.h"
 #include "utils/media_reactor.h"
+#include "common/media_define.h"
 
 namespace ma {
 
@@ -92,6 +94,8 @@ pthread_t CurrentThreadRef() {
 bool IsThreadRefEqual(const pthread_t& a, const pthread_t& b) {
   return pthread_equal(a, b);
 }
+
+NetThreadManager g_netthdmgr;
 
 // class MediaThreadEvent
 void MediaThreadEvent::Wait(int* ms) {
@@ -260,6 +264,8 @@ srs_error_t MediaNetThread::Stop() {
 }
 
 void MediaNetThread::OnThreadInit() {
+  g_netthdmgr.Register(this);
+
   MediaThread::OnThreadInit();
 
   reactor_.reset(CreateReactor());
@@ -284,6 +290,8 @@ void MediaNetThread::OnThreadRun() {
     MLOG_ERROR_THIS("reactor Close failed! desc=" << srs_error_desc(err));
     delete err;
   }
+
+  g_netthdmgr.UnRegister(this);
 }
 
 MediaReactor* MediaNetThread::Reactor() {
@@ -341,6 +349,41 @@ bool MediaThreadManager::IsMainThread() {
 
 bool MediaThreadManager::IsEqualCurrentThread(MediaThread* pthread) {
   return IsThreadRefEqual(CurrentThreadRef(), pthread->GetThreadHandle());
+}
+
+// NetThreadManager
+struct ThreadInfo {
+  ThreadInfo(MediaThread* t) : thread_(t) { }
+
+  MediaThread* thread_;
+  iovec iov_[IOV_MAX];
+  char io_buffer_[MEDIA_SOCK_IOBUFFER_SIZE];
+
+private:
+  ThreadInfo(const ThreadInfo& rhs) = delete;
+  ThreadInfo& operator = (const ThreadInfo& rhs) = delete;
+};
+
+int NetThreadManager::Register(MediaThread* t) {
+  std::lock_guard<std::mutex> guard(mutex_);
+  thread_infos_.insert(std::make_pair(t->GetThreadHandle(), ThreadInfo(t)));
+  return 0;
+}
+
+int NetThreadManager::UnRegister(MediaThread* t) {
+  std::lock_guard<std::mutex> guard(mutex_);
+  thread_infos_.erase(t->GetThreadHandle());
+  return 0;
+}
+
+int NetThreadManager::GetIOBuffer(pthread_t handler, iovec*& iov, char*& iobuffer) {
+  auto it = thread_infos_.find(handler);
+  if (it == thread_infos_.end())
+    return ERROR_NOT_FOUND;
+  
+  iov = it->second->iov_;
+  iobuffer = it->second->io_buffer_;
+  return ERROR_SUCCESS;
 }
 
 } //namespace ma

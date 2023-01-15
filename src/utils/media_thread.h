@@ -5,6 +5,7 @@
 #include <mutex>
 #include <condition_variable>
 #include <pthread.h>
+#include <unordered_map>
 
 #include "common/media_kernel_error.h"
 
@@ -93,6 +94,19 @@ class MediaThreadManager final {
 
 	MediaThreadManager(const MediaThreadManager&) = delete;
 	MediaThreadManager& operator=(const MediaThreadManager&) = delete;
+};
+
+struct ThreadInfo;
+
+class NetThreadManager final{
+ public:
+	int Register(MediaThread*);
+	int UnRegister(MediaThread*);
+  int GetIOBuffer(pthread_t handler, iovec*& iov, char*& iobuffer);
+ protected:
+  typedef std::unordered_map<pthread_t, std::shared_ptr<ThreadInfo>> ThreadInfoListType;
+  ThreadInfoListType thread_infos_;
+  std::mutex mutex_;
 };
 
 } // namespace ma
