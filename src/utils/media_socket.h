@@ -7,11 +7,20 @@
 
 namespace ma {
 
+class ErrnoGuard {
+ public:
+  ErrnoGuard() : err_(errno) {}
+  ~ErrnoGuard() { errno = err_; }
+
+ private:
+  int err_;
+};
+
 class MEDIA_IPC_SAP {
  public:
   enum { NON_BLOCK = 0 };
 
-  MEDIA_IPC_SAP() : m_Handle(MEDIA_INVALID_HANDLE) {}
+  MEDIA_IPC_SAP() = default;
 
   MEDIA_HANDLE GetHandle() const;
   void SetHandle(MEDIA_HANDLE aNew);
@@ -21,11 +30,16 @@ class MEDIA_IPC_SAP {
   int Control(int aCmd, void* aArg) const;
 
  protected:
-  MEDIA_HANDLE m_Handle;
+  MEDIA_HANDLE handler_ = MEDIA_INVALID_HANDLE;
 };
 
 class MediaSocketBase : public MEDIA_IPC_SAP {
  protected:
+  enum {
+    SD_RECEIVE,
+    SD_SEND,
+    SD_BOTH
+  };
   MediaSocketBase();
   ~MediaSocketBase();
 
@@ -37,13 +51,13 @@ class MediaSocketBase : public MEDIA_IPC_SAP {
   int Close(int reason = ERROR_SUCCESS);
 
   /// Wrapper around the <setsockopt> system call.
-  int SetOption(int aLevel,
+  int SetOpt(int aLevel,
                 int aOption,
                 const void* aOptval,
                 int aOptlen) const;
 
   /// Wrapper around the <getsockopt> system call.
-  int GetOption(int aLevel, int aOption, void* aOptval, int* aOptlen) const;
+  int GetOpt(int aLevel, int aOption, void* aOptval, int* aOptlen) const;
 
   /// Return the address of the remotely connected peer (if there is
   /// one), in the referenced <aAddr>.

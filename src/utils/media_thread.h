@@ -1,6 +1,7 @@
 #ifndef __MEDIA_THREAD_H__
 #define __MEDIA_THREAD_H__
 
+#include <sys/uio.h>
 #include <thread>
 #include <mutex>
 #include <condition_variable>

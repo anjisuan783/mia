@@ -8,10 +8,7 @@
 #ifndef __MEDIA_PROTOCOL_UTILITY_H__
 #define __MEDIA_PROTOCOL_UTILITY_H__
 
-// for srs-librtmp, @see https://github.com/ossrs/srs/issues/213
-#ifndef _WIN32
 #include <sys/uio.h>
-#endif
 
 #include <string>
 #include <vector>

@@ -3,7 +3,6 @@
 #include <sys/prctl.h>
 #include <sys/syscall.h>
 #include <unistd.h>
-#include <linux/uio.h>
 
 #include "common/media_log.h"
 #include "common/media_kernel_error.h"
@@ -366,7 +365,7 @@ private:
 
 int NetThreadManager::Register(MediaThread* t) {
   std::lock_guard<std::mutex> guard(mutex_);
-  thread_infos_.insert(std::make_pair(t->GetThreadHandle(), ThreadInfo(t)));
+  thread_infos_.emplace(t->GetThreadHandle(), std::make_shared<ThreadInfo>(t));
   return 0;
 }
 

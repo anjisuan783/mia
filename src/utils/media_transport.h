@@ -19,7 +19,7 @@ protected:
 
 class Transport {
  public:
-  virtual int Open(TransportSink *sink) = 0;
+  virtual srs_error_t Open(TransportSink *sink) = 0;
   virtual TransportSink* GetSink() = 0;
 
   virtual int Send(MessageChain& msg, bool destroy = false) = 0;
