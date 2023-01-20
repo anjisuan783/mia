@@ -215,8 +215,8 @@ int MediaSocketStream::Open(bool aReuseAddr, const MediaAddress& aLocal) {
   return 0;
 }
 
-int MediaSocketStream::Open(bool aReuseAddr, uint16_t family) {
-  int ret = MediaSocketBase::Open(family, SOCK_STREAM, 0, aReuseAddr);
+int MediaSocketStream::Open(bool resuse, uint16_t family) {
+  int ret = MediaSocketBase::Open(family, SOCK_STREAM, 0, resuse);
   if (ret == -1)
     return ret;
   this->set_quickack();

@@ -1,11 +1,15 @@
 #ifndef __MEDIA_TRANSPORT_H__
 #define __MEDIA_TRANSPORT_H__
 
+#include <memory>
+
 #include "common/media_kernel_error.h"
+#include "common/media_define.h"
 
 namespace ma {
 
 class MessageChain;
+class MediaThread;
 
 class TransportSink {
  public:
@@ -26,9 +30,17 @@ class Transport {
   virtual int SetOpt(int cmd, void* args) = 0;
   virtual int GetOpt(int cmd, void* args) const = 0;
   virtual int Disconnect(int reason) = 0;
+  virtual void SetSocketHandler(MEDIA_HANDLE handler) = 0;
  protected:
   virtual ~Transport() = default;
 };
+
+class TransportFactory {
+ public:
+  static std::shared_ptr<Transport> CreateTransport(MediaThread*, bool tcp);
+};
+
+std::string GetSystemErrorInfo(int inErrno);
 
 } //namespace ma
 

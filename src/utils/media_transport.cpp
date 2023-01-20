@@ -63,7 +63,7 @@ class TransportTcp : public TransportBase {
   int Send(MessageChain& msg, bool destroy = false) override;
   int SetOpt(int cmd, void* args) override;
 
-  void SetSocketHandler(MEDIA_HANDLE handler);
+  void SetSocketHandler(MEDIA_HANDLE handler) override;
   MEDIA_HANDLE GetSocketHandler() const;
 
   int GetPeerAddr(MediaAddress& addr);
@@ -234,6 +234,9 @@ int TransportTcp::Send(MessageChain& in_msg, bool destroy) {
 
 void TransportTcp::SetSocketHandler(MEDIA_HANDLE handler) {
   socket_.SetHandle(handler);
+  if (socket_.Enable(MEDIA_IPC_SAP::NON_BLOCK) == -1) {
+    MLOG_ERROR_THIS("Enable(NON_BLOCK) failed! err=" << GetSystemErrorInfo(errno));
+  }
 }
 
 MEDIA_HANDLE TransportTcp::GetSocketHandler() const {
@@ -345,6 +348,16 @@ srs_error_t TransportTcp::RemoveHandler() {
     }
   }
   return err;
+}
+
+// TransportFactory
+std::shared_ptr<Transport> TransportFactory::CreateTransport(
+    MediaThread* worker, bool tcp) {
+  std::shared_ptr<Transport> result;
+  if (tcp) {
+    result = std::dynamic_pointer_cast<Transport>(std::make_shared<TransportTcp>(worker));
+  }
+  return std::move(result);
 }
 
 }  // namespace ma
