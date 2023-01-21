@@ -50,8 +50,7 @@ class MediaAddress {
    */
   bool operator<(const MediaAddress& right) const;
 
-  std::string GetIpDisplayName() const;
-  std::string GetIpAndPort() const;
+  std::string ToString() const;
   uint16_t GetPort() const;
   uint32_t GetSize() const;
   uint16_t GetType() const { return sock_addr_.sin_family; }

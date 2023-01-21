@@ -31,7 +31,7 @@ class RtmpBufferIO final : public IMediaIOSink {
   // MediaIO callback
   srs_error_t OnRead(MessageChain*) override;
   srs_error_t OnWrite() override;
-  void OnDisconnect(srs_error_t) override;
+  void OnClose(srs_error_t) override;
 
   srs_error_t Write(MessageChain*, bool force);
   int64_t GetRecvBytes() {

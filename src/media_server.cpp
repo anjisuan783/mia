@@ -53,7 +53,14 @@ int MediaServerImp::Init(const Config& _config) {
     return kma_invalid_argument;
   }
 
-  return g_conn_mgr_.Init(config_.ioworkers_, config_.listen_addr_);
+  srs_error_t err = g_conn_mgr_.Init(config_.ioworkers_, config_.listen_addr_);
+
+  if (srs_success != err) {
+    MLOG_ERROR("wa init failed. code:" << err);
+    delete err;
+    return kma_listen_failed;
+  }
+  return kma_ok;
 }
 
 void MediaServerImp::Close() {

@@ -14,6 +14,7 @@
 #include <string>
 
 #include "utils/sigslot.h"
+#include "common/media_kernel_error.h"
 
 namespace ma {
 
@@ -31,7 +32,7 @@ class MediaConnMgr {
     e_rtmp
   };
 
-  int Init(uint32_t, const std::vector<std::string>& addr);
+  srs_error_t Init(uint32_t, const std::vector<std::string>& addr);
 
   void Close();
  

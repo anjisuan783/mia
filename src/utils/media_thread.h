@@ -92,7 +92,7 @@ class MediaThreadManager final {
 
   const pthread_t main_thread_ref_;
 	MediaThread* default_net_thread_ = nullptr;
-
+	
 	MediaThreadManager(const MediaThreadManager&) = delete;
 	MediaThreadManager& operator=(const MediaThreadManager&) = delete;
 };

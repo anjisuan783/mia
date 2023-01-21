@@ -75,7 +75,7 @@ srs_error_t RtmpBufferIO::OnWrite() {
   return err;
 }
 
-void RtmpBufferIO::OnDisconnect(srs_error_t reason) {
+void RtmpBufferIO::OnClose(srs_error_t reason) {
   io_->Close();
   sink_->OnDisc(reason);
 }

@@ -8,15 +8,15 @@
 #ifndef __MEDIA_EVENT_QUEUE_H__
 #define __MEDIA_EVENT_QUEUE_H__
 
-#include "common/media_kernel_error.h"
-
 #include <deque>
 #include <mutex>
 #include <list>
 #include <map>
 #include <condition_variable>
+#include <type_traits>
 
 #include "media_time_value.h"
+#include "common/media_kernel_error.h"
 
 namespace ma {
 
@@ -31,15 +31,42 @@ class MediaMsg {
   virtual ~MediaMsg() = default;
 };
 
+template  <typename Closure>
+class ClosureMsg : public MediaMsg {
+ public:
+  explicit ClosureMsg(ClosureMsg&& closure)
+    : closure_(std::forward<Closure>(closure)) {}
+ private:
+  srs_error_t OnFire() override {
+    return closure_();
+  }
+
+  typename std::decay<Closure>::type closure_;
+};
+
+template <typename Closure>
+MediaMsg* ToQueueMsg(Closure&& closure) {
+  return new ClosureMsg<Closure>(std::forward<Closure>(closure));
+}
+
 class MediaMsgQueue {
  public:
-  // this function could be invoked in the different thread.
-  // like PostMessage() in Win32 API.
-  virtual srs_error_t Post(MediaMsg* aEvent) = 0;
+  template <class Closure,
+            typename std::enable_if<!std::is_convertible<
+                Closure,
+                MediaMsg*>::value>::type* = nullptr>
+  srs_error_t Post(Closure&& closure) {
+    return Post(ToQueueMsg<Closure>(std::forward<Closure>(closure)));
+  }
+  virtual srs_error_t Post(MediaMsg* msg) = 0;
 
-  // this function could be invoked in the different thread.
-  // like SendMessage() in Win32 API.
-  virtual srs_error_t Send(MediaMsg* aEvent) = 0;
+  template <class Closure,
+            typename std::enable_if<!std::is_convertible<
+                Closure, MediaMsg*>::value>::type* = nullptr>
+  srs_error_t Send(Closure&& closure) {
+    return Send(ToQueueMsg<Closure>(std::forward<Closure>(closure)));
+  }
+  virtual srs_error_t Send(MediaMsg* msg) = 0;
 
   // get the number of pending events.
   virtual int GetPendingNum() = 0;
@@ -139,7 +166,7 @@ private:
 
 class MediaMsgQueueWithMutex : public MediaMsgQueueImp  {
  public:
-	MediaMsgQueueWithMutex();
+	MediaMsgQueueWithMutex() = default;
 	~MediaMsgQueueWithMutex() override;
 
 	srs_error_t Post(MediaMsg *msg) override;
@@ -230,15 +257,15 @@ class CalendarTQSlotT {
 class CalendarTQ : public MediaTimerQueue, public MediaMsg {
  public:
   CalendarTQ(uint32_t slot_interval, uint32_t max_time, 
-      MediaMsgQueue *aEq);
+      MediaMsgQueue *queue);
 
   ~CalendarTQ() override;
 
-  // interface IRtTimerQueue
-  srs_error_t Schedule(MediaTimerHandler *aEh, 
-            void* aToken, 
-            const MediaTimeValue &aInterval,
-            uint32_t aCount) override;
+  // MediaTimerQueue implement
+  srs_error_t Schedule(MediaTimerHandler *handler, 
+            void* token, 
+            const MediaTimeValue &interval,
+            uint32_t count) override;
 
   srs_error_t Cancel(MediaTimerHandler *aEh) override;
 
@@ -287,7 +314,7 @@ private:
   uint32_t max_slot_count_;
   uint32_t current_slot_;
   AllocType alloc_;
-  MediaMsgQueue *event_queue_;
+  MediaMsgQueue *msg_queue_;
   SlotType *event_slot_ = nullptr;
   HanlersType handlers_;
 };

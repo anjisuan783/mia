@@ -20,13 +20,18 @@ class AcceptorSink  {
 
 class Acceptor {
  public:
-	virtual srs_error_t StartListen(AcceptorSink* sink,
-		                              const MediaAddress &addr) = 0;
+	virtual srs_error_t Listen(AcceptorSink* sink,
+		                         const MediaAddress &addr) = 0;
 
-	virtual srs_error_t StopListen() = 0;
+	virtual srs_error_t Stop() = 0;
 
  protected:
 	virtual ~Acceptor() = default;
+};
+
+class AcceptorFactory {
+ public:
+  static std::shared_ptr<Acceptor> CreateAcceptor(bool tcp);
 };
 
 } //namespace ma

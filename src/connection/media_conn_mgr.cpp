@@ -12,10 +12,10 @@
 
 namespace ma {
 
-int MediaConnMgr::Init(uint32_t ioworkers, 
+srs_error_t MediaConnMgr::Init(uint32_t ioworkers, 
                        const std::vector<std::string>& addrs) {
   if (addrs.empty()) {
-    return kma_ok;
+    return srs_error_new(ERROR_INVALID_ARGS, "addrs is empty!");
   }
   
   listener_ = std::move(std::make_unique<MediaListenerMgr>());

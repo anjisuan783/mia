@@ -254,6 +254,17 @@ MediaTimerQueue* MediaTaskThread::TimerQueue() {
 }
 
 // class MediaNetThread
+const uint32_t g_timer_interval = 30; //millisecond
+MediaNetThread::MediaNetThread()
+    : timer_queue_(g_timer_interval, 1000*60*60*2, &msg_queue_) {
+}
+
+MediaNetThread::~MediaNetThread() {
+  if (reactor_) {
+    reactor_.reset(nullptr);
+  }
+}
+
 srs_error_t MediaNetThread::Stop() {
   MLOG_INFO_THIS("stop thread, tid:" << this->GetTid());
   reactor_->StopEventLoop();
@@ -306,6 +317,14 @@ MediaTimerQueue* MediaNetThread::TimerQueue() {
 }
 
 // class MediaThreadManager
+static MediaThreadManager* s_instance_ = nullptr;
+MediaThreadManager* MediaThreadManager::Instance() {
+  if (!s_instance_) {
+    s_instance_ = new MediaThreadManager;
+  }
+  return s_instance_;
+}
+
 MediaThreadManager::MediaThreadManager() 
   : main_thread_ref_(CurrentThreadRef()) {
   pthread_key_create(&key_, nullptr);

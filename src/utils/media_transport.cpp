@@ -33,10 +33,13 @@ class TransportBase : public Transport, public MediaHandler {
 
   // transport implement
   srs_error_t Open(TransportSink* sink) override;
+  int Close() override;
   TransportSink* GetSink() override;
   int SetOpt(int cmd, void* args) override;
   int GetOpt(int cmd, void* args) const override;
-  int Disconnect(int reason) override;
+  
+  MediaAddress GetLocalAddr() override;
+  MediaAddress GetPeerAddr() override;
 
   // MediaHandler implement
   int OnClose(MEDIA_HANDLE fd, MASK mask) override;
@@ -44,9 +47,11 @@ class TransportBase : public Transport, public MediaHandler {
  protected:
   // template method for open() and close()
   virtual srs_error_t Open_t() = 0;
-  virtual int Close_t(int reason) = 0;
+  virtual int Close_t() = 0;
 
+ protected:
   TransportSink* sink_ = nullptr;
+  std::unique_ptr<MediaSocketBase> socket_;
 };
 
 class TransportTcp : public TransportBase {
@@ -60,14 +65,9 @@ class TransportTcp : public TransportBase {
   int OnOutput(MEDIA_HANDLE) override;
 
   // transport implement
-  int Send(MessageChain& msg, bool destroy = false) override;
-  int SetOpt(int cmd, void* args) override;
-
+  int Write(MessageChain& msg, bool destroy = false) override;
   void SetSocketHandler(MEDIA_HANDLE handler) override;
   MEDIA_HANDLE GetSocketHandler() const;
-
-  int GetPeerAddr(MediaAddress& addr);
-  int GetLocalAddr(MediaAddress& addr);
 
   int SetBufferSize(bool recv, uint32_t size);
   int GetBufferSize(bool recv, uint32_t& size);
@@ -77,7 +77,7 @@ class TransportTcp : public TransportBase {
 
  protected:
   srs_error_t Open_t() override;
-  int Close_t(int aReason) override;
+  int Close_t() override;
   int Recv_i(char* buf, uint32_t len);
   srs_error_t RegisterHandler(MediaHandler::MASK);
   srs_error_t RemoveHandler();
@@ -86,7 +86,6 @@ class TransportTcp : public TransportBase {
   MediaThread* thread_ = nullptr;
   iovec* iov_ = nullptr;
   char* io_buffer_ = nullptr;
-  MediaSocketStream socket_;
   bool need_on_send_ = false;
 };
 
@@ -108,7 +107,7 @@ srs_error_t TransportBase::Open(TransportSink* sink) {
   sink_ = sink;
 
   if (srs_success != (err = Open_t())) {
-    Close_t(ERROR_SUCCESS);
+    Close_t();
     sink_ = NULL;
   }
   return err;
@@ -126,38 +125,56 @@ int TransportBase::GetOpt(int, void*) const {
   return ERROR_INVALID_ARGS;
 }
 
-int TransportBase::Disconnect(int aReason) {
-  int ret = Close_t(aReason);
+int TransportBase::Close() {
+  int ret = Close_t();
   sink_ = nullptr;
   return ret;
 }
 
 int TransportBase::OnClose(MEDIA_HANDLE, MASK) {
-  Close_t(ERROR_SUCCESS);
+  Close_t();
   TransportSink* copy = sink_;
   sink_ = NULL;
 
   if (copy)
-    copy->OnDisconnect(
+    copy->OnClose(
         srs_error_new(ERROR_SOCKET_CLOSED, "socket has been closed"));
   return ERROR_SUCCESS;
+}
+
+MediaAddress TransportBase::GetPeerAddr() {
+  MediaAddress addr;
+  if (socket_->GetRemoteAddr(addr) == -1) {
+    MLOG_WARN_THIS("get peer address failed! err=" << errno);
+  }
+  return addr;
+}
+
+MediaAddress TransportBase::GetLocalAddr() {
+  MediaAddress addr;
+  if (socket_->GetLocalAddr(addr) == -1) {
+    MLOG_WARN_THIS("get local address failed! err=" << errno);
+  }
+  return addr;
 }
 
 extern NetThreadManager g_netthdmgr;
 
 // class TransportTcp
-TransportTcp::TransportTcp(MediaThread* t) : thread_(t) {
+TransportTcp::TransportTcp(MediaThread* t) 
+    : thread_(t) {
+  socket_ = std::move(std::make_unique<MediaSocketStream>());
   int ret =
       g_netthdmgr.GetIOBuffer(thread_->GetThreadHandle(), iov_, io_buffer_);
   assert(ret == 0);
 }
 
 TransportTcp::~TransportTcp() {
-  Close_t(ERROR_SUCCESS);
+  Close_t();
 }
 
 MEDIA_HANDLE TransportTcp::GetHandle() const {
-  return socket_.GetHandle();
+  return socket_->GetHandle();
 }
 
 int TransportTcp::OnInput(MEDIA_HANDLE) {
@@ -170,23 +187,23 @@ int TransportTcp::OnInput(MEDIA_HANDLE) {
                    nRecv);
 
   if (sink_)
-    sink_->OnRecv(msg);
+    sink_->OnRead(msg);
 
   return 0;
 }
 
 int TransportTcp::OnOutput(MEDIA_HANDLE fd) {
-  if (!need_on_send_ || socket_.GetHandle() == MEDIA_INVALID_HANDLE)
+  if (!need_on_send_ || socket_->GetHandle() == MEDIA_INVALID_HANDLE)
     return 0;
 
   need_on_send_ = false;
   if (sink_)
-    sink_->OnSend();
+    sink_->OnWrite();
 
   return 0;
 }
 
-int TransportTcp::Send(MessageChain& in_msg, bool destroy) {
+int TransportTcp::Write(MessageChain& in_msg, bool destroy) {
   if (need_on_send_)
     return ERROR_SOCKET_WOULD_BLOCK;
 
@@ -201,14 +218,14 @@ int TransportTcp::Send(MessageChain& in_msg, bool destroy) {
     if (iovNum == 0)
       break;
 
-    rv = socket_.SendV(iov_, iovNum);
+    rv = socket_->SendV(iov_, iovNum);
     if (rv < 0) {
       if (errno == EWOULDBLOCK) {
         need_on_send_ = true;
         break;
       } else {
         MLOG_WARN_THIS("sendv failed!"
-                      << ", fd=" << socket_.GetHandle()
+                      << ", fd=" << socket_->GetHandle()
                       << ", err=" << GetSystemErrorInfo(errno) << ", rv=" << rv
                       << ", fillLen=" << fillLen);
         return ERROR_SOCKET_ERROR;
@@ -233,34 +250,18 @@ int TransportTcp::Send(MessageChain& in_msg, bool destroy) {
 }
 
 void TransportTcp::SetSocketHandler(MEDIA_HANDLE handler) {
-  socket_.SetHandle(handler);
-  if (socket_.Enable(MEDIA_IPC_SAP::NON_BLOCK) == -1) {
+  socket_->SetHandle(handler);
+  if (socket_->Enable(MEDIA_IPC_SAP::NON_BLOCK) == -1) {
     MLOG_ERROR_THIS("Enable(NON_BLOCK) failed! err=" << GetSystemErrorInfo(errno));
   }
 }
 
 MEDIA_HANDLE TransportTcp::GetSocketHandler() const {
-  return socket_.GetHandle();
-}
-
-int TransportTcp::GetPeerAddr(MediaAddress& addr) {
-  if (socket_.GetRemoteAddr(addr) == -1) {
-    MLOG_WARN_THIS("get peer address failed! err=" << errno);
-    return ERROR_SOCKET_ERROR;
-  }
-  return ERROR_SUCCESS;
-}
-
-int TransportTcp::GetLocalAddr(MediaAddress& addr) {
-  if (socket_.GetLocalAddr(addr) == -1) {
-    MLOG_WARN_THIS("get local address failed! err=" << errno);
-    return ERROR_SOCKET_ERROR;
-  }
-  return ERROR_SUCCESS;
+  return socket_->GetHandle();
 }
 
 int TransportTcp::SetBufferSize(bool recv, uint32_t size) {
-  if (socket_.SetOpt(SOL_SOCKET, 
+  if (socket_->SetOpt(SOL_SOCKET, 
       (recv ? SO_RCVBUF : SO_SNDBUF), &size, sizeof(uint32_t)) == -1) {
     return ERROR_SOCKET_ERROR;
   }
@@ -269,7 +270,7 @@ int TransportTcp::SetBufferSize(bool recv, uint32_t size) {
 
 int TransportTcp::GetBufferSize(bool recv, uint32_t& size) {
   int len = sizeof(uint32_t);
-  if (socket_.GetOpt(SOL_SOCKET, 
+  if (socket_->GetOpt(SOL_SOCKET, 
       (recv ? SO_RCVBUF : SO_SNDBUF), &size, &len) == -1) {
     return ERROR_SOCKET_ERROR;
   }
@@ -278,7 +279,7 @@ int TransportTcp::GetBufferSize(bool recv, uint32_t& size) {
 
 int TransportTcp::SetNodelay(bool enable) {
   int op = enable ? 1 : 0;
-  int ret = socket_.SetOpt(IPPROTO_TCP, TCP_NODELAY, &op, sizeof(int));
+  int ret = socket_->SetOpt(IPPROTO_TCP, TCP_NODELAY, &op, sizeof(int));
   if (ret == -1)
     MLOG_ERROR_THIS("set TCP_NODELAY failed! err=" << errno);
   return ret;
@@ -286,7 +287,7 @@ int TransportTcp::SetNodelay(bool enable) {
 
 int TransportTcp::SetTcpCork(bool enable) {
   int op = enable ? 1 : 0;
-  int ret = socket_.SetOpt(IPPROTO_TCP, TCP_CORK, &op, sizeof(int));
+  int ret = socket_->SetOpt(IPPROTO_TCP, TCP_CORK, &op, sizeof(int));
   if (ret == -1)
     MLOG_ERROR_THIS("set TCP_CORK failed! err=" << errno);
   return ret;
@@ -296,33 +297,33 @@ srs_error_t TransportTcp::Open_t() {
   return RegisterHandler(MediaHandler::READ_MASK | MediaHandler::WRITE_MASK);
 }
 
-int TransportTcp::Close_t(int reason) {
-  if (socket_.GetHandle() != MEDIA_INVALID_HANDLE) {
+int TransportTcp::Close_t() {
+  if (socket_->GetHandle() != MEDIA_INVALID_HANDLE) {
     srs_error_t err = RemoveHandler();
     if (err) {
       MLOG_ERROR_THIS("RemoveHandler failed! desc:" << srs_error_desc(err));
       delete err;
     }
-    socket_.Close(reason);
+    socket_->Close();
   }
   return ERROR_SUCCESS;
 }
 
 int TransportTcp::Recv_i(char* buf, uint32_t len) {
-  int nRecv = socket_.Recv(buf, len);
+  int nRecv = socket_->Recv(buf, len);
 
   if (nRecv < 0) {
     if (errno == EWOULDBLOCK)
       return -2;
     else {
       ErrnoGuard egTmp;
-      MLOG_WARN_THIS("recv() failed! fd=" << socket_.GetHandle()
+      MLOG_WARN_THIS("recv() failed! fd=" << socket_->GetHandle()
            << ", err=" << GetSystemErrorInfo(errno));
       return -1;
     }
   }
   if (nRecv == 0) {
-    MLOG_WARN_THIS("recv() 0! fd=" << socket_.GetHandle());
+    MLOG_WARN_THIS("recv() 0! fd=" << socket_->GetHandle());
     // it is a graceful disconnect
     return -1;
   }

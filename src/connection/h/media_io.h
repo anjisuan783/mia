@@ -5,8 +5,7 @@
 
 #include "common/media_kernel_error.h"
 #include "utils/media_msg_chain.h"
-#include "utils/sigslot.h"
-#include "rtc_base/async_packet_socket.h"
+#include "utils/media_transport.h"
 
 namespace ma {
 
@@ -27,7 +26,7 @@ class IMediaIOSink {
  public:
   virtual srs_error_t OnRead(MessageChain*) = 0;
   virtual srs_error_t OnWrite() = 0;
-  virtual void OnDisconnect(srs_error_t) = 0;
+  virtual void OnClose(srs_error_t) = 0;
 
   virtual ~IMediaIOSink() = default;
 };
@@ -45,7 +44,7 @@ class IMediaIOFactory : public IMediaIOBaseFactory {
 };
 
 std::unique_ptr<IMediaIOBaseFactory>  
-CreateTcpIOFactory(rtc::AsyncPacketSocket*s , rtc::AsyncPacketSocket* c);
+CreateTcpIOFactory(std::shared_ptr<Transport> t);
 
 } //namespace ma
 

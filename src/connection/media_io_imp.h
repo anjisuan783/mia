@@ -3,13 +3,13 @@
 
 #include "common/media_define.h"
 #include "connection/h/media_io.h"
-#include "rtc_base/async_packet_socket.h"
+#include "utils/media_transport.h"
 
 namespace ma {
 
-class MediaTcpIO : public IMediaIO, public sigslot::has_slots<> {
+class MediaTcpIO : public IMediaIO, public TransportSink {
  public:
-  MediaTcpIO(std::unique_ptr<rtc::AsyncPacketSocket> s);
+  MediaTcpIO(std::shared_ptr<Transport> s);
   ~MediaTcpIO() override;
 
   void Open(IMediaIOSink*) override;
@@ -23,17 +23,12 @@ class MediaTcpIO : public IMediaIO, public sigslot::has_slots<> {
   void SetRecvTimeout(uint32_t);
   void SetSendTimeout(uint32_t);
 
-  void OnReadEvent(rtc::AsyncPacketSocket*,
-                  const char*,
-                  size_t,
-                  const rtc::SocketAddress&,
-                  const int64_t&);
-  void OnCloseEvent(rtc::AsyncPacketSocket* socket, int err);
-  void OnWriteEvent(rtc::AsyncPacketSocket* socket);
+  // TransporSink implement
+  void OnRead(MessageChain &aData) override;
+	void OnWrite() override;
+	void OnClose(srs_error_t reason) override;
  private:
-  srs_error_t Write_i(const char* c_data, int c_size, int* sent);
-
-  std::unique_ptr<rtc::AsyncPacketSocket> sock_;
+  std::shared_ptr<Transport> sock_;
   IMediaIOSink* sink_ = nullptr;
 
   static constexpr int kMaxPacketSize = MA_MAX_PACKET_SIZE;

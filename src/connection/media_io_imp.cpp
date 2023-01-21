@@ -9,11 +9,13 @@ namespace ma {
 static log4cxx::LoggerPtr logger = log4cxx::Logger::getLogger("ma.rtmp");
 
 //MediaTcpIO
-MediaTcpIO::MediaTcpIO(std::unique_ptr<rtc::AsyncPacketSocket> s)
+MediaTcpIO::MediaTcpIO(std::shared_ptr<Transport> s)
   : sock_(std::move(s)) {
-  sock_->SignalReadyToSend.connect(this, &MediaTcpIO::OnWriteEvent);
-  sock_->SignalReadPacket.connect(this, &MediaTcpIO::OnReadEvent);
-  sock_->SignalClose.connect(this, &MediaTcpIO::OnCloseEvent);
+  srs_error_t err = sock_->Open(this);
+  if (srs_success != err) {
+    MLOG_ERROR("transport open failed, desc" << srs_error_desc(err));
+    delete err;
+  }
 }
 
 MediaTcpIO::~MediaTcpIO() {
@@ -30,16 +32,13 @@ void MediaTcpIO::Close() {
   if (!sock_) return ;
 
   sock_->Close();
-  sock_->SignalReadyToSend.disconnect(this);
-  sock_->SignalReadPacket.disconnect(this);
-  sock_->SignalClose.disconnect(this);
-  sock_.reset(nullptr);
+  sock_ = nullptr;
 }
 
 std::string MediaTcpIO::GetLocalAddress() const {
   std::string ip("");
   if(sock_) {
-    ip = sock_->GetLocalAddress().ipaddr().ToString();
+    ip = sock_->GetLocalAddr().ToString();
   }
 
   return ip;
@@ -48,74 +47,71 @@ std::string MediaTcpIO::GetLocalAddress() const {
 std::string MediaTcpIO::GetRemoteAddress() const {
   std::string ip("");
   if(sock_) {
-    ip = sock_->GetRemoteAddress().ipaddr().ToString();
+    ip = sock_->GetPeerAddr().ToString();
   }
   return ip;
 }
 
 srs_error_t MediaTcpIO::Write(MessageChain* msg, int* sent) {
+  srs_error_t err = srs_success;
   if (!sock_) {
     return srs_error_new(ERROR_SOCKET_CLOSED, "socket closed");
   }
 
-  srs_error_t err = srs_success;
-  std::string str_msg = msg->FlattenChained();
+  if (!msg)
+    return err;
 
   int msg_sent = 0;
-  size_t len = str_msg.length();
-  if (len != 0) {
-    const char* c_data = str_msg.c_str();
-    if ((err = Write_i(c_data, len, &msg_sent)) != srs_success) {
-      //error occur, mybe would block
-      MA_ASSERT(srs_error_code(err) == ERROR_SOCKET_WOULD_BLOCK);
-    }
+
+  int ret = sock_->Write(*msg, false);
+  if (ERROR_SUCCESS != ret && ERROR_SOCKET_WOULD_BLOCK != ret) {
+      return srs_error_new(ret, "transport write");
   }
+
+  msg_sent = msg->GetChainedLength();
 
   if (sent) {
     *sent = msg_sent;
   }
-  
   return err;
 }
 
-void MediaTcpIO::OnReadEvent(rtc::AsyncPacketSocket*,
-                  const char* data,
-                  size_t cb,
-                  const rtc::SocketAddress&,
-                  const int64_t&) {
+void MediaTcpIO::OnRead(MessageChain& msg) {
   srs_error_t err = srs_success;
-  MLOG_TRACE("OnReadEvent data length:" << cb);
-  MessageChain msg(cb, data, MessageChain::DONT_DELETE, cb);
+  MLOG_TRACE("OnRecv data length:" << msg.GetChainedLength());
   if (sink_) {
     err = sink_->OnRead(&msg);
   }
 
   if (srs_success != err) {
     if (srs_error_code(err) != ERROR_SOCKET_WOULD_BLOCK) {
-      sink_->OnDisconnect(err);
+      sink_->OnClose(err);
       this->Close();
       MLOG_ERROR("rtmp onread failure, desc:" << srs_error_desc(err));
-    } else {
-      delete err;
-    }
+    } 
+    delete err;
   }
 }
 
-void MediaTcpIO::OnCloseEvent(rtc::AsyncPacketSocket* socket, int err) {
-  if (sink_) {
-    sink_->OnDisconnect(srs_error_new(err, "OnCloseEvent"));
-  }
-}
-
-void MediaTcpIO::OnWriteEvent(rtc::AsyncPacketSocket*) {
+void MediaTcpIO::OnWrite() {
   srs_error_t err = srs_success;
   if (sink_) {
     err = sink_->OnWrite();
   }
 
   if (srs_success != err) {
-    MLOG_ERROR("rtmp onwrite failure, desc:" << srs_error_desc(err));
+    if (srs_error_code(err) != ERROR_SOCKET_WOULD_BLOCK) {
+      sink_->OnClose(err);
+      this->Close();
+      MLOG_ERROR("rtmp OnWrite failure, desc:" << srs_error_desc(err));
+    }
     delete err;
+  }
+}
+
+void MediaTcpIO::OnClose(srs_error_t reason) {
+  if (sink_) {
+    sink_->OnClose(srs_error_wrap(reason, "OnClose"));
   }
 }
 
@@ -127,63 +123,21 @@ void MediaTcpIO::SetSendTimeout(uint32_t) {
 
 }
 
-
-srs_error_t MediaTcpIO::Write_i(const char* c_data, int c_size, int* sent) {
-  srs_error_t err = srs_success;
-  
-  int left_size = c_size;
-  int size;
-  const char* data;
-  
-  do {
-    data = c_data + c_size - left_size;
-    size = std::min(left_size, kMaxPacketSize);
-    
-    if (size <= 0) {
-      break;
-    }
-    
-    rtc::PacketOptions option;
-    int ret = sock_->Send(data, size, option);
-    if (UNLIKELY(ret <= 0)) {
-      MA_ASSERT(EMSGSIZE != sock_->GetError());
-      if (sock_->GetError() == EWOULDBLOCK) {
-        err = srs_error_new(ERROR_SOCKET_WOULD_BLOCK, 
-            "need on send, sent:%d", c_size - left_size);
-      } else {
-        err = srs_error_new(ERROR_SOCKET_ERROR, 
-            "unexpect low level error code:%d", sock_->GetError());
-      }
-      break;
-    }
-
-    // must be total sent
-    MA_ASSERT(ret == size);
-    left_size -= ret;
-  } while(true);
-
-  if (sent) {
-    *sent = c_size - left_size;
-  }
-
-  return err;
-}
-
 //MediaTcpIOFactory
 class MediaTcpIOFactory : public IMediaIOFactory {
  public:
-  MediaTcpIOFactory(rtc::AsyncPacketSocket* s) : sock_(s) {}
+  MediaTcpIOFactory(std::shared_ptr<Transport> t) : sock_(std::move(t)) {}
   std::shared_ptr<IMediaIO> CreateIO() override {
     return std::dynamic_pointer_cast<IMediaIO>(
         std::make_shared<MediaTcpIO>(std::move(sock_)));
   }
  private:
-  std::unique_ptr<rtc::AsyncPacketSocket> sock_;
+  std::shared_ptr<Transport> sock_;
 };
 
 std::unique_ptr<IMediaIOBaseFactory> CreateTcpIOFactory(
-    rtc::AsyncPacketSocket*s , rtc::AsyncPacketSocket* c) {
-  return std::make_unique<MediaTcpIOFactory>(c);
+    std::shared_ptr<Transport> t) {
+  return std::make_unique<MediaTcpIOFactory>(t);
 }
 
 } //namespace ma

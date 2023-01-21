@@ -248,7 +248,7 @@ size_t MediaStatistics::Streams() {
   return streams_.size();
 }
 
-MediaStatistics g_statistics;
+static MediaStatistics g_statistics;
 
 MediaStatistics& Stat() {
   return g_statistics;

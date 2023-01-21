@@ -420,11 +420,11 @@ int OrderedListTQ::PushNode_l(const Node &aPushNode) {
 
 ///////////////////////////////////////////////////////////////////////
 //CalendarTQ
-CalendarTQ::CalendarTQ(uint32_t slot_interval, uint32_t max_time, MediaMsgQueue *event_queue)
+CalendarTQ::CalendarTQ(uint32_t slot_interval, uint32_t max_time, MediaMsgQueue *queue)
   : interval_(slot_interval)
   , current_slot_(0)
-  , event_queue_(event_queue)
-  , event_slot_(NULL)
+  , msg_queue_(queue)
+  , event_slot_(nullptr)
 {
   if (interval_ < 10)
     interval_ = 10;
@@ -437,7 +437,7 @@ CalendarTQ::CalendarTQ(uint32_t slot_interval, uint32_t max_time, MediaMsgQueue 
   slots_ = new SlotType*[max_slot_count_ + 1];
   ::memset(slots_, 0, sizeof(SlotType *) * (max_slot_count_+1));
 
-  MA_ASSERT(event_queue);
+  MA_ASSERT(queue);
 }
 
 CalendarTQ::~CalendarTQ() {
@@ -489,7 +489,7 @@ srs_error_t CalendarTQ::Schedule(MediaTimerHandler* handler,
     event_slot_ = pFind;
     
     if (bNeedPost) {
-      err = event_queue_->Post(this);
+      err = msg_queue_->Post(this);
       if (srs_success!= err) {
         event_slot_ = event_slot_->next_;
         DeleteSlot_i(pFind);

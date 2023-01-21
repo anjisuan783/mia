@@ -16,28 +16,28 @@
 #include "rtc_base/thread.h"
 #include "api/packet_socket_factory.h"
 #include "rtc_base/async_packet_socket.h"
+#include "common/media_kernel_error.h"
 
 namespace ma {
+
+class MediaAddress;
+class MediaThread;
 
 class MediaListenerMgr {
  public:
   //interface declaration
-  class IMediaListener : public sigslot::has_slots<>{
+  class IMediaListener {
    public:
     virtual ~IMediaListener() = default;
-    virtual int Listen(const rtc::SocketAddress&, 
+    virtual int Listen(const MediaAddress& addr, 
                        rtc::PacketSocketFactory*) = 0;
     virtual void Stop() = 0;
-    virtual void OnNewConnectionEvent(
-      rtc::AsyncPacketSocket*, rtc::AsyncPacketSocket*);
-   protected:
-    virtual rtc::PacketSocketServerOptions GetSocketType();  
-   protected:
-    std::unique_ptr<rtc::AsyncPacketSocket> listen_socket_;
+    //virtual void OnNewConnectionEvent(
+    //  rtc::AsyncPacketSocket*, rtc::AsyncPacketSocket*);
   };
  
   MediaListenerMgr();
-  int Init(const std::vector<std::string>& addr);
+  srs_error_t Init(const std::vector<std::string>& addr);
   void Close();
 
  private:
@@ -45,6 +45,7 @@ class MediaListenerMgr {
       CreateListener(std::string_view);
  private:
   std::unique_ptr<rtc::Thread> worker_;
+  MediaThread* worker1_ = nullptr;
   std::unique_ptr<rtc::PacketSocketFactory> socket_factory_;
   std::vector<std::unique_ptr<IMediaListener>> listeners_;
 };

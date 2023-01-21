@@ -13,10 +13,10 @@ class AcceptorTcp : public Acceptor, public MediaHandler {
   ~AcceptorTcp() override;
   
   // Acceptor implement 
-  srs_error_t StartListen(AcceptorSink* sink,
-		                      const MediaAddress &addr) override;
+  srs_error_t Listen(AcceptorSink* sink,
+		                 const MediaAddress &addr) override;
 
-	srs_error_t StopListen() override;
+	srs_error_t Stop() override;
 
   // MediaHandler implement
   MEDIA_HANDLE GetHandle() const override;
@@ -31,10 +31,10 @@ class AcceptorTcp : public Acceptor, public MediaHandler {
 
 // class AcceptorTcp
 AcceptorTcp::~AcceptorTcp() {
-  StopListen();
+  Stop();
 }
 
-srs_error_t AcceptorTcp::StartListen(
+srs_error_t AcceptorTcp::Listen(
     AcceptorSink *sink, const MediaAddress &addr) {
   srs_error_t err = srs_success;
   if (!sink) {
@@ -45,10 +45,10 @@ srs_error_t AcceptorTcp::StartListen(
   bool reuse = true;
   int ret = sock_.Open(true, addr.GetType());
   if (ret == -1) {
-    sock_.Close(ERROR_SUCCESS);
+    sock_.Close();
     return srs_error_new(ERROR_SOCKET_ERROR, 
-        "sock.Open() failed! addr:%s, port:%u, err:%s",
-        addr.GetIpDisplayName().c_str(), addr.GetPort(), GetSystemErrorInfo(errno).c_str());
+        "sock.Open() failed! addr:%s, err:%s",
+        addr.ToString().c_str(), GetSystemErrorInfo(errno).c_str());
   }
 
   ret = ::bind((MEDIA_HANDLE)sock_.GetHandle(), 
@@ -56,40 +56,40 @@ srs_error_t AcceptorTcp::StartListen(
       addr.GetSize());
 
   if (ret == -1) {
-    sock_.Close(ERROR_SUCCESS);
+    sock_.Close();
     return srs_error_new(ERROR_SOCKET_ERROR, 
-        "bind() failed! addr:%s, port:%u, err:%s",
-        addr.GetIpDisplayName().c_str(), addr.GetPort(), GetSystemErrorInfo(errno).c_str());
+        "bind() failed! addr:%s, err:%s",
+        addr.ToString().c_str(), GetSystemErrorInfo(errno).c_str());
   }
 
   ret = ::listen((MEDIA_HANDLE)sock_.GetHandle(), 1024);
 
   if (ret == -1) {
-    sock_.Close(ERROR_SUCCESS);
+    sock_.Close();
     return srs_error_new(ERROR_SOCKET_ERROR, 
-        "listen() failed! addr:%s, port:%u, err:%s",
-        addr.GetIpDisplayName().c_str(), addr.GetPort(), GetSystemErrorInfo(errno).c_str());
+        "listen() failed! addr:%s, err:%s",
+        addr.ToString().c_str(), GetSystemErrorInfo(errno).c_str());
   }
 
   worker_ = MediaThreadManager::Instance()->CurrentThread();
 
   err = worker_->Reactor()->RegisterHandler(this, MediaHandler::ACCEPT_MASK);
   if (ERROR_SUCCESS != err) {
-    sock_.Close(ERROR_SUCCESS);
+    sock_.Close();
     return srs_error_wrap(err, "RegisterHandler faild.");
   }
   
   return err;
 }
 
-srs_error_t AcceptorTcp::StopListen() {
+srs_error_t AcceptorTcp::Stop() {
   srs_error_t err = srs_success;
   if (sock_.GetHandle() != MEDIA_INVALID_HANDLE) {
     if (worker_) {
       err = worker_->Reactor()->RemoveHandler(this);
       worker_ = nullptr;
     }
-    sock_.Close(ERROR_SUCCESS);
+    sock_.Close();
   }
   sink_ = nullptr;
   return err;
@@ -119,7 +119,7 @@ int AcceptorTcp::OnInput(MEDIA_HANDLE handler) {
 
   transport->SetSocketHandler(new_sock);
 
-  MLOG_TRACE_THIS("addr=" << peer_addr.GetIpDisplayName() <<
+  MLOG_TRACE_THIS("addr=" << peer_addr.ToString() <<
             " port=" << peer_addr.GetPort() << 
             " fd=" << new_sock << 
             " transport=" << transport.get());
@@ -135,4 +135,14 @@ int AcceptorTcp::OnClose(MEDIA_HANDLE handler, MASK mask) {
   return 0;
 }
 
+// AcceptorFactory
+std::shared_ptr<Acceptor> AcceptorFactory::CreateAcceptor(bool tcp) {
+  std::shared_ptr<Acceptor> result;
+  if (tcp) {
+    result = std::make_shared<AcceptorTcp>();
+  }
+
+  return std::dynamic_pointer_cast<Acceptor>(result);
 }
+
+} //namespace ma

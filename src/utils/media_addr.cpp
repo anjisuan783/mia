@@ -863,14 +863,14 @@ MediaAddress::MediaAddress(uint16_t family) {
   sock_addr_.sin_family = family;
 }
 
-MediaAddress::MediaAddress(const char* aHostName, uint16_t aPort) {
+MediaAddress::MediaAddress(const char* hostname, uint16_t port) {
   host_name_.reserve(64);
-  Set(aHostName, aPort);
+  Set(hostname, port);
 }
 
-MediaAddress::MediaAddress(const char* aIpAddrAndPort) {
+MediaAddress::MediaAddress(const char* ip_port) {
   host_name_.reserve(64);
-  SetV4(aIpAddrAndPort);
+  SetV4(ip_port);
 }
 
 MediaAddress::~MediaAddress() {}
@@ -928,67 +928,59 @@ srs_error_t MediaAddress::TryResolve() {
   std::shared_ptr<DnsRecord> record;
 
   if (srs_success == (err = g_dns.AsyncResolve(record, host_name_))) {
-    char strIpAddr[kAi_Addrlen] = {0};
-    ::memcpy(strIpAddr, *(record->begin()), kAi_Addrlen);
-    ((sockaddr_in*)strIpAddr)->sin_port = sock_addr_.sin_port;
-    this->SetIpAddr(reinterpret_cast<sockaddr*>(strIpAddr));
+    char ip_addr[kAi_Addrlen] = {0};
+    ::memcpy(ip_addr, *(record->begin()), kAi_Addrlen);
+    ((sockaddr_in*)ip_addr)->sin_port = sock_addr_.sin_port;
+    this->SetIpAddr(reinterpret_cast<sockaddr*>(ip_addr));
   } else {
     MA_ASSERT(!IsResolved());
   }
   return err;
 }
 
-void MediaAddress::SetPort(uint16_t aPort) {
-  sock_addr_.sin_port = htons(aPort);
+void MediaAddress::SetPort(uint16_t port) {
+  sock_addr_.sin_port = htons(port);
 }
 
-std::string MediaAddress::GetIpDisplayName() const {
-  if (!IsResolved())
-    return host_name_;
-
-  if (sock_addr_.sin_family == AF_INET) {
-    char szBuf[INET_ADDRSTRLEN] = {0};
-    const char* pAddr = Inet_ntop(sock_addr_.sin_family, &sock_addr_.sin_addr,
-                                  szBuf, sizeof(szBuf));
-    return std::string(pAddr);
+std::string MediaAddress::ToString() const {
+  std::stringstream ss;
+  if (!IsResolved()) {
+    ss << host_name_;
+  } else {
+    if (sock_addr_.sin_family == AF_INET) {
+      char szBuf[INET_ADDRSTRLEN] = {0};
+      const char* pAddr = Inet_ntop(sock_addr_.sin_family, &sock_addr_.sin_addr,
+                                    szBuf, sizeof(szBuf));
+      ss << std::string(pAddr);
+    } else if (sock_addr_.sin_family == AF_INET6) {
+      char szBuf[INET6_ADDRSTRLEN] = {0};
+      const char* pAddr = Inet_ntop(sock_addr_.sin_family, &sock_addr6_.sin6_addr,
+                                    szBuf, sizeof(szBuf));
+      ss << std::string(pAddr);
+    }
   }
-
-  if (sock_addr_.sin_family == AF_INET6) {
-    char szBuf[INET6_ADDRSTRLEN] = {0};
-    const char* pAddr = Inet_ntop(sock_addr_.sin_family, &sock_addr6_.sin6_addr,
-                                  szBuf, sizeof(szBuf));
-    return std::string(pAddr);
-  }
-  return std::string("");
-}
-
-std::string MediaAddress::GetIpAndPort() const {
-  char ipAndPort[64] = {0};
-  if (sock_addr_.sin_family == AF_INET)
-    snprintf(ipAndPort, 64, "%s:%d", GetIpDisplayName().c_str(), GetPort());
-  else if (sock_addr_.sin_family == AF_INET6)
-    snprintf(ipAndPort, 64, "[%s]:%d", GetIpDisplayName().c_str(), GetPort());
-  return std::string(ipAndPort);
+  ss << ":" << GetPort();
+  return ss.str();
 }
 
 uint16_t MediaAddress::GetPort() const {
   return ntohs(sock_addr_.sin_port);
 }
 
-bool MediaAddress::operator==(const MediaAddress& aRight) const {
+bool MediaAddress::operator==(const MediaAddress& right) const {
   MA_ASSERT(IsResolved());
 
   // don't compare m_SockAddr.sin_zero due to getpeername() or getsockname()
   // will fill it with non-zero value.
 
   if (sock_addr_.sin_family == AF_INET)
-    return (::memcmp(&sock_addr_, &aRight.sock_addr_,
+    return (::memcmp(&sock_addr_, &right.sock_addr_,
                      sizeof(sock_addr_) - sizeof(sock_addr_.sin_zero)) == 0);
 
-  int ret = memcmp(&sock_addr6_.sin6_addr, &aRight.sock_addr6_.sin6_addr,
+  int ret = memcmp(&sock_addr6_.sin6_addr, &right.sock_addr6_.sin6_addr,
                    sizeof(in6_addr));
   if (ret == 0)
-    return (sock_addr6_.sin6_port == aRight.sock_addr6_.sin6_port);
+    return (sock_addr6_.sin6_port == right.sock_addr6_.sin6_port);
   return false;
 }
 

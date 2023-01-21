@@ -40,15 +40,12 @@ class MediaSocketBase : public MEDIA_IPC_SAP {
     SD_SEND,
     SD_BOTH
   };
-  MediaSocketBase();
-  ~MediaSocketBase();
 
  public:
-  /// Wrapper around the BSD-style <socket> system call (no QoS).
+   MediaSocketBase();
+  ~MediaSocketBase();
   int Open(int aFamily, int aType, int aProtocol, bool aReuseAddr);
-
-  /// Close down the socket handle.
-  int Close(int reason = ERROR_SUCCESS);
+  int Close();
 
   /// Wrapper around the <setsockopt> system call.
   int SetOpt(int aLevel,

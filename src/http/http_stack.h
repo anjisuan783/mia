@@ -5,8 +5,8 @@
 //
 // This file is borrowed from srs with some modifications.
 
-#ifndef __GS_HTTP_STACK_H__
-#define __GS_HTTP_STACK_H__
+#ifndef __MEDIA_HTTP_STACK_H__
+#define __MEDIA_HTTP_STACK_H__
 
 #include "common/media_kernel_error.h"
 
@@ -378,5 +378,4 @@ enum http_method {
 
 }
 
-#endif //!__GS_HTTP_STACK_H__
-
+#endif //!__MEDIA_HTTP_STACK_H__

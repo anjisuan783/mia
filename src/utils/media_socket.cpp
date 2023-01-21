@@ -111,7 +111,7 @@ int MediaSocketBase::GetLocalAddr(MediaAddress& aAddr) const {
   return nGet;
 }
 
-int MediaSocketBase::Close(int) {
+int MediaSocketBase::Close() {
   int nRet = 0;
   if (handler_ != MEDIA_INVALID_HANDLE) {
     nRet = ::close(handler_);
