@@ -8,7 +8,7 @@
 #define __MIA_CONFIG_H__
 
 #include <log4cxx/logger.h>
-#include "log4cxx/propertyconfigurator.h"
+#include <log4cxx/propertyconfigurator.h>
 #include <log4cxx/helpers/exception.h>
 
 #include "h/media_server_api.h"

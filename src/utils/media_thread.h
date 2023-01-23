@@ -31,7 +31,7 @@ class MediaThreadEvent {
 
 class MediaThread {
  public:
-	void Create(const std::string& name);
+	virtual void Create(const std::string& name);
 	void Destroy();
 
 	void Run();
@@ -47,12 +47,12 @@ class MediaThread {
 	virtual MediaTimerQueue* TimerQueue() = 0;
 	
 	const std::string& GetName() { return name_; }
+	virtual void OnThreadRun() = 0;
 protected:
 	MediaThread() = default;
 	virtual ~MediaThread() = default;
 
-	virtual void OnThreadInit();
-	virtual void OnThreadRun() = 0;
+	virtual void OnThreadInit();	
 private:
 	static void ThreadProc(void *param);
 	bool IsRunning();
@@ -62,9 +62,9 @@ protected:
 	bool stopped_ = false;
 	unsigned long tid_;
 	MediaThreadEvent event_;
+	std::string name_;
 private:
 	std::unique_ptr<std::thread> worker_;
-	std::string name_;
 
 	friend class MediaThreadManager;
 };
@@ -75,8 +75,9 @@ class MediaThreadManager final {
 
   static MediaThreadManager* Instance();
 
-	MediaThread* CreateNetThread(const std::string& name);
-	MediaThread* CreateTaskThread(const std::string& name);
+	static MediaThread* CreateNetThread(const std::string& name);
+	static MediaThread* CreateTaskThread(const std::string& name);
+	static MediaThread* FetchOrCreateMainThread();
 	MediaThread* GetDefaultNetThread();
 
   MediaThread* CurrentThread();
@@ -91,7 +92,8 @@ class MediaThreadManager final {
   pthread_key_t key_;
 
   const pthread_t main_thread_ref_;
-	MediaThread* default_net_thread_ = nullptr;
+	static MediaThread* default_net_thread_;
+	static MediaThread* main_thread_;
 	
 	MediaThreadManager(const MediaThreadManager&) = delete;
 	MediaThreadManager& operator=(const MediaThreadManager&) = delete;

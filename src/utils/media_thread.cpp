@@ -65,6 +65,7 @@ class MediaTaskThread final : public MediaThread {
   ~MediaTaskThread() override  = default;
 
   // interface MediaThread
+  void Create(const std::string& name) override;
   srs_error_t Stop() override;
   void OnThreadInit() override;
   void OnThreadRun() override;
@@ -189,6 +190,16 @@ bool MediaThread::IsRunning() {
 }
 
 // class MediaTaskThread
+void MediaTaskThread::Create(const std::string& name) {
+  if (name != "main") {
+    MediaThread::Create(name);
+    return ;
+  }
+
+  name_ = name;
+  MediaThreadManager::Instance();
+}
+
 srs_error_t MediaTaskThread::Stop() {
   MLOG_INFO_THIS("");
   srs_error_t err = MediaStopMsgT<MediaTaskThread>::PostStopMsg(this);
@@ -203,13 +214,15 @@ srs_error_t MediaTaskThread::Stop() {
 
 void MediaTaskThread::OnThreadInit() {
   MediaThread::OnThreadInit();
+  msg_queue_.ResetThead();
+  timer_queue_.ResetThead();
   stopped_ = false;
 }
 
 void MediaTaskThread::OnThreadRun() {
   MediaMsgQueueImp::MsgType msgs;
   MediaTimeValue time_out(MediaTimeValue::time_max_);
-  MediaTimeValue *tv_para;
+  MediaTimeValue *tv_para = nullptr;
   while (!stop_loop_) {
     time_out = MediaTimeValue::time_max_;
     timer_queue_.Check(&time_out);
@@ -220,8 +233,7 @@ void MediaTaskThread::OnThreadRun() {
         time_out = MediaTimeValue::time_zero_;
       }
       tv_para = &time_out;
-    }
-    else {
+    } else {
       tv_para = nullptr;
     }
     
@@ -238,8 +250,8 @@ void MediaTaskThread::PopOrWaitPendingMsg(MediaMsgQueueImp::MsgType &msgs,
     MediaTimeValue *time_out, uint32_t max) {
 
   if (msg_queue_.IsEmpty()) {
-    int tv = time_out->GetTimeInMsec();
-    event_.Wait(&tv);
+    int tv = time_out ? time_out->GetTimeInMsec() : 0;
+    event_.Wait(tv? & tv:nullptr);
   }
   
   msg_queue_.PopMsgs(msgs, max);
@@ -286,6 +298,8 @@ void MediaNetThread::OnThreadInit() {
     delete err;
     MA_ASSERT(false);
   }
+  msg_queue_.ResetThead();
+  timer_queue_.ResetThead();
   stopped_ = false;
 }
 
@@ -318,6 +332,9 @@ MediaTimerQueue* MediaNetThread::TimerQueue() {
 
 // class MediaThreadManager
 static MediaThreadManager* s_instance_ = nullptr;
+MediaThread* MediaThreadManager::default_net_thread_ = nullptr;
+MediaThread* MediaThreadManager::main_thread_ = nullptr;
+
 MediaThreadManager* MediaThreadManager::Instance() {
   if (!s_instance_) {
     s_instance_ = new MediaThreadManager;
@@ -344,6 +361,15 @@ MediaThread* MediaThreadManager::CreateTaskThread(const std::string& name) {
   p->Create(name);
   p->Run();
   return p;
+}
+
+MediaThread* MediaThreadManager::FetchOrCreateMainThread() {
+  if (!main_thread_) {
+    main_thread_ = new MediaTaskThread;
+    main_thread_->Create("main");
+    main_thread_->OnThreadInit();
+  }
+  return main_thread_;
 }
 
 MediaThread* MediaThreadManager::GetDefaultNetThread() {

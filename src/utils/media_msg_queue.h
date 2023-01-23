@@ -14,6 +14,7 @@
 #include <map>
 #include <condition_variable>
 #include <type_traits>
+#include <functional>
 
 #include "media_time_value.h"
 #include "common/media_kernel_error.h"
@@ -31,40 +32,35 @@ class MediaMsg {
   virtual ~MediaMsg() = default;
 };
 
-template  <typename Closure>
+template <class Closure>
 class ClosureMsg : public MediaMsg {
  public:
-  explicit ClosureMsg(ClosureMsg&& closure)
-    : closure_(std::forward<Closure>(closure)) {}
+  explicit ClosureMsg(Closure&& c)
+    : c_(std::forward<Closure>(c)) {}
  private:
   srs_error_t OnFire() override {
-    return closure_();
+    return c_();
   }
 
-  typename std::decay<Closure>::type closure_;
+  typename std::decay<Closure>::type c_;
 };
 
-template <typename Closure>
-MediaMsg* ToQueueMsg(Closure&& closure) {
-  return new ClosureMsg<Closure>(std::forward<Closure>(closure));
+template <class Closure>
+MediaMsg* ToQueueMsg(Closure&& c) {
+  return new ClosureMsg<Closure>(std::forward<Closure>(c));
 }
 
 class MediaMsgQueue {
  public:
-  template <class Closure,
-            typename std::enable_if<!std::is_convertible<
-                Closure,
-                MediaMsg*>::value>::type* = nullptr>
-  srs_error_t Post(Closure&& closure) {
-    return Post(ToQueueMsg<Closure>(std::forward<Closure>(closure)));
+  typedef std::function<srs_error_t()> Task;
+
+  srs_error_t Post(Task&& t) {
+    return Post(ToQueueMsg<Task>(std::forward<Task>(t)));
   }
   virtual srs_error_t Post(MediaMsg* msg) = 0;
 
-  template <class Closure,
-            typename std::enable_if<!std::is_convertible<
-                Closure, MediaMsg*>::value>::type* = nullptr>
-  srs_error_t Send(Closure&& closure) {
-    return Send(ToQueueMsg<Closure>(std::forward<Closure>(closure)));
+  srs_error_t Send(Task&& t) {
+    return Send(ToQueueMsg<Task>(std::forward<Task>(t)));
   }
   virtual srs_error_t Send(MediaMsg* msg) = 0;
 
@@ -120,7 +116,7 @@ class MediaTimerQueue {
    */
   virtual srs_error_t Cancel(MediaTimerHandler* th) = 0;
 
-  void ResetThd() {
+  void ResetThead() {
     tid_ = ::pthread_self();
   }
  protected:
@@ -143,6 +139,10 @@ class MediaMsgQueueImp : public MediaMsgQueue {
 	void Stop();
 	virtual void DestoryPendingMsgs();
 
+  void ResetThead() {
+    tid_ = ::pthread_self();
+  }
+
   enum { MAX_GET_ONCE = 5};
 	typedef std::deque<MediaMsg*> MsgType;
 	// Don't make the following two functions static because we want trace size.
@@ -157,9 +157,8 @@ protected:
 	virtual void PopMsg(MediaMsg *&msg, uint32_t *remains = NULL);
 private:
   MsgType msgs_;
-	bool stopped_;
-
-  pthread_t tid_;
+	bool stopped_ = false;
+  pthread_t tid_ = -1;
 
 	friend class SyncMsg;
 };
@@ -172,8 +171,8 @@ class MediaMsgQueueWithMutex : public MediaMsgQueueImp  {
 	srs_error_t Post(MediaMsg *msg) override;
 
 	void PopMsgs(MediaMsgQueueImp::MsgType &msgs, 
-		uint32_t aMaxCount = MAX_GET_ONCE, 
-		uint32_t *remain = nullptr) override;
+               uint32_t aMaxCount = MAX_GET_ONCE, 
+               uint32_t *remain = nullptr) override;
 
 	void PopMsg(MediaMsg *&msg, uint32_t *remain_size = nullptr) override;
 

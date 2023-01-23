@@ -282,7 +282,7 @@ srs_error_t MediaListenerMgr::Init(const std::vector<std::string>& addr) {
     if (schema == "rtmp") {
       MLOG_DEBUG(i << "[schema:" << schema << ", host:" << host 
           << ", port:" << port << "]");
-#if 1          
+#if 0          
       err = worker1_->MsgQueue()->Send([this, i, schema, host_port]()->srs_error_t {
         std::unique_ptr<IMediaListener> listener = CreateListener(schema);
         int ret = kma_ok;

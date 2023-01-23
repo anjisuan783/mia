@@ -45,19 +45,19 @@ SyncMsg::~SyncMsg() {
 }
 
 srs_error_t SyncMsg::OnFire() {
-  srs_error_t err = nullptr;
-  if (destoryed_) return err;
-  
-  if (msg_)
-    result_ = msg_->OnFire();
-
-  condition_.notify_all();
-  return err;
+  if (!destoryed_) {
+    if (msg_) {
+      result_ = msg_->OnFire();
+    }
+    condition_.notify_all();
+  }
+  return nullptr;
 }
 
 void SyncMsg::OnDelete() {
-  if (destoryed_) delete this; 
-  else {
+  if (destoryed_) {
+    delete this; 
+  } else {
     destoryed_ = true;
     if (msg_) {
       msg_->OnDelete();
@@ -69,9 +69,11 @@ void SyncMsg::OnDelete() {
 srs_error_t SyncMsg::WaitResultAndDeleteThis() {
   std::unique_lock<std::mutex> lock(mutex_);
   condition_.wait(lock);
-
-  if (eq_)
-    eq_->Post(this);
+  srs_error_t err = srs_success;
+  if (eq_ && (err = eq_->Post(this)) != srs_success) {
+    MLOG_ERROR("Post error, desc:" << srs_error_desc(err));
+    delete err;
+  }
   return result_;
 }
 
@@ -107,9 +109,9 @@ srs_error_t MediaMsgQueueImp::Send(MediaMsg *msg) {
 
   // if send event to the current thread, just do callbacks.
   if (::pthread_equal(tid_, ::pthread_self())) {
-    srs_error_t rv = msg->OnFire();
+    err = msg->OnFire();
     msg->OnDelete();
-    return rv;
+    return err;
   }
 
   SyncMsg* sync = new SyncMsg(msg, this);
@@ -165,7 +167,13 @@ void MediaMsgQueueImp::Process(const MsgType &msgs) {
 }
 
 void MediaMsgQueueImp::Process(MediaMsg *msg) {
-  msg->OnFire();
+  srs_error_t err = msg->OnFire();
+  if (err != srs_success) {
+    if (ERROR_SUCCESS != srs_error_code(err)) {
+      MLOG_WARN_THIS("msg OnFire, result:" << srs_error_desc(err));
+    }
+    delete err;
+  }
   msg->OnDelete();
 }
 

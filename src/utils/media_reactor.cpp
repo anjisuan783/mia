@@ -615,7 +615,7 @@ srs_error_t MediaReactorEpoll::Open() {
       goto fail;
     }
     
-    m_CalendarTimer.ResetThd();
+    m_CalendarTimer.ResetThead();
     m_dwWallTimerJiffies = s_dwTimerJiffies;
     s_IsTimerSet = true;
   }
