@@ -14,7 +14,7 @@ namespace ma {
 
 static log4cxx::LoggerPtr logger = log4cxx::Logger::getLogger("ma.utils");
 
-#define  gettid()                 syscall(__NR_gettid)
+#define  gettid()   syscall(__NR_gettid)
 
 // MediaStopMsgT
 template <class QueueType>
@@ -52,8 +52,6 @@ class MediaNetThread final : public MediaThread {
   MediaMsgQueue* MsgQueue() override;
 	MediaTimerQueue* TimerQueue() override;
  protected:
-	MediaMsgQueueWithMutex msg_queue_;
-  CalendarTQ timer_queue_;
   std::unique_ptr<MediaReactor> reactor_ = nullptr;
 };
 
@@ -65,7 +63,7 @@ class MediaTaskThread final : public MediaThread {
   ~MediaTaskThread() override  = default;
 
   // interface MediaThread
-  void Create(const std::string& name) override;
+  void Create(const std::string& name, bool) override;
   srs_error_t Stop() override;
   void OnThreadInit() override;
   void OnThreadRun() override;
@@ -124,13 +122,18 @@ inline unsigned long int  MediaGetTid() {
 	  return gettid();
 }
 
-void MediaThread::Create(const std::string& name) {
+void MediaThread::Create(const std::string& name, bool wait) {
   name_ = name;
+  if (wait) {
+    promise_ = std::make_shared<std::promise<void>>();
+  }
   worker_.reset(new std::thread(MediaThread::ThreadProc, this));
 
   // Make sure that ThreadManager is created on the main thread before
   // we start a new thread.
   MediaThreadManager::Instance();
+  if (promise_)
+    promise_->get_future().wait();
 }
 
 void MediaThread::Destroy() {
@@ -151,10 +154,13 @@ void MediaThread::OnThreadInit() {
 
 void MediaThread::ThreadProc(void *param) {
   MediaThread *thread = static_cast<MediaThread*>(param);
-  
+  thread->OnThreadInit();
+
+  if (thread->promise_) {
+    thread->promise_->set_value();
+  }
   thread->event_.Wait();
 
-  thread->OnThreadInit();
   MLOG_INFO("Thread begin this=" << thread 
     << ", tid=" << thread->tid_
     << ", thread_name=" << thread->GetName()); 
@@ -190,9 +196,9 @@ bool MediaThread::IsRunning() {
 }
 
 // class MediaTaskThread
-void MediaTaskThread::Create(const std::string& name) {
+void MediaTaskThread::Create(const std::string& name, bool wait) {
   if (name != "main") {
-    MediaThread::Create(name);
+    MediaThread::Create(name, wait);
     return ;
   }
 
@@ -266,16 +272,10 @@ MediaTimerQueue* MediaTaskThread::TimerQueue() {
 }
 
 // class MediaNetThread
-const uint32_t g_timer_interval = 30; //millisecond
 MediaNetThread::MediaNetThread()
-    : timer_queue_(g_timer_interval, 1000*60*60*2, &msg_queue_) {
-}
+  : reactor_(CreateReactor()) { }
 
-MediaNetThread::~MediaNetThread() {
-  if (reactor_) {
-    reactor_.reset(nullptr);
-  }
-}
+MediaNetThread::~MediaNetThread() = default;
 
 srs_error_t MediaNetThread::Stop() {
   MLOG_INFO_THIS("stop thread, tid:" << this->GetTid());
@@ -286,20 +286,14 @@ srs_error_t MediaNetThread::Stop() {
 }
 
 void MediaNetThread::OnThreadInit() {
-  g_netthdmgr.Register(this);
-
   MediaThread::OnThreadInit();
-
-  reactor_.reset(CreateReactor());
-
+  g_netthdmgr.Register(this);
   srs_error_t err = reactor_->Open();
   if (srs_success != err) {
-    MLOG_ERROR_THIS("reactor open failed! desc=" << srs_error_desc(err));
+    MLOG_ERROR_THIS("reactor open failed! desc:" << srs_error_desc(err));
     delete err;
     MA_ASSERT(false);
   }
-  msg_queue_.ResetThead();
-  timer_queue_.ResetThead();
   stopped_ = false;
 }
 
@@ -323,11 +317,11 @@ MediaReactor* MediaNetThread::Reactor() {
 }
 
 MediaMsgQueue* MediaNetThread::MsgQueue() {
-  return dynamic_cast<MediaMsgQueue*>(reactor_.get());
+  return reactor_.get();
 }
 
 MediaTimerQueue* MediaNetThread::TimerQueue() {
-  return dynamic_cast<MediaTimerQueue*>(reactor_.get());
+  return reactor_.get();
 }
 
 // class MediaThreadManager
@@ -349,7 +343,7 @@ MediaThreadManager::MediaThreadManager()
 
 MediaThread* MediaThreadManager::CreateNetThread(const std::string& name) {
   auto p = new MediaNetThread;
-  p->Create(name);
+  p->Create(name, true);
   p->Run();
   if (!default_net_thread_)
     default_net_thread_ = p;
@@ -358,7 +352,7 @@ MediaThread* MediaThreadManager::CreateNetThread(const std::string& name) {
 
 MediaThread* MediaThreadManager::CreateTaskThread(const std::string& name) {
   auto p = new MediaTaskThread;
-  p->Create(name);
+  p->Create(name, false);
   p->Run();
   return p;
 }
@@ -366,7 +360,7 @@ MediaThread* MediaThreadManager::CreateTaskThread(const std::string& name) {
 MediaThread* MediaThreadManager::FetchOrCreateMainThread() {
   if (!main_thread_) {
     main_thread_ = new MediaTaskThread;
-    main_thread_->Create("main");
+    main_thread_->Create("main", false);
     main_thread_->OnThreadInit();
   }
   return main_thread_;
@@ -421,6 +415,7 @@ int NetThreadManager::UnRegister(MediaThread* t) {
 }
 
 int NetThreadManager::GetIOBuffer(pthread_t handler, iovec*& iov, char*& iobuffer) {
+  std::lock_guard<std::mutex> guard(mutex_);
   auto it = thread_infos_.find(handler);
   if (it == thread_infos_.end())
     return ERROR_NOT_FOUND;

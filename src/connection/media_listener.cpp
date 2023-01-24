@@ -239,38 +239,10 @@ srs_error_t MediaListenerMgr::Init(const std::vector<std::string>& addr) {
   MA_ASSERT(ret);
 
   worker1_ = MediaThreadManager::Instance()->CreateNetThread("reactor");
+  worker1_->Run();
 
   socket_factory_ = std::move(
       std::make_unique<rtc::BasicPacketSocketFactory>(worker_.get()));
-
-  int result = kma_ok;
-
-  for(auto& i : addr) {
-    result = worker_->Invoke<int>(RTC_FROM_HERE, [this, i]() {
-      std::string_view schema, host;
-      int port;
-      split_schema_host_port(i, schema, host, port);
-
-      MediaAddress host_port(std::string{host.data(), host.length()}.c_str(), port);
-
-      int ret = kma_ok;
-      if (schema == "rtmp") {
-        return ret;
-      }
-      MLOG_DEBUG(i << "[schema:" << schema << ", host:" << host 
-            << ", port:" << port << "]");
-      std::unique_ptr<IMediaListener> listener = CreateListener(schema);
-      
-      if ((ret = listener->Listen(host_port, socket_factory_.get())) == kma_ok){
-        listeners_.emplace_back(std::move(listener));
-      }
-      return ret;
-    });
-
-    if (result != kma_ok) {
-      return srs_error_new(ERROR_SOCKET_LISTEN, "listen failed, code:%d, address:%s", result, i.c_str());
-    }
-  }
 
   srs_error_t err = srs_success;
   for (auto& i : addr) {
@@ -278,11 +250,9 @@ srs_error_t MediaListenerMgr::Init(const std::vector<std::string>& addr) {
     int port;
     split_schema_host_port(i, schema, host, port);
     MediaAddress host_port(std::string{host.data(), host.length()}.c_str(), port);
-
+    MLOG_DEBUG(i << "[schema:" << schema << ", host:" << host 
+        << ", port:" << port << "]");
     if (schema == "rtmp") {
-      MLOG_DEBUG(i << "[schema:" << schema << ", host:" << host 
-          << ", port:" << port << "]");
-#if 0          
       err = worker1_->MsgQueue()->Send([this, i, schema, host_port]()->srs_error_t {
         std::unique_ptr<IMediaListener> listener = CreateListener(schema);
         int ret = kma_ok;
@@ -293,11 +263,24 @@ srs_error_t MediaListenerMgr::Init(const std::vector<std::string>& addr) {
         return srs_error_new(ERROR_SOCKET_LISTEN, 
             "Listen failed, %s", host_port.ToString().c_str());
       });
-#endif
       if (err) {
         return srs_error_wrap(err, "rtmp listen failed!");
       }
-    }
+    } /*else {
+      int result = worker_->Invoke<int>(RTC_FROM_HERE, [this, i, schema, host_port]()->int {
+        int ret = kma_ok;
+        std::unique_ptr<IMediaListener> listener = CreateListener(schema);
+        
+        if ((ret = listener->Listen(host_port, socket_factory_.get())) == kma_ok){
+          listeners_.emplace_back(std::move(listener));
+        }
+        return ret;
+      });
+
+      if (result != kma_ok) {
+        return srs_error_new(ERROR_SOCKET_LISTEN, "listen failed, code:%d, address:%s", result, i.c_str());
+      }
+    }*/
   }
 
   return err;

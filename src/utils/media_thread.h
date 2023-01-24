@@ -7,6 +7,7 @@
 #include <condition_variable>
 #include <pthread.h>
 #include <unordered_map>
+#include <future>
 
 #include "common/media_kernel_error.h"
 
@@ -31,7 +32,7 @@ class MediaThreadEvent {
 
 class MediaThread {
  public:
-	virtual void Create(const std::string& name);
+	virtual void Create(const std::string& name, bool wait);
 	void Destroy();
 
 	void Run();
@@ -65,6 +66,7 @@ protected:
 	std::string name_;
 private:
 	std::unique_ptr<std::thread> worker_;
+	std::shared_ptr<std::promise<void>> promise_;
 
 	friend class MediaThreadManager;
 };

@@ -49,14 +49,14 @@ int MediaServerImp::Init(const Config& _config) {
   int rv = g_source_mgr_.Init(config_.workers_, cans);
 
   if (rv != wa::wa_ok) {
-    MLOG_ERROR("wa init failed. code:" << rv);
+    MLOG_ERROR("source mgr init failed. code:" << rv);
     return kma_invalid_argument;
   }
 
   srs_error_t err = g_conn_mgr_.Init(config_.ioworkers_, config_.listen_addr_);
 
   if (srs_success != err) {
-    MLOG_ERROR("wa init failed. code:" << err);
+    MLOG_ERROR("connection  init failed. desc:" << srs_error_desc(err));
     delete err;
     return kma_listen_failed;
   }
