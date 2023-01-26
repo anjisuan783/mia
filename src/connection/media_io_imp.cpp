@@ -76,7 +76,7 @@ srs_error_t MediaTcpIO::Write(MessageChain* msg, int* sent) {
   return err;
 }
 
-void MediaTcpIO::OnRead(MessageChain& msg) {
+int MediaTcpIO::OnRead(MessageChain& msg) {
   srs_error_t err = srs_success;
   MLOG_TRACE("OnRecv data length:" << msg.GetChainedLength());
   if (sink_) {
@@ -86,14 +86,15 @@ void MediaTcpIO::OnRead(MessageChain& msg) {
   if (srs_success != err) {
     if (srs_error_code(err) != ERROR_SOCKET_WOULD_BLOCK) {
       sink_->OnClose(err);
-      this->Close();
       MLOG_ERROR("rtmp onread failure, desc:" << srs_error_desc(err));
-    } 
+    }
     delete err;
+    return -1;
   }
+  return 0;
 }
 
-void MediaTcpIO::OnWrite() {
+int MediaTcpIO::OnWrite() {
   srs_error_t err = srs_success;
   if (sink_) {
     err = sink_->OnWrite();
@@ -102,17 +103,20 @@ void MediaTcpIO::OnWrite() {
   if (srs_success != err) {
     if (srs_error_code(err) != ERROR_SOCKET_WOULD_BLOCK) {
       sink_->OnClose(err);
-      this->Close();
       MLOG_ERROR("rtmp OnWrite failure, desc:" << srs_error_desc(err));
     }
     delete err;
+    return -1;
   }
+
+  return 0;
 }
 
-void MediaTcpIO::OnClose(srs_error_t reason) {
+int MediaTcpIO::OnClose(srs_error_t reason) {
   if (sink_) {
     sink_->OnClose(srs_error_wrap(reason, "OnClose"));
   }
+  return 0;
 }
 
 void MediaTcpIO::SetRecvTimeout(uint32_t) {

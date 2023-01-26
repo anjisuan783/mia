@@ -44,6 +44,12 @@ class TransportBase : public Transport, public MediaHandler {
   // MediaHandler implement
   int OnClose(MEDIA_HANDLE fd, MASK mask) override;
 
+ private:
+  int OnException(MEDIA_HANDLE fd = MEDIA_INVALID_HANDLE) override {
+    MA_ASSERT(false);
+    return -1;
+  }
+
  protected:
   // template method for open() and close()
   virtual srs_error_t Open_t() = 0;
@@ -54,7 +60,7 @@ class TransportBase : public Transport, public MediaHandler {
   std::unique_ptr<MediaSocketBase> socket_;
 };
 
-class TransportTcp : public TransportBase {
+class TransportTcp final : public TransportBase {
  public:
   TransportTcp(MediaThread*);
   ~TransportTcp() override;
@@ -187,7 +193,7 @@ int TransportTcp::OnInput(MEDIA_HANDLE) {
                    nRecv);
 
   if (sink_)
-    sink_->OnRead(msg);
+    return sink_->OnRead(msg);
 
   return 0;
 }
@@ -198,7 +204,7 @@ int TransportTcp::OnOutput(MEDIA_HANDLE fd) {
 
   need_on_send_ = false;
   if (sink_)
-    sink_->OnWrite();
+    return sink_->OnWrite();
 
   return 0;
 }

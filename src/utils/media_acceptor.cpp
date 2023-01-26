@@ -23,6 +23,9 @@ class AcceptorTcp : public Acceptor, public MediaHandler {
   int OnInput(MEDIA_HANDLE handler = MEDIA_INVALID_HANDLE) override;
   int OnClose(MEDIA_HANDLE handler, MASK mask) override;
  private:
+  int OnOutput(MEDIA_HANDLE fd = MEDIA_INVALID_HANDLE) override;
+  int OnException(MEDIA_HANDLE fd = MEDIA_INVALID_HANDLE) override;
+
   MediaThread* worker_ = nullptr;
   AcceptorSink *sink_ = nullptr;
   MediaSocketStream sock_;
@@ -133,6 +136,16 @@ int AcceptorTcp::OnClose(MEDIA_HANDLE handler, MASK mask) {
   MLOG_ERROR_THIS("can't reach here! handler:" << handler <<
     " mask=" << mask);
   return 0;
+}
+
+int AcceptorTcp::OnOutput(MEDIA_HANDLE) {
+  MA_ASSERT(false);
+  return -1;
+}
+
+int AcceptorTcp::OnException(MEDIA_HANDLE) {
+  MA_ASSERT(false);
+  return -1;
 }
 
 // AcceptorFactory

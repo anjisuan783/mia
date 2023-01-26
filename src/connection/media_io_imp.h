@@ -24,9 +24,9 @@ class MediaTcpIO : public IMediaIO, public TransportSink {
   void SetSendTimeout(uint32_t);
 
   // TransporSink implement
-  void OnRead(MessageChain &aData) override;
-	void OnWrite() override;
-	void OnClose(srs_error_t reason) override;
+  int OnRead(MessageChain &aData) override;
+  int OnWrite() override;
+  int OnClose(srs_error_t reason) override;
  private:
   std::shared_ptr<Transport> sock_;
   IMediaIOSink* sink_ = nullptr;

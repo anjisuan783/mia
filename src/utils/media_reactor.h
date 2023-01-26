@@ -39,19 +39,19 @@ public:
 
 	virtual MEDIA_HANDLE GetHandle() const = 0;
 	
-	/// Called when input events occur (e.g., data is ready).
-	/// OnClose() will be callbacked if return -1.
-	virtual int OnInput(MEDIA_HANDLE fd = MEDIA_INVALID_HANDLE);
+	// Called when input events occur (e.g., data is ready).
+	// OnClose() will be callbacked if return -1.
+	virtual int OnInput(MEDIA_HANDLE fd = MEDIA_INVALID_HANDLE) = 0;
 
-	/// Called when output events are possible (e.g., when flow control
-	/// abates or non-blocking connection completes).
-	/// OnClose() will be callbacked if return -1.
-	virtual int OnOutput(MEDIA_HANDLE fd = MEDIA_INVALID_HANDLE);
+	// Called when output events are possible (e.g., when flow control
+	// abates or non-blocking connection completes).
+	// OnClose() will be callbacked if return -1.
+	virtual int OnOutput(MEDIA_HANDLE fd = MEDIA_INVALID_HANDLE) = 0;
 
-	/// Called when an exceptional events occur (e.g., OOB data).
-	/// OnClose() will be callbacked if return -1.
-	/// Not implemented yet.
-	virtual int OnException(MEDIA_HANDLE fd = MEDIA_INVALID_HANDLE);
+	// Called when an exceptional events occur (e.g., OOB data).
+	// OnClose() will be callbacked if return -1.
+	// Not implemented yet.
+	virtual int OnException(MEDIA_HANDLE fd = MEDIA_INVALID_HANDLE) = 0;
 
 	/**
 	 * Called when a <On*()> method returns -1 or when the
@@ -59,7 +59,7 @@ public:
 	 * <aMask> indicates which event has triggered the
 	 * <HandleClose> method callback on a particular <fd>.
 	 */
-	virtual int OnClose(MEDIA_HANDLE fd, MASK mask);
+	virtual int OnClose(MEDIA_HANDLE fd, MASK mask) = 0;
 	
 	virtual ~MediaHandler() = default;
 };
