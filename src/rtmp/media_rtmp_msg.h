@@ -126,7 +126,7 @@ private:
   std::map<int, RtmpChunkStream*> chunk_streams_;
   // Cache some frequently used chunk header.
   // cs_cache, the chunk stream cache.
-  RtmpChunkStream** cs_cache_ = nullptr;
+  std::vector<RtmpChunkStream> chunk_cache_;
 
   int32_t in_chunk_size_ = SRS_CONSTS_RTMP_PROTOCOL_CHUNK_SIZE;
   int32_t out_chunk_size_ = SRS_CONSTS_RTMP_PROTOCOL_CHUNK_SIZE;
@@ -187,6 +187,7 @@ class RtmpPacket {
 // Use the chunk stream to cache the input RTMP chunk streams.
 class RtmpChunkStream final {
  public:
+  RtmpChunkStream() = default;
   RtmpChunkStream(int _cid);
   ~RtmpChunkStream() = default;
  public:

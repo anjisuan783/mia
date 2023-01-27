@@ -90,14 +90,12 @@ static char mh_sizes[] = {11, 7, 3, 0};
 
 RtmpProtocal::RtmpProtocal() {
   if (SRS_PERF_CHUNK_STREAM_CACHE > 0) {
-    cs_cache_ = new RtmpChunkStream*[SRS_PERF_CHUNK_STREAM_CACHE];
+    chunk_cache_.resize(SRS_PERF_CHUNK_STREAM_CACHE);
   }
-  for (int cid = 0; cid < SRS_PERF_CHUNK_STREAM_CACHE; cid++) {
-    RtmpChunkStream* cs = new RtmpChunkStream(cid);
+  for (int cid = 0; cid < SRS_PERF_CHUNK_STREAM_CACHE; ++cid) {
     // set the perfer cid of chunk,
     // which will copy to the message received.
-    cs->header.perfer_cid = cid;
-    cs_cache_[cid] = cs;
+    chunk_cache_[cid].header.perfer_cid = cid;
   }
 }
 
@@ -107,13 +105,6 @@ RtmpProtocal::~RtmpProtocal() {
     delete stream;
   }
   chunk_streams_.clear();
-
-    // free all chunk stream cache.
-  for (int i = 0; i < SRS_PERF_CHUNK_STREAM_CACHE; i++) {
-    RtmpChunkStream* cs = cs_cache_[i];
-    delete cs;
-  }
-  delete[] cs_cache_;
 
   if (read_buffer_) {
     read_buffer_->DestroyChained();
@@ -161,10 +152,12 @@ srs_error_t RtmpProtocal::OnRead(MessageChain* msg) {
         InternalProcessMessage(parsed_msg.get());
         continue;
       }
+      MLOG_TRACE_THIS("on recv rtmp media packet size:" << parsed_msg->header_.payload_length
+          << ", type:" << (int)parsed_msg->header_.message_type);
       err = sink_->OnPacket(std::move(parsed_msg));
     }
   }
-
+  MLOG_TRACE_THIS("buffer left " << (read_buffer_?read_buffer_->GetChainedLength():0));
   if(read_buffer_ && read_buffer_->GetChainedLength() == 0) {
 		read_buffer_->DestroyChained();
 		read_buffer_ = nullptr;
@@ -176,9 +169,9 @@ srs_error_t RtmpProtocal::OnRead(MessageChain* msg) {
 srs_error_t RtmpProtocal::ParseMsg(std::shared_ptr<MediaMessage>& out) {
   RtmpChunkStream*& chunk = current_chunk_;
   if (!chunk) {
-    read_buffer_->SaveChainedReadPtr();
     char fmt = 0;
     int cid = 0;
+    read_buffer_->SaveChainedReadPtr();
     bool err = ReadBasicHeader(fmt, cid);
 
     if (!err) {
@@ -205,9 +198,11 @@ srs_error_t RtmpProtocal::ParseMsg(std::shared_ptr<MediaMessage>& out) {
       return srs_error_new(ERROR_RTMP_MSG_INVALID_SIZE, "read message header");
     }
     
+    MLOG_TRACE_THIS("read basic header complete, fmt=" << fmt << ", cid=" << cid);
+
     // get the cached chunk stream.
     if (cid < SRS_PERF_CHUNK_STREAM_CACHE) {
-      chunk = cs_cache_[cid];
+      chunk = &chunk_cache_[cid];
     } else {
       if (chunk_streams_.find(cid) == chunk_streams_.end()) {
         chunk = chunk_streams_[cid] = new RtmpChunkStream(cid);
@@ -224,6 +219,12 @@ srs_error_t RtmpProtocal::ParseMsg(std::shared_ptr<MediaMessage>& out) {
         return srs_error_wrap(err, "read message header");
       }
     } while(false);
+
+    MLOG_TRACE_THIS("read message header complete, fmt=" << fmt
+        << ", cid=" << cid << ", type=" << (int)chunk->header.message_type
+        << ", size=" << chunk->header.payload_length
+        << ", ts=" << chunk->header.timestamp
+        << ", chunk=" << chunk);
   }
   
   // read msg payload from chunk stream.
@@ -231,10 +232,13 @@ srs_error_t RtmpProtocal::ParseMsg(std::shared_ptr<MediaMessage>& out) {
   
   // not got an entire RTMP message, try next chunk.
   if (!msg_opt) {
+    MLOG_TRACE_THIS("read partial message cid=" << chunk->header.perfer_cid 
+        << ", type=" << (int)chunk->header.message_type
+        << ", size=" << chunk->header.payload_length
+        << ", ts=" << chunk->header.timestamp
+        << ", chunk=" << chunk);
     return srs_error_new(ERROR_RTMP_MSG_INVALID_SIZE, "read message chunk");
   }
-
-  chunk = nullptr;
 
   auto msg = std::move(*msg_opt);
   if (msg->size_ <= 0 || msg->header_.payload_length <= 0) {
@@ -244,8 +248,14 @@ srs_error_t RtmpProtocal::ParseMsg(std::shared_ptr<MediaMessage>& out) {
         msg->header_.timestamp, msg->header_.stream_id);
   } else {
     out = std::move(msg);
+    MLOG_TRACE_THIS("read message complete,"
+        << ", cid=" << chunk->header.perfer_cid 
+        << ", type=" << (int)chunk->header.message_type
+        << ", size=" << chunk->header.payload_length
+        << ", ts=" << chunk->header.timestamp
+        << ", chunk=" << chunk);
   }
-
+  chunk = nullptr;
   return srs_success;
 }
 
@@ -506,50 +516,6 @@ void RtmpProtocal::OnDisc(srs_error_t) {
 
 }
 
-/**
- * 6.1.1. Chunk Basic Header
- * The Chunk Basic Header encodes the chunk stream ID and the chunk
- * type(represented by fmt field in the figure below). Chunk type
- * determines the format of the encoded message header. Chunk Basic
- * Header field may be 1, 2, or 3 bytes, depending on the chunk stream
- * ID.
- *
- * The bits 0-5 (least significant) in the chunk basic header represent
- * the chunk stream ID.
- *
- * Chunk stream IDs 2-63 can be encoded in the 1-byte version of this
- * field.
- *    0 1 2 3 4 5 6 7
- *   +-+-+-+-+-+-+-+-+
- *   |fmt|   cs id   |
- *   +-+-+-+-+-+-+-+-+
- *   Figure 6 Chunk basic header 1
- *
- * Chunk stream IDs 64-319 can be encoded in the 2-byte version of this
- * field. ID is computed as (the second byte + 64).
- *   0                   1
- *   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5
- *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *   |fmt|    0      | cs id - 64    |
- *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *   Figure 7 Chunk basic header 2
- *
- * Chunk stream IDs 64-65599 can be encoded in the 3-byte version of
- * this field. ID is computed as ((the third byte)*256 + the second byte
- * + 64).
- *    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3
- *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *   |fmt|     1     |         cs id - 64            |
- *   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *   Figure 8 Chunk basic header 3
- *
- * cs id: 6 bits
- * fmt: 2 bits
- * cs id - 64: 8 or 16 bits
- *
- * Chunk stream IDs with values 64-319 could be represented by both 2-
- * byte version and 3-byte version of this field.
- */
 bool RtmpProtocal::ReadBasicHeader(char& fmt, int& cid) {
   uint8_t byte;
 
@@ -595,7 +561,7 @@ bool RtmpProtocal::ReadBasicHeader(char& fmt, int& cid) {
 
 srs_error_t RtmpProtocal::ReadMessageHeader(RtmpChunkStream* chunk, char fmt) {
   srs_error_t err = srs_success;
-  //when first packet, the chunk->msg is NULL).
+  //when first packet, the chunk->msg is NULL.
   bool is_first_chunk_of_msg = !chunk->msg;
   
   // but, we can ensure that when a chunk stream is fresh,
@@ -753,6 +719,8 @@ RtmpProtocal::ReadMessagePayload(RtmpChunkStream* chunk) {
   uint32_t msg_len = read_buffer_->GetChainedLength();
   payload_size = std::min<int>(
       std::min<int>(payload_size, in_chunk_size_), msg_len);
+
+  bool completed_chunk = (msg_len >= chunk->msg->size_);
 
   MessageChain* chunk_msg = read_buffer_;
   read_buffer_ = read_buffer_->Disjoint(payload_size);

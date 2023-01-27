@@ -28,7 +28,7 @@ struct MessageHeader {
   // One byte field to represent the message type. A range of type IDs
   // (1-7) are reserved for protocol control messages.
   // For example, RTMP_MSG_AudioMessage or RTMP_MSG_VideoMessage.
-  int8_t message_type;
+  int8_t message_type{0};
 
   // Four-byte field that contains a timestamp of the message.
   // The 4 bytes are packed in the big-endian order.
