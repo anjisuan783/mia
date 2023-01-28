@@ -3,6 +3,7 @@
 
 #include <memory>
 
+#include "utils/sigslot.h"
 #include "common/media_kernel_error.h"
 #include "connection/h/media_io.h"
 
@@ -16,7 +17,6 @@ class RtmpBufferIOSink {
  public:
   virtual ~RtmpBufferIOSink() = default;
   virtual srs_error_t OnRead(MessageChain*) = 0;
-  virtual void OnDisc(srs_error_t) = 0;
 };
 
 class RtmpBufferIO final : public IMediaIOSink {
@@ -37,6 +37,9 @@ class RtmpBufferIO final : public IMediaIOSink {
   int64_t GetRecvBytes() {
     return nrecv_;
   }
+
+ public:
+  sigslot::signal1<srs_error_t> SignalOnclose_;
  private:
   srs_error_t TrySend();
 

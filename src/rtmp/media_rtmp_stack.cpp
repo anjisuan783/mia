@@ -150,8 +150,10 @@ void RtmpServerSide::HandshakeOk(uint32_t real_ip,
     protocol_->OnRead(app_data);
 
   sender_ = std::move(sender);
+  sender_->SignalOnclose_.connect(this, &RtmpServerSide::OnClose);
   handshake_->SignalHandshakeDone_.disconnect(this);
   handshake_->SignalHandshakefailed_.disconnect(this);
+  
   handshake_.reset(nullptr);
 }
 
@@ -159,6 +161,13 @@ void RtmpServerSide::HandshakeFailed(srs_error_t err) {
   handshake_->SignalHandshakeDone_.disconnect(this);
   handshake_->SignalHandshakefailed_.disconnect(this);
   handshake_.reset(nullptr);
+}
+
+void RtmpServerSide::OnClose(srs_error_t err) {
+  if (sink_)
+    sink_->OnDisc(err);
+  
+  sender_->SignalOnclose_.disconnect(this);
 }
 
 srs_error_t RtmpServerSide::OnPacket(std::shared_ptr<MediaMessage> msg) {

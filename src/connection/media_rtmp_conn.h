@@ -15,6 +15,7 @@ class MessageChain;
 class IMediaIOFactory;
 class IMediaIO;
 class MediaResponse;
+class MediaSource;
 
 // client information
 class ClientInfo {
@@ -50,9 +51,12 @@ class MediaRtmpConn final : public IMediaConnection,
   srs_error_t OnMessage(std::shared_ptr<MediaMessage>) override;
   srs_error_t OnRedirect(bool accepted) override;
 
+  void OnDisc(srs_error_t) override;
+
  private:
   std::shared_ptr<IMediaIO> io_;
   std::shared_ptr<RtmpServerSide> rtmp_;
+  std::shared_ptr<MediaSource> source_;
 
   IMediaHttpHandler* handler_;
 

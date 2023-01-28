@@ -152,12 +152,10 @@ srs_error_t RtmpProtocal::OnRead(MessageChain* msg) {
         InternalProcessMessage(parsed_msg.get());
         continue;
       }
-      MLOG_TRACE_THIS("on recv rtmp media packet size:" << parsed_msg->header_.payload_length
-          << ", type:" << (int)parsed_msg->header_.message_type);
       err = sink_->OnPacket(std::move(parsed_msg));
     }
   }
-  MLOG_TRACE_THIS("buffer left " << (read_buffer_?read_buffer_->GetChainedLength():0));
+
   if(read_buffer_ && read_buffer_->GetChainedLength() == 0) {
 		read_buffer_->DestroyChained();
 		read_buffer_ = nullptr;
@@ -198,8 +196,6 @@ srs_error_t RtmpProtocal::ParseMsg(std::shared_ptr<MediaMessage>& out) {
       return srs_error_new(ERROR_RTMP_MSG_INVALID_SIZE, "read message header");
     }
     
-    MLOG_TRACE_THIS("read basic header complete, fmt=" << fmt << ", cid=" << cid);
-
     // get the cached chunk stream.
     if (cid < SRS_PERF_CHUNK_STREAM_CACHE) {
       chunk = &chunk_cache_[cid];
@@ -219,12 +215,6 @@ srs_error_t RtmpProtocal::ParseMsg(std::shared_ptr<MediaMessage>& out) {
         return srs_error_wrap(err, "read message header");
       }
     } while(false);
-
-    MLOG_TRACE_THIS("read message header complete, fmt=" << fmt
-        << ", cid=" << cid << ", type=" << (int)chunk->header.message_type
-        << ", size=" << chunk->header.payload_length
-        << ", ts=" << chunk->header.timestamp
-        << ", chunk=" << chunk);
   }
   
   // read msg payload from chunk stream.
@@ -232,11 +222,6 @@ srs_error_t RtmpProtocal::ParseMsg(std::shared_ptr<MediaMessage>& out) {
   
   // not got an entire RTMP message, try next chunk.
   if (!msg_opt) {
-    MLOG_TRACE_THIS("read partial message cid=" << chunk->header.perfer_cid 
-        << ", type=" << (int)chunk->header.message_type
-        << ", size=" << chunk->header.payload_length
-        << ", ts=" << chunk->header.timestamp
-        << ", chunk=" << chunk);
     return srs_error_new(ERROR_RTMP_MSG_INVALID_SIZE, "read message chunk");
   }
 
@@ -248,14 +233,7 @@ srs_error_t RtmpProtocal::ParseMsg(std::shared_ptr<MediaMessage>& out) {
         msg->header_.timestamp, msg->header_.stream_id);
   } else {
     out = std::move(msg);
-    MLOG_TRACE_THIS("read message complete,"
-        << ", cid=" << chunk->header.perfer_cid 
-        << ", type=" << (int)chunk->header.message_type
-        << ", size=" << chunk->header.payload_length
-        << ", ts=" << chunk->header.timestamp
-        << ", chunk=" << chunk);
   }
-  chunk = nullptr;
   return srs_success;
 }
 
@@ -512,10 +490,6 @@ srs_error_t RtmpProtocal::SendWithBuffer(std::shared_ptr<MediaMessage> msg, bool
   return err;
 }
 
-void RtmpProtocal::OnDisc(srs_error_t) {
-
-}
-
 bool RtmpProtocal::ReadBasicHeader(char& fmt, int& cid) {
   uint8_t byte;
 
@@ -583,11 +557,10 @@ srs_error_t RtmpProtocal::ReadMessageHeader(RtmpChunkStream* chunk, char fmt) {
         "for existed chunk, fmt should not be 0");
   }
   
-  // create msg when new chunk stream start
   if (!chunk->msg) {
     chunk->msg = std::make_shared<MediaMessage>();
   }
-  
+
   int mh_size = mh_sizes[(int)fmt];
   
   char bytes[15];
@@ -716,11 +689,10 @@ RtmpProtocal::ReadMessagePayload(RtmpChunkStream* chunk) {
   
   // the chunk payload size.
   int payload_size = chunk->header.payload_length - chunk->msg->size_;
-  uint32_t msg_len = read_buffer_->GetChainedLength();
-  payload_size = std::min<int>(
-      std::min<int>(payload_size, in_chunk_size_), msg_len);
-
-  bool completed_chunk = (msg_len >= chunk->msg->size_);
+  payload_size = std::min<int>(payload_size, in_chunk_size_);
+  int32_t msg_len = read_buffer_->GetChainedLength();
+  bool completed_chunk = (msg_len >= payload_size);
+  payload_size = std::min<int>(payload_size, msg_len);
 
   MessageChain* chunk_msg = read_buffer_;
   read_buffer_ = read_buffer_->Disjoint(payload_size);
@@ -733,8 +705,22 @@ RtmpProtocal::ReadMessagePayload(RtmpChunkStream* chunk) {
 
   chunk->msg->size_ += payload_size;
   
-  // got entire RTMP message?
+  // got an entire chunk
+  if (completed_chunk) {
+    current_chunk_ = nullptr;
+  }
+
+#if 0
+  MLOG_TRACE_THIS("read partial message cid=" << chunk->header.perfer_cid 
+      << ", type=" << (int)chunk->header.message_type
+      << ", size=" << chunk->header.payload_length
+      << ", ts=" << chunk->header.timestamp
+      << ", size=" << chunk->msg->size_
+      << ", chunk=" << chunk);
+#endif
+  // got an entire message
   if (chunk->header.payload_length == chunk->msg->size_) {
+    MA_ASSERT(!current_chunk_);
     return std::move(chunk->msg);
   }
   return std::nullopt;

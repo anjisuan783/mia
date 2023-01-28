@@ -77,7 +77,7 @@ srs_error_t RtmpBufferIO::OnWrite() {
 
 void RtmpBufferIO::OnClose(srs_error_t reason) {
   io_->Close();
-  sink_->OnDisc(reason);
+  SignalOnclose_(reason);
 }
 
 srs_error_t RtmpBufferIO::TrySend() {

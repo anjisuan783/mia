@@ -64,7 +64,6 @@ class RtmpProtocal final : public RtmpBufferIOSink {
   void Close();
   srs_error_t Write(RtmpPacket*, int streamid, bool force = false);
   srs_error_t OnRead(MessageChain*) override;
-  void OnDisc(srs_error_t) override;
 
   srs_error_t SetInWinAckSize(int ack_size);
   srs_error_t DecodeMessage(MediaMessage* msg, RtmpPacket*& ppacket);

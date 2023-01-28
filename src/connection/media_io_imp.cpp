@@ -78,7 +78,6 @@ srs_error_t MediaTcpIO::Write(MessageChain* msg, int* sent) {
 
 int MediaTcpIO::OnRead(MessageChain& msg) {
   srs_error_t err = srs_success;
-  MLOG_TRACE("OnRecv data length:" << msg.GetChainedLength());
   if (sink_) {
     err = sink_->OnRead(&msg);
   }

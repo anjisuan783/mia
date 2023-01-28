@@ -58,6 +58,7 @@ class RtmpStackSink {
   virtual ~RtmpStackSink() = default;
 
   virtual srs_error_t OnConnect(std::shared_ptr<MediaRequest>) = 0;
+  virtual void OnDisc(srs_error_t) = 0;
   virtual srs_error_t OnClientInfo(RtmpConnType type, 
       std::string stream_name, srs_utime_t) = 0;
   virtual srs_error_t OnMessage(std::shared_ptr<MediaMessage>) = 0;
@@ -100,6 +101,8 @@ class RtmpServerSide final :
                    MessageChain*, 
                    std::shared_ptr<RtmpBufferIO>);
   void HandshakeFailed(srs_error_t);
+
+  void OnClose(srs_error_t);
   
   // Set output ack size to client, client will send ack-size 
   //for each ack window

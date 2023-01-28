@@ -28,7 +28,8 @@ class RtmpHandshakeStrategy {
       MessageChain*, RtmpBufferIO*) = 0;
 };
 
-class MediaRtmpHandshake : public RtmpBufferIOSink {
+class MediaRtmpHandshake : public RtmpBufferIOSink,
+    public sigslot::has_slots<> {
  public:
   MediaRtmpHandshake();
   virtual ~MediaRtmpHandshake();
@@ -37,8 +38,7 @@ class MediaRtmpHandshake : public RtmpBufferIOSink {
   void Close();
   uint32_t ProxyRealIp();
   
-  //RtmpBufferIOSink
-  void OnDisc(srs_error_t reason) override;
+  void OnDisc(srs_error_t reason);
 
   sigslot::signal3<uint32_t, MessageChain*, std::shared_ptr<RtmpBufferIO>>
       SignalHandshakeDone_;

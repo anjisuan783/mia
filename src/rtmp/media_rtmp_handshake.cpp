@@ -1805,6 +1805,7 @@ srs_error_t MediaRtmpHandshake::Start(std::shared_ptr<IMediaIO> io) {
   srs_error_t err = srs_success;
 
   sender_ = std::make_shared<RtmpBufferIO>(std::move(io), this);
+  sender_->SignalOnclose_.connect(this, &MediaRtmpHandshake::OnDisc);
   helper_.reset(new HandshakeHelper);
   handshake_.reset(new ComplexRtmpHandshake);
 
@@ -1812,10 +1813,13 @@ srs_error_t MediaRtmpHandshake::Start(std::shared_ptr<IMediaIO> io) {
 }
 
 void MediaRtmpHandshake::Close() {
-  sender_ = nullptr;
+  if (sender_) {
+    sender_->SignalOnclose_.disconnect(this);
+    sender_ = nullptr;
+  }
+
   helper_.reset(nullptr);
   handshake_.reset(nullptr);
-  
   waiting_ack_ = false;
 }
 
@@ -1847,8 +1851,8 @@ srs_error_t MediaRtmpHandshakeS::OnRead(MessageChain* msg) {
     } else {
       // maybe app data arrived
       read_buffer_ = read_buffer_->ReclaimGarbage();
-      SignalHandshakeDone_(helper_->proxy_real_ip, 
-          read_buffer_, std::move(sender_));
+      sender_->SignalOnclose_.disconnect(this);
+      SignalHandshakeDone_(helper_->proxy_real_ip, read_buffer_, std::move(sender_));
     }
     return err;
   }

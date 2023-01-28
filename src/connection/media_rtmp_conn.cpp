@@ -107,9 +107,8 @@ srs_error_t MediaRtmpConn::OnClientInfo(RtmpConnType type,
 
   // find a source to serve.
   MediaSource::Config cfg;
-  auto source = g_source_mgr_.FetchOrCreateSource(cfg, req);
-  MA_ASSERT(source);
-
+  source_ = g_source_mgr_.FetchOrCreateSource(cfg, req);
+  MA_ASSERT(source_);
   srs_error_t err = srs_success;
 
   switch (type) {
@@ -165,6 +164,11 @@ srs_error_t MediaRtmpConn::OnRedirect(bool accepted) {
   srs_error_t err = srs_success;
   MLOG_TRACE(accepted? "accept" : "denied");
   return err;
+}
+
+void MediaRtmpConn::OnDisc(srs_error_t err) {
+  MLOG_TRACE(srs_error_desc(err));
+  delete err;
 }
 
 } //namespace ma
