@@ -90,8 +90,8 @@ class MediaHttpListener final: public MediaListenerMgr::IMediaListener,
 
 int MediaHttpListener::Listen(const MediaAddress& addr, 
                               rtc::PacketSocketFactory* factory) {
-  
-  rtc::SocketAddress address(addr.GetHostName(), addr.GetPort());
+  rtc::IPAddress ip(addr.GetPtr()->sin_addr);
+  rtc::SocketAddress address(ip, addr.GetPort());
   rtc::AsyncPacketSocket* s = factory->CreateServerTcpSocket(
       address, 0, 0, this->GetSocketType());
 
@@ -166,7 +166,8 @@ MediaHttpsListener::~MediaHttpsListener() {
 
 int MediaHttpsListener::Listen(const MediaAddress& addr, 
                                rtc::PacketSocketFactory* factory) {
-  rtc::SocketAddress address(addr.GetHostName(), addr.GetPort());        
+  rtc::IPAddress ip(addr.GetPtr()->sin_addr);
+  rtc::SocketAddress address(ip, addr.GetPort());   
   rtc::AsyncPacketSocket* s = factory->CreateServerTcpSocket(
         address, 0, 0, this->GetSocketType());
   
@@ -249,11 +250,11 @@ srs_error_t MediaListenerMgr::Init(const std::vector<std::string>& addr) {
     std::string_view schema, host;
     int port;
     split_schema_host_port(i, schema, host, port);
-    MediaAddress host_port(std::string{host.data(), host.length()}.c_str(), port);
-    MLOG_DEBUG(i << "[schema:" << schema << ", host:" << host 
+    MediaAddress host_port((std::string)host, port);
+    MLOG_TRACE(i << "[schema:" << schema << ", host:" << host
         << ", port:" << port << "]");
     if (schema == "rtmp") {
-      err = worker1_->MsgQueue()->Send([this, i, schema, host_port]()->srs_error_t {
+      err = worker1_->MsgQueue()->Send([this, schema, host_port]()->srs_error_t {
         std::unique_ptr<IMediaListener> listener = CreateListener(schema);
         int ret = kma_ok;
         if ((ret = listener->Listen(host_port, socket_factory_.get())) == kma_ok) {
@@ -266,8 +267,8 @@ srs_error_t MediaListenerMgr::Init(const std::vector<std::string>& addr) {
       if (err) {
         return srs_error_wrap(err, "rtmp listen failed!");
       }
-    } /*else {
-      int result = worker_->Invoke<int>(RTC_FROM_HERE, [this, i, schema, host_port]()->int {
+    } else {
+      int result = worker_->Invoke<int>(RTC_FROM_HERE, [this, schema, host_port]()->int {
         int ret = kma_ok;
         std::unique_ptr<IMediaListener> listener = CreateListener(schema);
         
@@ -280,7 +281,7 @@ srs_error_t MediaListenerMgr::Init(const std::vector<std::string>& addr) {
       if (result != kma_ok) {
         return srs_error_new(ERROR_SOCKET_LISTEN, "listen failed, code:%d, address:%s", result, i.c_str());
       }
-    }*/
+    }
   }
 
   return err;

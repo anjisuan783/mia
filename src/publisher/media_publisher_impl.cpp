@@ -40,14 +40,8 @@ void MediaRtcPublisherImp::OnPublish(const std::string& tcUrl,
   req->tcUrl = tcUrl;
   req->stream = stream;
 
-  srs_discovery_tc_url(req->tcUrl, 
-                       req->schema,
-                       req->host, 
-                       req->vhost, 
-                       req->app, 
-                       req->stream, 
-                       req->port, 
-                       req->param);
+  srs_discovery_tc_url(req->tcUrl, req->schema, req->host, req->vhost, 
+      req->app, req->stream, req->port, req->param);
   req->vhost = g_server_.config_.vhost;
   
   MLOG_TRACE("schema:" << req->schema << 
@@ -115,14 +109,8 @@ void MediaRtmpPublisherImp::OnPublish(
   req->tcUrl = tcUrl;
   req->stream = stream;
 
-  srs_discovery_tc_url(req->tcUrl, 
-                       req->schema,
-                       req->host, 
-                       req->vhost, 
-                       req->app, 
-                       req->stream, 
-                       req->port, 
-                       req->param);
+  srs_discovery_tc_url(req->tcUrl, req->schema, req->host, req->vhost, 
+      req->app, req->stream, req->port, req->param);
   req->vhost = g_server_.config_.vhost;
   MLOG_INFO("tcurl:" << req->tcUrl <<
             ", schema:" << req->schema << 

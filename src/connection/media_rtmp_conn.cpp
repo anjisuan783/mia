@@ -93,7 +93,9 @@ srs_error_t MediaRtmpConn::OnClientInfo(RtmpConnType type,
   auto req = cli_info_.req_;
   req->stream = stream_name;
   req->duration = ts;
-  srs_discovery_tc_url(req->tcUrl, req->schema, req->host, req->vhost, req->app, req->stream, req->port, req->param);
+  srs_discovery_tc_url(req->tcUrl, req->schema, req->host, req->vhost, 
+      req->app, req->stream, req->port, req->param);
+  req->vhost = g_server_.config_.vhost;
   req->strip();
 
   MLOG_TRACE("client identified, type=" << RtmpClientTypeString(cli_info_.type) 
@@ -130,21 +132,19 @@ srs_error_t MediaRtmpConn::OnClientInfo(RtmpConnType type,
       if ((err = rtmp_->StartFmlePublish(cli_info_.stream_id_)) != srs_success) {
         return srs_error_wrap(err, "rtmp: start FMLE publish");
       }
-      break;
+      return Publishing();
     }
     case RtmpConnHaivisionPublish: {
       if ((err = rtmp_->StartHaivisionPublish(cli_info_.stream_id_)) != srs_success) {
         return srs_error_wrap(err, "rtmp: start HAIVISION publish");
       }
-      
-      break;
+      return Publishing();
     }
     case RtmpConnFlashPublish: {
       if ((err = rtmp_->StartFlashPublish(cli_info_.stream_id_)) != srs_success) {
         return srs_error_wrap(err, "rtmp: start FLASH publish");
       }
-      
-      break;
+      return Publishing();
     }
     default: {
       return srs_error_new(ERROR_SYSTEM_CLIENT_INVALID, "rtmp: unknown client type=%d", type);
@@ -156,7 +156,7 @@ srs_error_t MediaRtmpConn::OnClientInfo(RtmpConnType type,
 
 srs_error_t MediaRtmpConn::OnMessage(std::shared_ptr<MediaMessage> msg) {
   srs_error_t err = srs_success;
-  MLOG_TRACE(msg->size_);
+  source_->OnMessage(std::move(msg));
   return err;
 }
 
@@ -169,6 +169,12 @@ srs_error_t MediaRtmpConn::OnRedirect(bool accepted) {
 void MediaRtmpConn::OnDisc(srs_error_t err) {
   MLOG_TRACE(srs_error_desc(err));
   delete err;
+}
+
+srs_error_t MediaRtmpConn::Publishing() {
+  srs_error_t err = srs_success;
+  source_->OnPublish(eRemoteRtmp);
+  return err;
 }
 
 } //namespace ma

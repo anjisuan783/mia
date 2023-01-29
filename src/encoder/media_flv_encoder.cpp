@@ -15,7 +15,7 @@
 
 namespace ma {
 
-#define __MIA_OPTIMIZE__
+//#define __MIA_OPTIMIZE__
 
 #define SRS_FLV_TAG_HEADER_SIZE 11
 

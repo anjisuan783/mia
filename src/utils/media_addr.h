@@ -19,6 +19,7 @@ class MediaAddress {
   // Creates an <MediaAddress> from a <port> and the remote
   // <host_name>. The port number is assumed to be in host byte order.
   MediaAddress(const char* host_name, uint16_t port);
+  MediaAddress(const std::string& host_name, uint16_t port);
 
   /**
    * Initializes an <MediaAddress> from the <ip_port>, which can be
@@ -29,6 +30,7 @@ class MediaAddress {
    * IPV4 only
    */
   MediaAddress(const char* ip_port);
+  MediaAddress(const std::string& ip_port);
 
   int Set(const char* host_name, uint16_t port);
   int SetV4(const char* ip_port);

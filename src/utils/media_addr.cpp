@@ -868,9 +868,17 @@ MediaAddress::MediaAddress(const char* hostname, uint16_t port) {
   Set(hostname, port);
 }
 
+MediaAddress::MediaAddress(const std::string& host_name, uint16_t port)
+    : MediaAddress(host_name.c_str(), port) {
+}
+
 MediaAddress::MediaAddress(const char* ip_port) {
   host_name_.reserve(64);
   SetV4(ip_port);
+}
+
+MediaAddress::MediaAddress(const std::string& ip_port) 
+    : MediaAddress(ip_port.c_str()) {
 }
 
 MediaAddress::~MediaAddress() {}

@@ -54,6 +54,8 @@ class MediaRtmpConn final : public IMediaConnection,
   void OnDisc(srs_error_t) override;
 
  private:
+  srs_error_t Publishing();
+
   std::shared_ptr<IMediaIO> io_;
   std::shared_ptr<RtmpServerSide> rtmp_;
   std::shared_ptr<MediaSource> source_;
