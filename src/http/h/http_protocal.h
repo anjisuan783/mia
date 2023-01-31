@@ -107,7 +107,7 @@ class IHttpProtocalFactory : public IMediaIOBaseFactory {
 };
 
 std::unique_ptr<IMediaIOBaseFactory>
-CreateDefaultHttpProtocalFactory(void* p1, void* p2);
+CreateHttpProtocalFactory(std::shared_ptr<Transport> t, bool tls);
 
 }
 

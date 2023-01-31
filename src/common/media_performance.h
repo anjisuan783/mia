@@ -47,16 +47,6 @@ namespace ma {
  *       2000            150         300
  */
 
-#define SRS_PERF_MW_SLEEP 100 //ms
-
-/**
- * how many msgs can be send entirely.
- * for play clients to get msgs then totally send out.
- * for the mw sleep set to 1800, the msgs is about 133.
- * @remark, recomment to 128.
- */
-constexpr int SRS_PERF_MW_MSGS = 10;
-
 /**
  * how many chunk stream to cache, [0, N].
  * to imporove about 10% performance when chunk size small, and 5% for large chunk.

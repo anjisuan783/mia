@@ -13,9 +13,6 @@
 #include <vector>
 
 #include "utils/sigslot.h"
-#include "rtc_base/thread.h"
-#include "api/packet_socket_factory.h"
-#include "rtc_base/async_packet_socket.h"
 #include "common/media_kernel_error.h"
 
 namespace ma {
@@ -29,11 +26,8 @@ class MediaListenerMgr {
   class IMediaListener {
    public:
     virtual ~IMediaListener() = default;
-    virtual int Listen(const MediaAddress& addr, 
-                       rtc::PacketSocketFactory*) = 0;
-    virtual void Stop() = 0;
-    //virtual void OnNewConnectionEvent(
-    //  rtc::AsyncPacketSocket*, rtc::AsyncPacketSocket*);
+    virtual srs_error_t Listen(const MediaAddress& addr) = 0;
+    virtual srs_error_t Stop() = 0;
   };
  
   MediaListenerMgr();
@@ -41,12 +35,9 @@ class MediaListenerMgr {
   void Close();
 
  private:
-  std::unique_ptr<MediaListenerMgr::IMediaListener> 
-      CreateListener(std::string_view);
+  IMediaListener* CreateListener(std::string_view);
  private:
-  std::unique_ptr<rtc::Thread> worker_;
-  MediaThread* worker1_ = nullptr;
-  std::unique_ptr<rtc::PacketSocketFactory> socket_factory_;
+  MediaThread* worker_ = nullptr;
   std::vector<std::unique_ptr<IMediaListener>> listeners_;
 };
 

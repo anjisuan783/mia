@@ -10,7 +10,7 @@
 #include <iostream>
 
 #include "common/media_log.h"
-#include "rtc_base/sequence_checker.h"
+#include "utils/media_checker.h"
 #include "common/media_consts.h"
 #include "utils/media_protocol_utility.h"
 #include "connection/h/conn_interface.h"
@@ -26,6 +26,8 @@
 #include "rtmp/media_req.h"
 #include "media_server.h"
 #include "media_statistics.h"
+#include "utils/media_thread.h"
+#include "utils/media_msg_queue.h"
 
 namespace ma {
   
@@ -81,9 +83,9 @@ class StreamEntry final
                     std::unique_ptr<SrsFileWriter> buffer,
                     std::unique_ptr<ISrsBufferEncoder> encoder);
   void delete_customer(IMediaConnection* conn);
-  bool on_timer();
+  void on_timer();
   void consumer_push(customer&, std::vector<std::shared_ptr<MediaMessage>>&);
-  void async_task(std::function<void()> f, const rtc::Location& l);
+  void async_task(std::function<void()> f);
  private:
   std::map<IMediaConnection*, customer> conns_customers_; // in worker thread
 
@@ -91,16 +93,16 @@ class StreamEntry final
   std::shared_ptr<MediaRequest> req_;
   std::unique_ptr<SrsBufferCache> cache_;
 
-  std::shared_ptr<wa::Worker> worker_;
+  MediaThread* worker_;
 
-  webrtc::SequenceChecker thread_check_;
+  SequenceChecker thread_check_;
 };
 
 StreamEntry::StreamEntry(std::shared_ptr<MediaSource> s, 
                          std::shared_ptr<MediaRequest> r) 
   : source_{s},  
     req_{std::move(r)}, 
-    worker_{source_->get_worker()} {
+    worker_{source_->GetWorker()} {
   thread_check_.Detach();
   MLOG_TRACE("service created:" << req_->get_stream_url());
 }
@@ -152,14 +154,14 @@ void StreamEntry::initialize() {
       }
     }
     add_customer(nullptr, consumer, std::move(file_writer), std::move(encoder));
-  }, RTC_FROM_HERE);
+  });
 }
 
 void StreamEntry::add_customer(IMediaConnection* conn, 
                                std::shared_ptr<MediaConsumer> consumer,
                                std::unique_ptr<SrsFileWriter> buffer,
                                std::unique_ptr<ISrsBufferEncoder> encoder) {
-  RTC_DCHECK_RUN_ON(&thread_check_);
+  MEDIA_DCHECK_RUN_ON(&thread_check_);
   bool need_timer = false;
   if (conns_customers_.empty()) {
     need_timer = true;
@@ -172,21 +174,21 @@ void StreamEntry::add_customer(IMediaConnection* conn,
     return;
   }
 
-  static constexpr auto TIME_OUT = std::chrono::milliseconds(SRS_PERF_MW_SLEEP);
-
   //TODO timer push need optimizing
   auto weak_this = weak_from_this();
-  worker_->scheduleEvery([weak_this]() {
+  srs_error_t err = worker_->TimerQueue()->Schedule([weak_this]() {
     if (auto stream = weak_this.lock()) {
       return stream->on_timer();
     }
-    
-    return false;
-  }, TIME_OUT, RTC_FROM_HERE);
+  }, MediaTimeValue(0, PERF_MW_SLEEP * UTIME_MILLISECONDS));
+  if (srs_success != err) {
+    MLOG_ERROR_THIS("StreamEntry set timer failed, desc:" << srs_error_desc(err));
+    delete err;
+  }
 }
 
 void StreamEntry::delete_customer(IMediaConnection* conn) {
-  RTC_DCHECK_RUN_ON(&thread_check_);
+  MEDIA_DCHECK_RUN_ON(&thread_check_);
   
   auto found = conns_customers_.find(conn);
   if (found != conns_customers_.end()) {
@@ -209,7 +211,7 @@ void StreamEntry::consumer_push(
       c.cache_.swap(cache);
       count = cache.size();
     } else {
-      c.consumer_->fetch_packets(SRS_PERF_MW_MSGS, cache, count);
+      c.consumer_->fetch_packets(PERF_MW_MSGS, cache, count);
     }
     
     if (count == 0) {
@@ -230,21 +232,18 @@ void StreamEntry::consumer_push(
   } while(true);
 }
 
-bool StreamEntry::on_timer() {
-  RTC_DCHECK_RUN_ON(&thread_check_);
+void StreamEntry::on_timer() {
+  MEDIA_DCHECK_RUN_ON(&thread_check_);
 
-  bool result = true;
   if (conns_customers_.empty()) {
-    return result = false;
+    return ;
   }
  
   std::vector<std::shared_ptr<MediaMessage>> msgs;
-  msgs.reserve(SRS_PERF_MW_MSGS);
+  msgs.reserve(PERF_MW_MSGS);
   for (auto& i : conns_customers_) {
     consumer_push(i.second, msgs);
   }
- 
-  return result;
 }
 
 srs_error_t StreamEntry::serve_http(std::shared_ptr<IHttpResponseWriter> writer, 
@@ -255,7 +254,7 @@ srs_error_t StreamEntry::serve_http(std::shared_ptr<IHttpResponseWriter> writer,
 
   async_task([this, message = std::move(msg), 
               shared_writer = std::move(writer)]() {
-    RTC_DCHECK_RUN_ON(&thread_check_);
+    MEDIA_DCHECK_RUN_ON(&thread_check_);
     srs_error_t err = srs_success;
 
     std::unique_ptr<ISrsBufferEncoder> encoder = 
@@ -315,7 +314,7 @@ srs_error_t StreamEntry::serve_http(std::shared_ptr<IHttpResponseWriter> writer,
     oss << req->ip;
     oss << (uint64_t)key;
     Stat().OnClient(oss.str(), req, TRtmpPlay);
-  }, RTC_FROM_HERE);
+  });
 
   return srs_success;
 }
@@ -323,16 +322,17 @@ srs_error_t StreamEntry::serve_http(std::shared_ptr<IHttpResponseWriter> writer,
 void StreamEntry::conn_destroy(std::shared_ptr<IMediaConnection> conn) {
   async_task([this, raw_conn = conn.get()]() {
     delete_customer(raw_conn);
-  }, RTC_FROM_HERE);
+  });
 }
 
-void StreamEntry::async_task(std::function<void()> f, const rtc::Location& l) {
+void StreamEntry::async_task(std::function<void()> f) {
   std::weak_ptr<StreamEntry> weak_this{weak_from_this()};
-  worker_->task([weak_this, f] {
+  worker_->MsgQueue()->Post([weak_this, f] {
     if (auto this_ptr = weak_this.lock()) {
       f();
     }
-  }, l);
+    return srs_success;
+  });
 }
 
 //MediaFlvPlayHandler

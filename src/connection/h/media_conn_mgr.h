@@ -32,7 +32,7 @@ class MediaConnMgr {
     e_rtmp
   };
 
-  srs_error_t Init(uint32_t, const std::vector<std::string>& addr);
+  srs_error_t Init(const std::vector<std::string>& addr);
 
   void Close();
  

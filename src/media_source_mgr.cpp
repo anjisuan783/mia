@@ -2,15 +2,18 @@
 #include "rtmp/media_req.h"
 #include "media_statistics.h"
 #include "media_server.h"
+#include "utils/media_thread.h"
 
 namespace ma {
 
-static std::shared_ptr<wa::ThreadPool>  workers_;
+extern NetThreadManager g_netthdmgr;
 
-int MediaSourceMgr::Init(unsigned int num, 
+int MediaSourceMgr::Init(int num, 
     const std::vector<std::string>& candidates) {
-  workers_ = std::make_shared<wa::ThreadPool>(num);
-  workers_->start("live");
+  
+  for(int i = 0; i < num; ++i) {
+    MediaThreadManager::Instance()->CreateNetThread("io");
+  }
   rtc_api_ = std::move(wa::AgentFactory().create_agent());
   return rtc_api_->Open(num, candidates, "");
 }
@@ -23,8 +26,6 @@ void MediaSourceMgr::Close() {
   }
 
   rtc_api_->Close();
-  workers_->close();
-  workers_ = nullptr;
 }
 
 std::shared_ptr<MediaSource>
@@ -44,7 +45,10 @@ MediaSourceMgr::FetchOrCreateSource(MediaSource::Config& cfg,
     sources_[streamName] = ms;
   }
   
-  cfg.worker = GetWorker();
+  if (!cfg.worker) {
+    cfg.worker = GetWorker();
+  }
+  
   cfg.gop = g_server_.config_.enable_gop_;
   cfg.jitter_algorithm = g_server_.config_.jitter_algo_;
   if (!cfg.rtc_api) {
@@ -91,8 +95,8 @@ void MediaSourceMgr::RemoveSource(std::shared_ptr<MediaRequest> req) {
   Stat().OnStreamClose(std::move(req));
 }
 
-std::shared_ptr<wa::Worker> MediaSourceMgr::GetWorker() {
-  return std::move(workers_->getLessUsedWorker());
+MediaThread* MediaSourceMgr::GetWorker() {
+  return g_netthdmgr.GetLessUsedThread();
 }
 
 MediaSourceMgr g_source_mgr_;

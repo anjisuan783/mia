@@ -136,6 +136,10 @@ void MediaThread::Create(const std::string& name, bool wait) {
     promise_->get_future().wait();
 }
 
+MediaThread* MediaThread::Current() {
+  return MediaThreadManager::Instance()->CurrentThread();
+}
+
 void MediaThread::Destroy() {
   delete this;
 }
@@ -181,6 +185,10 @@ void MediaThread::Join() {
 
 bool MediaThread::IsStopped() const {
   return stopped_;
+}
+
+bool MediaThread::IsCurrent() {
+  return MediaThreadManager::IsEqualCurrentThread(this);
 }
 
 pthread_t MediaThread::GetThreadHandle() {
@@ -423,6 +431,14 @@ int NetThreadManager::GetIOBuffer(pthread_t handler, iovec*& iov, char*& iobuffe
   iov = it->second->iov_;
   iobuffer = it->second->io_buffer_;
   return ERROR_SUCCESS;
+}
+
+MediaThread* NetThreadManager::GetLessUsedThread() {
+  MediaThread* result = nullptr;
+  if (!thread_infos_.empty()) {
+    result = thread_infos_.begin()->second->thread_;
+  }
+  return result;
 }
 
 } //namespace ma

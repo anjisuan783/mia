@@ -407,7 +407,7 @@ srs_error_t MediaLiveRtcAdaptor::Open(wa::Worker* worker,
   rtc_source_ = sink;
   rtc_source_->OnLocalPublish(stream_name_);
 
-  static constexpr auto TIME_OUT = std::chrono::milliseconds(SRS_PERF_MW_SLEEP);
+  static constexpr auto TIME_OUT = std::chrono::milliseconds(PERF_MW_SLEEP);
 
   //TODO timer push need optimizing
   worker->scheduleEvery([weak_this = weak_from_this()]() {
@@ -485,7 +485,7 @@ bool MediaLiveRtcAdaptor::OnTimer() {
   srs_error_t err = srs_success;
   int count;
   std::vector<std::shared_ptr<MediaMessage>> cache;
-  consumer_->fetch_packets(SRS_PERF_MW_MSGS, cache, count);
+  consumer_->fetch_packets(PERF_MW_MSGS, cache, count);
 
   for(int i = 0; i < count; ++i) {
     if (cache[i]->is_audio()) {

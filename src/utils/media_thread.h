@@ -35,6 +35,8 @@ class MediaThread {
 	virtual void Create(const std::string& name, bool wait);
 	void Destroy();
 
+    static MediaThread* Current();
+
 	void Run();
 	virtual srs_error_t Stop() = 0;
 	void Join();	
@@ -42,6 +44,7 @@ class MediaThread {
 	unsigned long GetTid();
 	pthread_t GetThreadHandle();
 	bool IsStopped() const;
+	bool IsCurrent();
 
 	virtual MediaReactor* Reactor() = 0;
 	virtual MediaMsgQueue* MsgQueue() = 0;
@@ -76,17 +79,16 @@ class MediaThreadManager final {
   static const int kForever = -1;
 
   static MediaThreadManager* Instance();
-
-	static MediaThread* CreateNetThread(const std::string& name);
-	static MediaThread* CreateTaskThread(const std::string& name);
-	static MediaThread* FetchOrCreateMainThread();
-	MediaThread* GetDefaultNetThread();
+  static MediaThread* CreateNetThread(const std::string& name);
+  static MediaThread* CreateTaskThread(const std::string& name);
+  static MediaThread* FetchOrCreateMainThread();
+  MediaThread* GetDefaultNetThread();
 
   MediaThread* CurrentThread();
   void SetCurrentThread(MediaThread* thread);
 
   bool IsMainThread();
-	static bool IsEqualCurrentThread(MediaThread*);
+  static bool IsEqualCurrentThread(MediaThread*);
  private:
   MediaThreadManager();
   ~MediaThreadManager();
@@ -94,20 +96,21 @@ class MediaThreadManager final {
   pthread_key_t key_;
 
   const pthread_t main_thread_ref_;
-	static MediaThread* default_net_thread_;
-	static MediaThread* main_thread_;
+  static MediaThread* default_net_thread_;
+  static MediaThread* main_thread_;
 	
-	MediaThreadManager(const MediaThreadManager&) = delete;
-	MediaThreadManager& operator=(const MediaThreadManager&) = delete;
+  MediaThreadManager(const MediaThreadManager&) = delete;
+  MediaThreadManager& operator=(const MediaThreadManager&) = delete;
 };
 
 struct ThreadInfo;
 
 class NetThreadManager final{
  public:
-	int Register(MediaThread*);
-	int UnRegister(MediaThread*);
+  int Register(MediaThread*);
+  int UnRegister(MediaThread*);
   int GetIOBuffer(pthread_t handler, iovec*& iov, char*& iobuffer);
+  MediaThread* GetLessUsedThread();
  protected:
   typedef std::unordered_map<pthread_t, std::shared_ptr<ThreadInfo>> ThreadInfoListType;
   ThreadInfoListType thread_infos_;

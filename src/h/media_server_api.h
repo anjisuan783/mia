@@ -25,8 +25,7 @@ enum JitterAlgorithm {
 class MediaServerApi {
  public:
   struct Config {
-    uint32_t workers_{1};               // live workers
-    uint32_t ioworkers_{1};             // TODO multi-theads not implement
+    uint32_t workers_{1};               // io workers
     bool enable_gop_{true};
     bool flv_record_{false};
     int consumer_queue_size_{30000};    // ms

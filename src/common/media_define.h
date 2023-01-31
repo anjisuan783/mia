@@ -22,17 +22,17 @@ namespace ma {
 // Time and duration unit, in us.
 typedef int64_t srs_utime_t;
 
-// The time unit in ms, for example 100 * SRS_UTIME_MILLISECONDS means 100ms.
-#define SRS_UTIME_MILLISECONDS 1000
-
-// Convert srs_utime_t as ms.
-#define srsu2ms(us) ((us) / SRS_UTIME_MILLISECONDS)
-#define srsu2msi(us) int((us) / SRS_UTIME_MILLISECONDS)
+// The time unit in ms, for example 100 * UTIME_MILLISECONDS means 100ms.
+#define UTIME_MILLISECONDS 1000
 
 // The time unit in ms, for example 120 * SRS_UTIME_SECONDS means 120s.
 #define SRS_UTIME_SECONDS 1000000LL
 
-#define Media_ONE_SECOND_IN_MSECS SRS_UTIME_MILLISECONDS
+// Convert srs_utime_t as ms.
+#define srsu2ms(us) ((us) / UTIME_MILLISECONDS)
+#define srsu2msi(us) int((us) / UTIME_MILLISECONDS)
+
+#define Media_ONE_SECOND_IN_MSECS UTIME_MILLISECONDS
 #define Media_ONE_SECOND_IN_USECS SRS_UTIME_SECONDS
 
 // The time unit in minutes, for example 3 * SRS_UTIME_MINUTES means 3m.
@@ -108,17 +108,17 @@ typedef int64_t srs_utime_t;
 #define MA_MAX_PACKET_SIZE 16*1024
 
 constexpr int OPUS_SAMPLE_RATE = 48000;
-constexpr int OPUS_SAMPLES_PER_MS = OPUS_SAMPLE_RATE / SRS_UTIME_MILLISECONDS;
+constexpr int OPUS_SAMPLES_PER_MS = OPUS_SAMPLE_RATE / UTIME_MILLISECONDS;
 
 constexpr int AAC_SAMPLE_RATE = 44100;
-constexpr int AAC_SAMPLE_PER_MS = AAC_SAMPLE_RATE / SRS_UTIME_MILLISECONDS;
+constexpr int AAC_SAMPLE_PER_MS = AAC_SAMPLE_RATE / UTIME_MILLISECONDS;
 
 constexpr int AUDIO_STREAM_BITRATE = 48000;
 
 constexpr int AUDIO_STERO = 2;
 
 constexpr int VIDEO_SAMPLE_RATE = 90000;
-constexpr int VIDEO_SAMPLES_PER_MS = 90000 / SRS_UTIME_MILLISECONDS;
+constexpr int VIDEO_SAMPLES_PER_MS = 90000 / UTIME_MILLISECONDS;
 
 
 typedef int MEDIA_HANDLE;

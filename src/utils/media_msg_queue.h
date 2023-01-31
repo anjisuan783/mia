@@ -94,8 +94,27 @@ class MediaTimerHandler {
   virtual ~MediaTimerHandler() = default;
 };
 
+template <class Closure>
+class ClosureTimer : public MediaTimerHandler {
+ public:
+  explicit ClosureTimer(Closure&& c)
+    : c_(std::forward<Closure>(c)) {}
+ private:
+  void OnTimeout(const MediaTimeValue& curTime, void* args) override {
+    c_();
+  }
+
+  typename std::decay<Closure>::type c_;
+};
+
+template <class Closure>
+MediaTimerHandler* ToTimerEvent(Closure&& c) {
+  return new ClosureTimer<Closure>(std::forward<Closure>(c));
+}
+
 class MediaTimerQueue {
  public:
+   typedef std::function<void()> TimerTask;
   /**
    * this function must be invoked in the own thread.
    * <interval> must be greater than 0.
@@ -106,7 +125,13 @@ class MediaTimerQueue {
   virtual srs_error_t Schedule(MediaTimerHandler* th,
               void* args,
               const MediaTimeValue& interval,
-              uint32_t count) = 0;
+              uint32_t count = 0) = 0;
+
+  srs_error_t Schedule(TimerTask&& t, const MediaTimeValue& interval,
+              uint32_t count = 0) {
+    return Schedule(ToTimerEvent<TimerTask>(std::forward<TimerTask>(t)), 
+        nullptr, interval, count);
+  }
 
   /**
    * this function must be invoked in the own thread.

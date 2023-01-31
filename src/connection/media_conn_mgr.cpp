@@ -12,8 +12,7 @@
 
 namespace ma {
 
-srs_error_t MediaConnMgr::Init(uint32_t ioworkers, 
-                       const std::vector<std::string>& addrs) {
+srs_error_t MediaConnMgr::Init(const std::vector<std::string>& addrs) {
   if (addrs.empty()) {
     return srs_error_new(ERROR_INVALID_ARGS, "addrs is empty!");
   }

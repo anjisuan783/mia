@@ -435,7 +435,7 @@ srs_error_t MediaLiveSource::ConsumerDumps(MediaConsumer* consumer,
 
   srs_error_t err = srs_success;
 
-  srs_utime_t queue_size = consumer_queue_size_ * SRS_UTIME_MILLISECONDS;
+  srs_utime_t queue_size = consumer_queue_size_ * UTIME_MILLISECONDS;
   consumer->set_queue_size(queue_size);
  
   // if atc, update the sequence header to gop cache time.

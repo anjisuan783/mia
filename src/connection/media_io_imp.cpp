@@ -63,12 +63,10 @@ srs_error_t MediaTcpIO::Write(MessageChain* msg, int* sent) {
 
   int msg_sent = 0;
 
-  int ret = sock_->Write(*msg, false);
+  int ret = sock_->Write(*msg, msg_sent, false);
   if (ERROR_SUCCESS != ret && ERROR_SOCKET_WOULD_BLOCK != ret) {
       return srs_error_new(ret, "transport write");
   }
-
-  msg_sent = msg->GetChainedLength();
 
   if (sent) {
     *sent = msg_sent;

@@ -71,7 +71,7 @@ class TransportTcp final : public TransportBase {
   int OnOutput(MEDIA_HANDLE) override;
 
   // transport implement
-  int Write(MessageChain& msg, bool destroy = false) override;
+  int Write(MessageChain& msg, int& sent, bool destroy = false) override;
   void SetSocketHandler(MEDIA_HANDLE handler) override;
   MEDIA_HANDLE GetSocketHandler() const;
 
@@ -209,16 +209,15 @@ int TransportTcp::OnOutput(MEDIA_HANDLE fd) {
   return 0;
 }
 
-int TransportTcp::Write(MessageChain& in_msg, bool destroy) {
+int TransportTcp::Write(MessageChain& in_msg, int& sentTotal, bool destroy) {
   if (need_on_send_)
     return ERROR_SOCKET_WOULD_BLOCK;
 
   const MessageChain* tmpData = &in_msg;
   uint32_t iovNum = 0;
   uint32_t fillLen = 0;
-  int sentTotal = 0;
+  sentTotal = 0;
   int rv = 0;
-
   do {
     iovNum = tmpData->FillIov(iov_, IOV_MAX, fillLen, tmpData);
     if (iovNum == 0)

@@ -30,8 +30,6 @@ class MediaTcpIO : public IMediaIO, public TransportSink {
  private:
   std::shared_ptr<Transport> sock_;
   IMediaIOSink* sink_ = nullptr;
-
-  static constexpr int kMaxPacketSize = MA_MAX_PACKET_SIZE;
 };
 
 } //namespace ma

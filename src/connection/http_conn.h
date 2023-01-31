@@ -19,7 +19,7 @@ class IMediaHttpHandler;
 class MediaHttpCorsMux;
 
 class MediaHttpConn : public IMediaConnection,
-                   public IHttpRequestReader::CallBack{
+    public IHttpRequestReader::CallBack{
  public:
   MediaHttpConn(std::unique_ptr<IHttpProtocalFactory> fac, 
                 IMediaHttpHandler* m);

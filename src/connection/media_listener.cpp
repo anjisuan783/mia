@@ -1,9 +1,5 @@
 #include "connection/media_listener.h"
 
-#include "rtc_base/socket_address.h"
-#include "rtc_base/ssl_adapter.h"
-#include "network/basic_packet_socket_factory.h"
-
 #include "h/media_return_code.h"
 #include "utils/sigslot.h"
 #include "utils/media_protocol_utility.h"
@@ -19,51 +15,52 @@
 namespace ma {
 static log4cxx::LoggerPtr logger = log4cxx::Logger::getLogger("ma.connection");
 
-//MediaRtmpListener
-class MediaRtmpListener final : public MediaListenerMgr::IMediaListener,
-    public AcceptorSink  {
+//MediaListenerBase
+class MediaListenerBase: public MediaListenerMgr::IMediaListener,
+    public AcceptorSink {
  public:
-  // AcceptorSink implement
-  void OnAccept(std::shared_ptr<Transport>) override;
-
-  int Listen(const MediaAddress&, 
-             rtc::PacketSocketFactory*) override;
-
-  void Stop() override;
+  MediaListenerBase() = default;
+  ~MediaListenerBase() override = default;
+  srs_error_t Listen(const MediaAddress&) override;
+  srs_error_t Stop() override;
  private:
   std::shared_ptr<Acceptor> acceptor_;
 };
 
-int MediaRtmpListener::Listen(const MediaAddress& address, 
-                              rtc::PacketSocketFactory* factory) {
+srs_error_t MediaListenerBase::Listen(const MediaAddress& address) {
+  srs_error_t err = srs_success;
   if (acceptor_) {
-    return kma_already_initilized;
+    return err;
   }
 
   acceptor_ = AcceptorFactory::CreateAcceptor(true);
 
-  MediaAddress lsn_addr;
-  srs_error_t err = acceptor_->Listen(this, address);
-  if (srs_success != err) {
-    MLOG_ERROR_THIS("Listen faild, addr:" << address.ToString()
-        << ", desc:" << srs_error_desc(err));
-    delete err;
-    return kma_listen_failed;
+  if (srs_success != (err = acceptor_->Listen(this, address))) {
+    return srs_error_wrap(err, "rtmp listen failed");
   }
 
-  return kma_ok;
+  return err;
 }
 
-void MediaRtmpListener::Stop() {
+srs_error_t MediaListenerBase::Stop() {
+  srs_error_t err = srs_success;
   if (!acceptor_) {
-    return ;
+    return err;
   }
-  srs_error_t err = acceptor_->Stop();
-  if (srs_success != err) {
-    MLOG_ERROR_THIS("Stop listen faild, desc:" << srs_error_desc(err));
-    delete err;
+  if (srs_success != (err = acceptor_->Stop())) {
+    return srs_error_wrap(err, "rtmp stop listen failed");
   }
+  return err;
 }
+
+//MediaRtmpListener
+class MediaRtmpListener final : public MediaListenerBase  {
+ public:
+  // AcceptorSink implement
+  void OnAccept(std::shared_ptr<Transport>) override;
+ private:
+  std::shared_ptr<Acceptor> acceptor_;
+};
 
 void MediaRtmpListener::OnAccept(std::shared_ptr<Transport> t) {
   MLOG_TRACE("new peer:" << t->GetLocalAddr().ToString() << 
@@ -71,87 +68,52 @@ void MediaRtmpListener::OnAccept(std::shared_ptr<Transport> t) {
   auto conn = g_conn_mgr_.CreateConnection(
       MediaConnMgr::e_rtmp, std::move(CreateTcpIOFactory(std::move(t))));
 
-  conn->Start();
+  srs_error_t err = conn->Start();
+  if (srs_success != err) {
+    MLOG_ERROR("rtmp connection start failed, desc:" << srs_error_desc(err));
+    delete err;
+  }
 }
 
 //MediaHttpListener
-class MediaHttpListener final: public MediaListenerMgr::IMediaListener,
-    public sigslot::has_slots<> {
+class MediaHttpListener final: public MediaListenerBase  {
  public:
-  int Listen(const MediaAddress&, 
-             rtc::PacketSocketFactory*) override;
-  void Stop() override;
-  void OnNewConnectionEvent(rtc::AsyncPacketSocket*, 
-                            rtc::AsyncPacketSocket*);
-  rtc::PacketSocketServerOptions GetSocketType();  
+  MediaHttpListener() = default;
+  // AcceptorSink implement
+  void OnAccept(std::shared_ptr<Transport>) override;
+
  private:
-  std::unique_ptr<rtc::AsyncPacketSocket> listen_socket_;
+  std::shared_ptr<Acceptor> acceptor_;
 };
 
-int MediaHttpListener::Listen(const MediaAddress& addr, 
-                              rtc::PacketSocketFactory* factory) {
-  rtc::IPAddress ip(addr.GetPtr()->sin_addr);
-  rtc::SocketAddress address(ip, addr.GetPort());
-  rtc::AsyncPacketSocket* s = factory->CreateServerTcpSocket(
-      address, 0, 0, this->GetSocketType());
-
-  if (!s) {
-    return kma_listen_failed;
-  }
-  listen_socket_.reset(s);
-
-  listen_socket_->SignalNewConnection.connect(
-      this, &MediaHttpListener::OnNewConnectionEvent);
-
-  return kma_ok;
-}
-
-void MediaHttpListener::Stop() {
-  listen_socket_->SignalNewConnection.disconnect(this);
-  listen_socket_->Close();
-}
-
-void MediaHttpListener::OnNewConnectionEvent(
-  rtc::AsyncPacketSocket* s, rtc::AsyncPacketSocket* c) {
-  MLOG_TRACE("new peer:" << c->GetRemoteAddress().ToString() << 
-             ", from:" << s->GetLocalAddress().ToString());    
-  auto factory = CreateDefaultHttpProtocalFactory(s, c);
-  
+void MediaHttpListener::OnAccept(std::shared_ptr<Transport> t) {
+  MLOG_TRACE("new peer:" << t->GetLocalAddr().ToString() << 
+             ", from:" << t->GetLocalAddr().ToString());
   auto conn = g_conn_mgr_.CreateConnection(
-      MediaConnMgr::e_http, std::move(factory));
+      MediaConnMgr::e_http, std::move(CreateHttpProtocalFactory(std::move(t), false)));
 
-  conn->Start();
-}
-
-rtc::PacketSocketServerOptions MediaHttpListener::GetSocketType() {
-  rtc::PacketSocketServerOptions op;
-  op.opts = rtc::PacketSocketFactory::OPT_RAW |
-            rtc::PacketSocketFactory::OPT_ADDRESS_REUSE;
-
-  return op;
+  srs_error_t err = conn->Start();
+  if (srs_success != err) {
+    MLOG_ERROR("http connection start failed, desc:" << srs_error_desc(err));
+    delete err;
+  }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 //MediaHttpsListener
 ///////////////////////////////////////////////////////////////////////////////
-class MediaHttpsListener : public MediaListenerMgr::IMediaListener,
-    public sigslot::has_slots<> {
+class MediaHttpsListener : public MediaListenerBase {
  public:
   MediaHttpsListener();
   ~MediaHttpsListener() override;
   
-  int Listen(const MediaAddress&, 
-             rtc::PacketSocketFactory*) override;
-  void Stop() override;
-  void OnNewConnectionEvent(rtc::AsyncPacketSocket*, 
-                            rtc::AsyncPacketSocket*);
+  // AcceptorSink implement
+  void OnAccept(std::shared_ptr<Transport>) override;
  private:
   void CheckInit();
   void CheckClean();
-  rtc::PacketSocketServerOptions GetSocketType();
  private:
   static bool inited_;
-  std::unique_ptr<rtc::AsyncPacketSocket> listen_socket_;
 };
 
 bool MediaHttpsListener::inited_{false};
@@ -164,64 +126,29 @@ MediaHttpsListener::~MediaHttpsListener() {
   CheckClean();
 }
 
-int MediaHttpsListener::Listen(const MediaAddress& addr, 
-                               rtc::PacketSocketFactory* factory) {
-  rtc::IPAddress ip(addr.GetPtr()->sin_addr);
-  rtc::SocketAddress address(ip, addr.GetPort());   
-  rtc::AsyncPacketSocket* s = factory->CreateServerTcpSocket(
-        address, 0, 0, this->GetSocketType());
-  
-  if (!s) {
-    return kma_listen_failed;
-  }
-  listen_socket_.reset(s);
-
-  listen_socket_->SignalNewConnection.connect(
-      this, &MediaHttpsListener::OnNewConnectionEvent);
-
-  return kma_ok;
-}
-
-void MediaHttpsListener::Stop() {
-  listen_socket_->SignalNewConnection.disconnect(this);
-  listen_socket_->Close();
-  CheckClean();
-}
-
-void MediaHttpsListener::OnNewConnectionEvent(
-  rtc::AsyncPacketSocket* s, rtc::AsyncPacketSocket* c) {
-  MLOG_TRACE("new peer:" << c->GetRemoteAddress().ToString() << 
-          ", from:" << s->GetLocalAddress().ToString());
-  auto factory = CreateDefaultHttpProtocalFactory(s, c);
-  
+void MediaHttpsListener::OnAccept(std::shared_ptr<Transport> t) {
+  MLOG_TRACE("new peer:" << t->GetLocalAddr().ToString() << 
+             ", from:" << t->GetLocalAddr().ToString());
   auto conn = g_conn_mgr_.CreateConnection(
-      MediaConnMgr::e_http, std::move(factory));
+      MediaConnMgr::e_http, std::move(CreateHttpProtocalFactory(std::move(t), true)));
 
-  conn->Start();
-}
-
-rtc::PacketSocketServerOptions MediaHttpsListener::GetSocketType() {
-  rtc::PacketSocketServerOptions op;
-  op.https_certificate = g_server_.config_.https_crt;
-  op.https_private_key = g_server_.config_.https_key;
-  op.https_hostname = g_server_.config_.https_hostname;
-  
-  op.opts = rtc::PacketSocketFactory::OPT_RAW |
-            rtc::PacketSocketFactory::OPT_TLS_INSECURE |
-            rtc::PacketSocketFactory::OPT_ADDRESS_REUSE;
-  return op;
+  srs_error_t err = conn->Start();
+  if (srs_success != err) {
+    MLOG_ERROR("https connection start failed, desc:" << srs_error_desc(err));
+    delete err;
+  }
 }
 
 void MediaHttpsListener::CheckInit() {
   if (!inited_) {
-    rtc::InitializeSSL();
+    //rtc::InitializeSSL();
     inited_ = true;
   }
 }
 
 void MediaHttpsListener::CheckClean() {
   if (inited_) {
-    rtc::CleanupSSL();
+    //rtc::CleanupSSL();
     inited_ = false;
   }
 }
@@ -232,18 +159,11 @@ void MediaHttpsListener::CheckClean() {
 MediaListenerMgr::MediaListenerMgr() = default;
 
 srs_error_t MediaListenerMgr::Init(const std::vector<std::string>& addr) {
-
-  worker_ = std::move(rtc::Thread::CreateWithSocketServer());
-
-  worker_->SetName("media_listener", nullptr);
-  bool ret = worker_->Start();
-  MA_ASSERT(ret);
-
-  worker1_ = MediaThreadManager::Instance()->CreateNetThread("reactor");
-  worker1_->Run();
-
-  socket_factory_ = std::move(
-      std::make_unique<rtc::BasicPacketSocketFactory>(worker_.get()));
+  worker_ = MediaThreadManager::Instance()->GetDefaultNetThread();
+  if (!worker_) {
+    MediaThreadManager::Instance()->CreateNetThread("reactor");
+    worker_->Run();
+  }
 
   srs_error_t err = srs_success;
   for (auto& i : addr) {
@@ -253,34 +173,18 @@ srs_error_t MediaListenerMgr::Init(const std::vector<std::string>& addr) {
     MediaAddress host_port((std::string)host, port);
     MLOG_TRACE(i << "[schema:" << schema << ", host:" << host
         << ", port:" << port << "]");
-    if (schema == "rtmp") {
-      err = worker1_->MsgQueue()->Send([this, schema, host_port]()->srs_error_t {
-        std::unique_ptr<IMediaListener> listener = CreateListener(schema);
-        int ret = kma_ok;
-        if ((ret = listener->Listen(host_port, socket_factory_.get())) == kma_ok) {
-          listeners_.emplace_back(std::move(listener));
-          return srs_success;
-        }
-        return srs_error_new(ERROR_SOCKET_LISTEN, 
-            "Listen failed, %s", host_port.ToString().c_str());
-      });
-      if (err) {
-        return srs_error_wrap(err, "rtmp listen failed!");
-      }
-    } else {
-      int result = worker_->Invoke<int>(RTC_FROM_HERE, [this, schema, host_port]()->int {
-        int ret = kma_ok;
-        std::unique_ptr<IMediaListener> listener = CreateListener(schema);
-        
-        if ((ret = listener->Listen(host_port, socket_factory_.get())) == kma_ok){
-          listeners_.emplace_back(std::move(listener));
-        }
-        return ret;
-      });
 
-      if (result != kma_ok) {
-        return srs_error_new(ERROR_SOCKET_LISTEN, "listen failed, code:%d, address:%s", result, i.c_str());
+    err = worker_->MsgQueue()->Send([this, schema, host_port]() {
+      std::unique_ptr<IMediaListener> listener(CreateListener(schema));
+      srs_error_t ret = srs_success;
+      if ((ret = listener->Listen(host_port)) != srs_success) {
+        return srs_error_wrap(ret, "Listen failed, %s", host_port.ToString().c_str());
       }
+      listeners_.emplace_back(std::move(listener));
+      return ret;
+    });
+    if (err) {
+      return srs_error_wrap(err, "send listen msg failed");
     }
   }
 
@@ -293,30 +197,29 @@ void MediaListenerMgr::Close() {
   }
   listeners_.clear();
 
-  worker_->Stop();
-  if (worker1_) {
-    worker1_->Stop();
-    worker1_->Join();
-    worker1_->Destroy();
+  if (worker_) {
+    worker_->Stop();
+    worker_->Join();
+    worker_->Destroy();
   }
 }
 
-std::unique_ptr<MediaListenerMgr::IMediaListener> 
+MediaListenerMgr::IMediaListener*
 MediaListenerMgr::CreateListener(std::string_view schema) {
-  std::unique_ptr<IMediaListener> p;
+  IMediaListener* p;
   if (schema == "rtmp") {
-    p = std::move(std::make_unique<MediaRtmpListener>());
+    p = new MediaRtmpListener;
   }
 
   if (schema == "http") {
-    p = std::move(std::make_unique<MediaHttpListener>());
+    p = new MediaHttpListener;
   }
 
   if (schema == "https") {
-    p = std::move(std::make_unique<MediaHttpsListener>());
+    p = new MediaHttpsListener;
   }
 
-  return std::move(p);
+  return p;
 }
 
 } //namespace ma

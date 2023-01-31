@@ -11,7 +11,7 @@
 
 #include <chrono>
 
-#define SRS_PERF_MW_SLEEP 100 //ms
+#define PERF_MW_SLEEP 100 //ms
 
 /**
  * how many msgs can be send entirely.
@@ -19,7 +19,7 @@
  * for the mw sleep set to 1800, the msgs is about 133.
  * @remark, recomment to 128.
  */
-constexpr int SRS_PERF_MW_MSGS = 10;
+constexpr int PERF_MW_MSGS = 10;
 
 /**
  * how many chunk stream to cache, [0, N].
@@ -40,13 +40,6 @@ constexpr int SRS_PERF_CHUNK_STREAM_CACHE = 16;
 
 // Default Redis listen port.
 #define SRS_DEFAULT_REDIS_PORT 6379
-
-///////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////
 
 ///////////////////////////////////////////////////////////
 // RTMP consts values
@@ -83,7 +76,7 @@ constexpr int SRS_PERF_CHUNK_STREAM_CACHE = 16;
 // if timeout, we generally ignore and send the data to client,
 // generally, it's the pulse time for data seding.
 // @remark, recomment to 500ms.
-#define SRS_CONSTS_RTMP_PULSE (500 * SRS_UTIME_MILLISECONDS)
+#define SRS_CONSTS_RTMP_PULSE (500 * UTIME_MILLISECONDS)
 
 // The max rtmp header size:
 //     1bytes basic header,
@@ -99,8 +92,8 @@ constexpr int SRS_PERF_CHUNK_STREAM_CACHE = 16;
 #define SRS_CONSTS_RTMP_MAX_FMT3_HEADER_SIZE 5
 
 // For performance
-#define SRS_CONSTS_IOVS_MAX (SRS_PERF_MW_MSGS * 2)
-#define SRS_CONSTS_C0C3_HEADERS_MAX (SRS_PERF_MW_MSGS * 32)
+#define SRS_CONSTS_IOVS_MAX (PERF_MW_MSGS * 2)
+#define SRS_CONSTS_C0C3_HEADERS_MAX (PERF_MW_MSGS * 32)
 
 ///////////////////////////////////////////////////////////
 // SRS consts values

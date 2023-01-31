@@ -19,7 +19,6 @@ MediaRtmpConn::MediaRtmpConn(std::unique_ptr<IMediaIOFactory> fac,
 MediaRtmpConn::~MediaRtmpConn() = default;
 
 srs_error_t MediaRtmpConn::Start() {
-  MLOG_TRACE("");
   rtmp_ = std::make_shared<RtmpServerSide>(this);
   return rtmp_->Handshake(io_);
 }
@@ -109,6 +108,7 @@ srs_error_t MediaRtmpConn::OnClientInfo(RtmpConnType type,
 
   // find a source to serve.
   MediaSource::Config cfg;
+  cfg.worker = MediaThread::Current();
   source_ = g_source_mgr_.FetchOrCreateSource(cfg, req);
   MA_ASSERT(source_);
   srs_error_t err = srs_success;

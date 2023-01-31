@@ -28,7 +28,7 @@ class Transport {
   virtual int Close() = 0;
   virtual TransportSink* GetSink() = 0;
 
-  virtual int Write(MessageChain& msg, bool destroy = false) = 0;
+  virtual int Write(MessageChain& msg, int& sent, bool destroy = false) = 0;
   virtual int SetOpt(int cmd, void* args) = 0;
   virtual int GetOpt(int cmd, void* args) const = 0;
   

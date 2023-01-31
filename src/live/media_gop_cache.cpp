@@ -118,7 +118,7 @@ srs_utime_t SrsGopCache::start_time() {
   MediaMessage* msg = gop_cache[0].get();
   srs_assert(msg);
   
-  return srs_utime_t(msg->timestamp_ * SRS_UTIME_MILLISECONDS);
+  return srs_utime_t(msg->timestamp_ * UTIME_MILLISECONDS);
 }
 
 inline bool SrsGopCache::pure_audio() {

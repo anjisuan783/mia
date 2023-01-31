@@ -709,7 +709,7 @@ srs_error_t RtmpServerSide::PlayClient(RtmpPlayPacket* req,
     RtmpConnType& type, std::string& stream_name, srs_utime_t& duration) {
   type = RtmpConnPlay;
   stream_name = req->stream_name;
-  duration = srs_utime_t(req->duration) * SRS_UTIME_MILLISECONDS;
+  duration = srs_utime_t(req->duration) * UTIME_MILLISECONDS;
   return srs_success;
 }
 
