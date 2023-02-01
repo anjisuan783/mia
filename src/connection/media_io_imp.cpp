@@ -82,10 +82,9 @@ int MediaTcpIO::OnRead(MessageChain& msg) {
 
   if (srs_success != err) {
     if (srs_error_code(err) != ERROR_SOCKET_WOULD_BLOCK) {
-      sink_->OnClose(err);
       MLOG_ERROR("rtmp onread failure, desc:" << srs_error_desc(err));
+      sink_->OnClose(err);
     }
-    delete err;
     return -1;
   }
   return 0;
