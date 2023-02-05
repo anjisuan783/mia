@@ -36,6 +36,8 @@ class MediaServerApi {
     int out_ack_size_{2500000};
     int in_ack_size_{0};
     int chunk_size_{60000};
+    int publish_1st_timeout_{20};
+    int publish_timeout_{5};
 
     //for rtc
     uint32_t rtc_workers_{1};

@@ -833,8 +833,8 @@ char* MediaAddress::Inet_ntop(int af, const void* src, char* buf, size_t size) {
       return inet_ntop6((const unsigned char*)src, buf, size);
     default:
       assert(false);
-      return NULL;
   }
+  return NULL;
 }
 
 int MediaAddress::Inet_pton(int af, const char* src, void* dst) {
@@ -845,8 +845,8 @@ int MediaAddress::Inet_pton(int af, const char* src, void* dst) {
       return (inet_pton6(src, (unsigned char*)dst));
     default:
       SET_ERRNO(EAFNOSUPPORT);
-      return (-1);
   }
+  return (-1);
 }
 
 MediaAddress MediaAddress::addr_null_;

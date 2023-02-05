@@ -1845,9 +1845,8 @@ srs_error_t MediaRtmpHandshakeS::OnRead(MessageChain* msg) {
     if (read_buffer_->GetChainedLength() < HANDSHAKE_ACK_SIZE)
       return err;
 
-    err = handshake_->OnClientAck(helper_.get(), read_buffer_);
-    if (srs_success != err) {
-      err = srs_error_new(srs_error_code(err), "handshake failed.");
+    if (srs_success != (err = handshake_->OnClientAck(helper_.get(), read_buffer_))) {
+      err = srs_error_wrap(err, "handshake failed.");
     } else {
       // maybe app data arrived
       read_buffer_ = read_buffer_->ReclaimGarbage();
@@ -1879,14 +1878,10 @@ srs_error_t MediaRtmpHandshakeS::OnRead(MessageChain* msg) {
   if (srs_success != err) {
     if (ERROR_SOCKET_WOULD_BLOCK != srs_error_code(err)) {
       return err;
-    } else {
-      delete err;
-      err = srs_success;
     }
+    srs_freep(err);
   }
-
   waiting_ack_ = true;
-  //read_buffer_ = read_buffer_->ReclaimGarbage();
   return err;
 }
 

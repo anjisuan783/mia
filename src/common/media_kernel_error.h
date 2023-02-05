@@ -161,6 +161,7 @@
 #define ERROR_RTMP_PROXY_EXCEED             2054
 #define ERROR_RTMP_CREATE_STREAM_DEPTH      2055
 #define ERROR_RTMP_HANDLE_SHAKE_FAILED      2056
+#define ERROR_RTMP_MSG_INVALID_HEADER       2057
 //
 // The system control message,
 // It's not an error, but special control logic.

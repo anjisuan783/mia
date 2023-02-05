@@ -122,6 +122,7 @@ void RtmpProtocal::Close() {
 }
 
 srs_error_t RtmpProtocal::OnRead(MessageChain* msg) {
+  MLOG_TRACE_THIS(msg->GetChainedLength());
   if (read_buffer_) {
     read_buffer_->Append(msg->DuplicateChained());
   } else {
@@ -129,14 +130,17 @@ srs_error_t RtmpProtocal::OnRead(MessageChain* msg) {
   }
 
   srs_error_t err = srs_success;
+  std::shared_ptr<MediaMessage> parsed_msg;
   while(read_buffer_ && read_buffer_->GetChainedLength() != 0) {
-    std::shared_ptr<MediaMessage> parsed_msg;
     if (srs_success != (err = ParseMsg(parsed_msg))) {
-      if (srs_error_code(err) == ERROR_RTMP_MSG_INVALID_SIZE) {
-        delete err;
-        err = srs_success;
+      if (ERROR_RTMP_MSG_INVALID_SIZE == srs_error_code(err)) {
+        srs_freep(err);
+        continue;
+      } 
+      if (ERROR_RTMP_MSG_INVALID_HEADER == srs_error_code(err)) {
+        srs_freep(err);
+        break;
       }
-      break;
     }
 
     if (parsed_msg) {
@@ -152,7 +156,9 @@ srs_error_t RtmpProtocal::OnRead(MessageChain* msg) {
         InternalProcessMessage(parsed_msg.get());
         continue;
       }
-      err = sink_->OnPacket(std::move(parsed_msg));
+      if (srs_success != (err = sink_->OnPacket(std::move(parsed_msg)))) {
+        return srs_error_wrap(err, "call sink OnPacket");
+      }
     }
   }
 
@@ -175,7 +181,7 @@ srs_error_t RtmpProtocal::ParseMsg(std::shared_ptr<MediaMessage>& out) {
     if (!err) {
       // not enough data
       read_buffer_->RewindChained(true);
-      return srs_error_new(ERROR_RTMP_MSG_INVALID_SIZE, "read basic header");
+      return srs_error_new(ERROR_RTMP_MSG_INVALID_HEADER, "read basic header");
     }
 
     // the cid must not negative.
@@ -183,9 +189,13 @@ srs_error_t RtmpProtocal::ParseMsg(std::shared_ptr<MediaMessage>& out) {
 
     // ensure there's enough message for ReadMessageHeader
     uint32_t len = read_buffer_->GetChainedLength();
+    if (0 == len) {
+      read_buffer_->RewindChained(true);
+      return srs_error_new(ERROR_RTMP_MSG_INVALID_HEADER, "read basic header");
+    }
     if ((int)len < (int)mh_sizes[(int)fmt]) {
       read_buffer_->RewindChained(true);
-      return srs_error_new(ERROR_RTMP_MSG_INVALID_SIZE, "read message header");
+      return srs_error_new(ERROR_RTMP_MSG_INVALID_HEADER, "read message header");
     }
     int32_t ts = 0;
     read_buffer_->Peek(&ts, 3);
@@ -193,7 +203,7 @@ srs_error_t RtmpProtocal::ParseMsg(std::shared_ptr<MediaMessage>& out) {
     // check ReadMessageHeader length when extern timestamp enabled
     if ((int)fmt < RTMP_FMT_TYPE3 && ts == 0xffffff && (int)len < (int)mh_sizes[(int)fmt] + 4) {
       read_buffer_->RewindChained(true);
-      return srs_error_new(ERROR_RTMP_MSG_INVALID_SIZE, "read message header");
+      return srs_error_new(ERROR_RTMP_MSG_INVALID_HEADER, "read message header");
     }
     
     // get the cached chunk stream.
@@ -687,13 +697,34 @@ RtmpProtocal::ReadMessagePayload(RtmpChunkStream* chunk) {
     return std::move(chunk->msg);
   }
   
-  // the chunk payload size.
-  int payload_size = chunk->header.payload_length - chunk->msg->size_;
-  payload_size = std::min<int>(payload_size, in_chunk_size_);
+  // avoid the first message payload block is empty
   int32_t msg_len = read_buffer_->GetChainedLength();
-  bool completed_chunk = (msg_len >= payload_size);
-  payload_size = std::min<int>(payload_size, msg_len);
+  if (0 == msg_len) {
+    read_buffer_->DestroyChained();
+    read_buffer_ = nullptr;
+    return std::nullopt;
+  }
 
+  // the chunk payload size.
+  bool completed_chunk = true;
+  int payload_size = chunk->header.payload_length - chunk->msg->size_;
+
+  if (payload_size > msg_len) {
+    payload_size = msg_len;
+    completed_chunk = false;
+  }
+  if (payload_size > in_chunk_size_) {
+    payload_size = in_chunk_size_;
+    completed_chunk = false;
+  }
+
+#if 0
+  MLOG_CTRACE("payload_size=%d, chunkpayload=%d, chunksize_=%d, in_chunk_size_=%d", 
+        payload_size,
+        chunk->header.payload_length, 
+        chunk->msg->size_, 
+        in_chunk_size_);
+#endif
   MessageChain* chunk_msg = read_buffer_;
   read_buffer_ = read_buffer_->Disjoint(payload_size);
 

@@ -179,6 +179,7 @@ bool SrsFlvVideo::h264(const char* data, int size) {
 bool SrsFlvVideo::acceptable(const char* data, int size) {
   // 1bytes required.
   if (size < 1) {
+    MA_ASSERT(false);
     return false;
   }
   

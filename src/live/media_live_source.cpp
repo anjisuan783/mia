@@ -398,6 +398,7 @@ srs_error_t MediaLiveSource::OnVideo(
   }
   last_packet_time_ = shared_video->timestamp_;
   
+  
   // drop any unknown header video.
   if (!SrsFlvVideo::acceptable(shared_video->payload_->GetFirstMsgReadPtr(), 
                                shared_video->payload_->GetFirstMsgLength())) {

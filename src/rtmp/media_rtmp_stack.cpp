@@ -141,6 +141,9 @@ srs_error_t RtmpServerSide::ResponseConnect(
 
 void RtmpServerSide::HandshakeOk(uint32_t real_ip, 
     MessageChain* app_data, std::shared_ptr<RtmpBufferIO> sender) {
+  char buf[256] = {0x0};
+  MLOG_TRACE_THIS("ip:" << MediaAddress::Inet_ntop(AF_INET, &real_ip, buf, 256)
+      << ", app_data:" << (app_data?app_data->GetChainedLength():0));
   state_ = RTMP_HANDSHAKE_DONE;
   real_ip_ = real_ip;
   protocol_.reset(new RtmpProtocal);
@@ -171,6 +174,7 @@ void RtmpServerSide::OnClose(srs_error_t err) {
 }
 
 srs_error_t RtmpServerSide::OnPacket(std::shared_ptr<MediaMessage> msg) {
+  MLOG_TRACE_THIS("OnPacket");
   if(RTMP_DISCONNECTED == state_)
     return srs_error_new(ERROR_INVALID_STATE, "RtmpServerSide state:%d", state_);
 
