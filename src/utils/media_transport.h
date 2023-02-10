@@ -9,6 +9,9 @@
 
 namespace ma {
 
+const int TP_RECEIVED_BYTES = 1;
+const int TP_SENT_BYTES = 2;
+
 class MessageChain;
 class MediaThread;
 

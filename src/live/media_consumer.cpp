@@ -118,8 +118,7 @@ void MessageQueue::shrink() {
   for (size_t i = 0; i < msgs.size(); i++) {
     auto& msg = msgs.at(i);
     
-    if (msg->is_video() && SrsFlvVideo::sh(
-        msg->payload_->GetFirstMsgReadPtr(), msg->payload_->GetFirstMsgLength())) {
+    if (msg->is_video() && MediaFlvVideo::Sh(*msg->payload_)) {
       video_sh = msg;
       continue;
     }

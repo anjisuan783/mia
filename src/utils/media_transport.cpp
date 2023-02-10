@@ -13,7 +13,6 @@
 #include "utils/media_thread.h"
 
 namespace ma {
-
 std::string GetSystemErrorInfo(int inErrno) {
 #define RT_ERROR_BUF_SIZE 1024
   char szErrorBuf[RT_ERROR_BUF_SIZE] = "";
@@ -58,6 +57,8 @@ class TransportBase : public Transport, public MediaHandler {
  protected:
   TransportSink* sink_ = nullptr;
   std::unique_ptr<MediaSocketBase> socket_;
+  uint64_t received_bytes_ = 0;
+  uint64_t sent_bytes_ = 0;
 };
 
 class TransportTcp final : public TransportBase {
@@ -127,7 +128,26 @@ int TransportBase::SetOpt(int, void*) {
   return ERROR_INVALID_ARGS;
 }
 
-int TransportBase::GetOpt(int, void*) const {
+int TransportBase::GetOpt(int opt, void* val) const {
+  switch (opt) {
+    case TP_RECEIVED_BYTES: {
+      uint64_t* pv = reinterpret_cast<uint64_t*>(val);
+      if (pv) {
+        *pv = received_bytes_;
+      }
+      return ERROR_SUCCESS;
+    }
+    case TP_SENT_BYTES: {
+      uint64_t* pv = reinterpret_cast<uint64_t*>(val);
+      if (pv) {
+        *pv = sent_bytes_;
+      }
+      return ERROR_SUCCESS;
+    }
+    default:
+      break;
+  }
+
   return ERROR_INVALID_ARGS;
 }
 
@@ -188,6 +208,7 @@ int TransportTcp::OnInput(MEDIA_HANDLE) {
   if (nRecv <= 0)
     return nRecv;
 
+  received_bytes_ += nRecv;
   MessageChain msg(nRecv, io_buffer_,
                    MessageChain::DONT_DELETE | MessageChain::WRITE_LOCKED,
                    nRecv);
@@ -242,6 +263,8 @@ int TransportTcp::Write(MessageChain& in_msg, int& sentTotal, bool destroy) {
       break;
     }
   } while (tmpData);
+
+  sent_bytes_ += sentTotal;
 
   if (need_on_send_) {
     in_msg.AdvanceChainedReadPtr(sentTotal);

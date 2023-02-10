@@ -114,6 +114,7 @@ private:
   std::shared_ptr<RtmpBufferIO> io_;
   MessageChain* read_buffer_ = nullptr;
 
+  int current_chunk_left_size_ = 0;
   RtmpChunkStream* current_chunk_ = nullptr;
 
   // The requests sent out, used to build the response.
@@ -140,6 +141,8 @@ private:
 
   // The buffer length set by peer.
   int32_t in_buffer_length_ = 0;
+
+  static constexpr char mh_sizes_[4] = {11, 7, 3, 0};
 };
 
 // The decoded message payload.

@@ -92,7 +92,6 @@ srs_error_t ExpFlvLoopReader::ReadTags() {
       // video
       if (first_video_pkt) {
         first_video_pkt = false;
-        assert(ma::SrsFlvVideo::sh(data_buf_, size));
       }
 
       // ignore AVC end of sequence

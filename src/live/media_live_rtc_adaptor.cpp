@@ -238,8 +238,7 @@ srs_error_t Videotransform::OnData(std::shared_ptr<MediaMessage> msg) {
 
   // cache the sequence header if h264
   bool is_sequence_header = 
-      SrsFlvVideo::sh(msg->payload_->GetFirstMsgReadPtr(), 
-                      msg->payload_->GetFirstMsgLength());
+      MediaFlvVideo::Sh(*msg->payload_);
   if (is_sequence_header && (err = meta_->update_vsh(msg)) != srs_success) {
     return srs_error_wrap(err, "meta update video");
   }

@@ -79,9 +79,11 @@ int MediaTcpIO::OnRead(MessageChain& msg) {
   if (!sink_) {
     return 0;
   }
-
+  uint64_t total = 0;
   if (srs_success != (err = sink_->OnRead(&msg))) {
     if (srs_error_code(err) != ERROR_SOCKET_WOULD_BLOCK) {
+      sock_->GetOpt(TP_RECEIVED_BYTES, &total);
+      MLOG_TRACE_THIS("total recv " << total);
       sink_->OnClose(srs_error_wrap(err, "onread failure"));
       return -1;
     }

@@ -10,6 +10,7 @@
 #include "common/media_log.h"
 #include "utils/media_kernel_buffer.h"
 #include "encoder/media_codec.h"
+#include "utils/media_msg_chain.h"
 
 namespace ma {
 
@@ -127,31 +128,29 @@ bool srs_avc_startswith_annexb(SrsBuffer* stream, int* pnb_start_code) {
   return false;
 }
 
-
-SrsFlvVideo::SrsFlvVideo() = default;
-
-SrsFlvVideo::~SrsFlvVideo() = default;
-
-bool SrsFlvVideo::keyframe(const char* data, int size) {
-  // 2bytes required.
-  if (size < 1) {
+// MediaFlvVideo
+bool MediaFlvVideo::Keyframe(MessageChain& mc) {
+  char frame_type;
+  int ret = mc.Peek(&frame_type, 1);
+  if (MessageChain::error_part_data == ret) {
+    MA_ASSERT(false);
     return false;
   }
-  
-  char frame_type = data[0];
   frame_type = (frame_type >> 4) & 0x0F;
-  
   return frame_type == SrsVideoAvcFrameTypeKeyFrame;
 }
 
-bool SrsFlvVideo::sh(const char* data, int size) {
+bool MediaFlvVideo::Sh(MessageChain& mc) {
   // sequence header only for h264
-  if (!h264(data, size)) {
+  if (!H264(mc)) {
     return false;
   }
   
   // 2bytes required.
-  if (size < 2) {
+  char data[2];
+  int ret = mc.Peek(data, 2);
+  if (MessageChain::error_part_data == ret) {
+    MA_ASSERT(false);
     return false;
   }
   
@@ -161,29 +160,31 @@ bool SrsFlvVideo::sh(const char* data, int size) {
   char avc_packet_type = data[1];
   
   return frame_type == SrsVideoAvcFrameTypeKeyFrame
-  && avc_packet_type == SrsVideoAvcFrameTraitSequenceHeader;
+      && avc_packet_type == SrsVideoAvcFrameTraitSequenceHeader;
 }
 
-bool SrsFlvVideo::h264(const char* data, int size) {
-  // 1bytes required.
-  if (size < 1) {
+bool MediaFlvVideo::H264(MessageChain& mc) {
+  // 1bytes required  
+  char codec_id;
+  int ret = mc.Peek(&codec_id, 1);
+  if (MessageChain::error_part_data == ret) {
+    MA_ASSERT(false);
     return false;
   }
-  
-  char codec_id = data[0];
   codec_id = codec_id & 0x0F;
   
   return codec_id == SrsVideoCodecIdAVC;
 }
 
-bool SrsFlvVideo::acceptable(const char* data, int size) {
-  // 1bytes required.
-  if (size < 1) {
+bool MediaFlvVideo::Acceptable(MessageChain& mc) {
+  // 1bytes required
+  char frame_type;
+  int ret = mc.Peek(&frame_type, 1);
+  if (MessageChain::error_part_data == ret) {
     MA_ASSERT(false);
     return false;
   }
-  
-  char frame_type = data[0];
+
   char codec_id = frame_type & 0x0f;
   frame_type = (frame_type >> 4) & 0x0f;
   

@@ -174,7 +174,6 @@ void RtmpServerSide::OnClose(srs_error_t err) {
 }
 
 srs_error_t RtmpServerSide::OnPacket(std::shared_ptr<MediaMessage> msg) {
-  MLOG_TRACE_THIS("OnPacket");
   if(RTMP_DISCONNECTED == state_)
     return srs_error_new(ERROR_INVALID_STATE, "RtmpServerSide state:%d", state_);
 
