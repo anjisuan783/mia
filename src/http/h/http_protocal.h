@@ -46,8 +46,6 @@ public:
 
   virtual srs_error_t write(MessageChain* data, ssize_t* pnwrite) = 0;
 
-  virtual srs_error_t writev(const iovec* iov, int iovcnt, ssize_t* pnwrite) = 0;
-
   virtual void write_header(int code) = 0;
 
   // Used only for OnWriteEvent.
@@ -93,17 +91,15 @@ class IHttpProtocalFactory : public IMediaIOBaseFactory {
   public:
    ~IHttpProtocalFactory() override = default;
    
-   virtual std::shared_ptr<IHttpRequestReader> 
+   virtual IHttpRequestReader* 
       CreateRequestReader(IHttpRequestReader::CallBack*) = 0;
 
    virtual std::shared_ptr<IHttpResponseWriter> 
       CreateResponseWriter(bool flag_stream) = 0;
 
-   virtual std::unique_ptr<IHttpMessageParser> 
-      CreateMessageParser() = 0;
+   virtual IHttpMessageParser* CreateMessageParser() = 0;
 
-   virtual std::shared_ptr<IHttpResponseReader> 
-      CreateResponseReader() = 0;
+   virtual IHttpResponseReader* CreateResponseReader() = 0;
 };
 
 std::unique_ptr<IMediaIOBaseFactory>

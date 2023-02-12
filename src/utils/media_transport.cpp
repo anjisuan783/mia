@@ -189,7 +189,8 @@ extern NetThreadManager g_netthdmgr;
 // class TransportTcp
 TransportTcp::TransportTcp(MediaThread* t) 
     : thread_(t) {
-  socket_ = std::move(std::make_unique<MediaSocketStream>());
+  MA_ASSERT(t);
+  socket_.reset(new MediaSocketStream);
   int ret =
       g_netthdmgr.GetIOBuffer(thread_->GetThreadHandle(), iov_, io_buffer_);
   assert(ret == 0);
@@ -200,7 +201,9 @@ TransportTcp::~TransportTcp() {
 }
 
 MEDIA_HANDLE TransportTcp::GetHandle() const {
-  return socket_->GetHandle();
+  if (socket_)
+    return socket_->GetHandle();
+  return MEDIA_INVALID_HANDLE;
 }
 
 int TransportTcp::OnInput(MEDIA_HANDLE) {
@@ -214,9 +217,10 @@ int TransportTcp::OnInput(MEDIA_HANDLE) {
                    nRecv);
 
   if (sink_)
-    return sink_->OnRead(msg);
+    sink_->OnRead(msg);
 
-  return 0;
+  // up level call close, then GetHandle() == MEDIA_INVALID_HANDLE
+  return (this->GetHandle() != MEDIA_INVALID_HANDLE ? 0: -1);
 }
 
 int TransportTcp::OnOutput(MEDIA_HANDLE fd) {
@@ -225,7 +229,7 @@ int TransportTcp::OnOutput(MEDIA_HANDLE fd) {
 
   need_on_send_ = false;
   if (sink_)
-    return sink_->OnWrite();
+   sink_->OnWrite();
 
   return 0;
 }
@@ -327,10 +331,10 @@ srs_error_t TransportTcp::Open_t() {
 
 int TransportTcp::Close_t() {
   if (socket_->GetHandle() != MEDIA_INVALID_HANDLE) {
-    srs_error_t err = RemoveHandler();
-    if (err) {
+    srs_error_t err;
+    if (srs_success != (err = RemoveHandler())) {
       MLOG_ERROR_THIS("RemoveHandler failed! desc:" << srs_error_desc(err));
-      delete err;
+      srs_freep(err);
     }
     socket_->Close();
   }

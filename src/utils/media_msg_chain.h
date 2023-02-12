@@ -94,12 +94,12 @@ class MessageChain final {
   *   If <aFlag> == DONT_DELETE, do nothing when destruction;
   *   Else delete it when destruction;
   */
-  explicit MessageChain(uint32_t aSize, 
-                        const char * aData = NULL, 
-                        MFlag aFlag = 0, 
-                        uint32_t aAdvanceWritePtrSize = 0);
+  explicit MessageChain(uint32_t size, 
+                        const char * data = NULL, 
+                        MFlag flag = 0, 
+                        uint32_t increaseWritePtr = 0);
                         
-  explicit MessageChain(std::shared_ptr<DataBlock> aDb);
+  explicit MessageChain(std::shared_ptr<DataBlock> db);
 
   ~MessageChain();
 
@@ -108,17 +108,17 @@ class MessageChain final {
   void operator = (const MessageChain&) = delete;
   void operator = (MessageChain &&) = delete;
 
-  // Read <aCount> bytes, advance it if <aAdvance> is true,
-  // if <aDst> != NULL, copy data into it.
-  int Read(void* aDst, uint32_t aCount, 
-      uint32_t *aBytesRead = NULL, bool aAdvance = true);
+  // Read <count> bytes, advance it if <increase> is true,
+  // if <dst> != NULL, copy data into it.
+  int Read(void* dst, uint32_t count, 
+      uint32_t *nread = NULL, bool increase = true);
 
   //peek some data from messageblock.
-  int Peek(void* aDst, uint32_t aCount, uint32_t aPos = 0, 
-      uint32_t* aBytesRead = NULL);
+  int Peek(void* dst, uint32_t count, uint32_t pos = 0, 
+      uint32_t* nread = NULL);
 
-  // Write and advance <aCount> bytes from <aSrc> to the first <MessageChain>
-  int Write(const void* aSrc, uint32_t aCount, uint32_t *aBytesWritten = NULL);
+  // Write and advance <count> bytes from <aSrc> to the first <MessageChain>
+  int Write(const void* src, uint32_t count, uint32_t *nwritten = NULL);
 
   // Get the length of the <MessageChain>s, including chained <MessageChain>s.
   uint32_t GetChainedLength() const ;
@@ -126,8 +126,8 @@ class MessageChain final {
   // Get the space of the <MessageChain>s, including chained <MessageChain>s.
   uint32_t GetChainedSpace() const ;
 
-  // Append <aMb> to the end chain.
-  void Append(MessageChain *aMb);
+  // Append <mb> to the end chain.
+  void Append(MessageChain *mb);
 
   // Get the next <MessageChain>
   inline MessageChain* GetNext() {
@@ -138,22 +138,22 @@ class MessageChain final {
     next_ = nullptr;
   }
 
-  // Advance <aCount> bytes for reading in chained <MessageChain>s.
-  int AdvanceChainedReadPtr(uint32_t aCount, uint32_t *aBytesRead = NULL);
+  // Advance <count> bytes for reading in chained <MessageChain>s.
+  int AdvanceChainedReadPtr(uint32_t count, uint32_t *nread = NULL);
 
-  // Advance <aCount> bytes for writing in chained <MessageChain>s.
+  // Advance <count> bytes for writing in chained <MessageChain>s.
   // <MessageChain> must never be read before, and could write continually.
-  int AdvanceChainedWritePtr(uint32_t aCount, uint32_t *aBytesWritten = NULL);
+  int AdvanceChainedWritePtr(uint32_t count, uint32_t *nwritten = NULL);
 
   /// Return a "shallow" copy that not memcpy actual data buffer.
   /// Use DestroyChained() to delete the return <MessageChain>.
   MessageChain* DuplicateChained();
 
-  // Cutting the chained <MessageChain>s at the start point <aStart>.
-  // Return new <MessageChain> that advanced <aStart> read bytes from the old.
-  // <aStart> must be less than ChainedLength.
+  // Cutting the chained <MessageChain>s at the start point <start>.
+  // Return new <MessageChain> that advanced <start> read bytes from the old.
+  // <start> must be less than ChainedLength.
   // Use DestroyChained() to delete the return <MessageChain>.
-  MessageChain* Disjoint(uint32_t aStart);
+  MessageChain* Disjoint(uint32_t start);
 
 /*
  * Decrease the shared DataBlock's reference count by 1.  If the
@@ -202,27 +202,27 @@ class MessageChain final {
   std::string FlattenChained(void);
 
  public:
-  // Get <m_pReadPtr> of the first <MessageChain>
+  // Get <read_> of the first <MessageChain>
   const char* GetFirstMsgReadPtr() const ;
-  // Advance <aStep> bytes from <m_pReadPtr> of the first <MessageChain>
-  int AdvanceFirstMsgReadPtr(uint32_t aStep);
+  // Advance <step> bytes from <read_> of the first <MessageChain>
+  int AdvanceFirstMsgReadPtr(uint32_t step);
 
-  // Get <m_pWritePtr> of the top-level <MessageChain>
+  // Get <write_> of the top-level <MessageChain>
   char* GetFirstMsgWritePtr() const;
-  // Advance <aStep> bytes from <m_pWritePtr> of the first <MessageChain>
-  int AdvanceFirstMsgWritePtr(uint32_t aStep);
+  // Advance <step> bytes from <write_> of the first <MessageChain>
+  int AdvanceFirstMsgWritePtr(uint32_t step);
 
-  // Message length is (<m_pWritePtr> - <m_pReadPtr>).
+  // Message length is (<write_> - <read_>).
   // Get the length in the first <MessageChain>.
   uint32_t GetFirstMsgLength() const;
 
-  // Get the number of bytes available after the <m_pWritePtr> 
+  // Get the number of bytes available after the <write_> 
   // in the first <MessageChain>.
   uint32_t GetFirstMsgSpace() const;
 
-  // Rewind <m_pReadPtr> of chained <MessageChain>s to their beginnings,
+  // Rewind <read_> of chained <MessageChain>s to their beginnings,
   // It's not safe because it don't record first read ptr 
-  // if it not equals <m_pBeginPtr>.
+  // if it not equals <begin_>.
   void RewindChained(bool bReadWind);
   void SaveChainedReadPtr();
 
@@ -310,6 +310,18 @@ class DataBlock final {
  private:
   int32_t size_;
   char* data_;
+};
+
+class MsgChainAutoDeleter {
+ public:
+  MsgChainAutoDeleter(MessageChain* mc) : mc_(mc) { }
+  ~MsgChainAutoDeleter() {
+    if (mc_) {
+      mc_->DestroyChained();
+    }
+  }
+ private:
+  MessageChain* mc_;
 };
 
 }

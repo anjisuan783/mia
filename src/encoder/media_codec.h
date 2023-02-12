@@ -237,20 +237,17 @@ public:
 * Fast tough the codec of FLV video.
 * @doc video_file_format_spec_v10_1.pdf, page 76, E.4.2 Audio Tags
 */
-class SrsFlvAudio {
-public:
-  SrsFlvAudio();
-  virtual ~SrsFlvAudio();
-  // the following function used to finger out the flv/rtmp packet detail.
-public:
+class MediaFlvAudio {
+ public:
   /**
    * check codec aac, sequence header
    */
-  static bool sh(const char* data, int size);
+  static bool Sh(MessageChain&);
   /**
    * check codec aac.
    */
-  static bool aac(const char* data, int size);
+ private:
+  static bool Aac(char);
 };
 
 /**

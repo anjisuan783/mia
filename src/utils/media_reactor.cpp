@@ -717,7 +717,7 @@ void MediaReactorEpoll::ProcessHandleEvent(MEDIA_HANDLE handler, MediaHandler::M
       err = NotifyHandler(nullptr, MediaHandler::EVENTQUEUE_MASK);
       if (err != srs_success) {
         MLOG_ERROR_THIS("NotifyHandler error, desc:" << srs_error_desc(err));
-        delete err;
+        srs_freep(err);
       }
     }
     return;
@@ -733,58 +733,57 @@ void MediaReactorEpoll::ProcessHandleEvent(MEDIA_HANDLE handler, MediaHandler::M
         " reason=" << reason <<
         " desc=" << srs_error_desc(err));
     }
-    delete err;
+    srs_freep(err);
     return;
   }
 
-  if (RT_BIT_DISABLED(mask, MediaHandler::CLOSE_MASK)) {
-    MediaHandler::MASK maskActual = eleFind.mask_ & mask;
-    // needn't check the registered mask if it is notify.
-    if (!maskActual && !is_notify) {
-      MLOG_WARN_THIS("mask not registed."
-        " handler=" << handler <<
-        " mask=" << MediaHandler::GetMaskString(mask) <<
-        " found_mask=" << eleFind.mask_ <<
-        " reason=" << reason);
-      return;
-    }
-    
-    int nOnCall = 0;
-    if (drop && maskActual & MediaHandler::CONNECT_MASK) {
-      MLOG_WARN_THIS("drop connect."
-        " handler=" << handler <<
-        " mask=" << MediaHandler::GetMaskString(mask) <<
-        " found_mask=" << eleFind.mask_);
-      nOnCall = -1;
-    } else {
-      if (maskActual & MediaHandler::ACCEPT_MASK
-        || maskActual & MediaHandler::READ_MASK) {
-        nOnCall = eleFind.handler_->OnInput(handler);
-      }
-      if ((nOnCall == 0 || nOnCall == -2) && 
-        (maskActual & MediaHandler::CONNECT_MASK
-        || maskActual & MediaHandler::WRITE_MASK)) {
-        nOnCall = eleFind.handler_->OnOutput(handler);
-      }
-    }
-
-    if (nOnCall == 0) {
-    } else if (nOnCall == -2) {
-    } else {
-      // maybe the handle is reregiested or removed when doing callbacks. 
-      // so we have to refind it.
-      MediaHandlerRepository::CElement eleFindAgain;
-      srs_error_t err = handler_rep_.Find(handler, eleFindAgain);
-      if (err == srs_success && eleFind.handler_ == eleFindAgain.handler_) {
-        RemoveHandleWithoutFinding_i(handler, eleFindAgain, 
-          MediaHandler::ALL_EVENTS_MASK | MediaHandler::SHOULD_CALL);
-      }
-
-      if (err) delete err;
-    }
-  } else {
+  if (RT_BIT_ENABLED(mask, MediaHandler::CLOSE_MASK)) {
     RemoveHandleWithoutFinding_i(handler, eleFind, 
-      MediaHandler::ALL_EVENTS_MASK | MediaHandler::SHOULD_CALL);
+        MediaHandler::ALL_EVENTS_MASK | MediaHandler::SHOULD_CALL);
+    return;
+  }
+
+  MediaHandler::MASK maskActual = eleFind.mask_ & mask;
+  // needn't check the registered mask if it is notify.
+  if (!maskActual && !is_notify) {
+    MLOG_WARN_THIS("mask not registed."
+      " handler=" << handler <<
+      " mask=" << MediaHandler::GetMaskString(mask) <<
+      " found_mask=" << eleFind.mask_ <<
+      " reason=" << reason);
+    return;
+  }
+  
+  int nOnCall = 0;
+  if (drop && maskActual & MediaHandler::CONNECT_MASK) {
+    MLOG_WARN_THIS("drop connect."
+      " handler=" << handler <<
+      " mask=" << MediaHandler::GetMaskString(mask) <<
+      " found_mask=" << eleFind.mask_);
+    nOnCall = -1;
+  } else {
+    if (maskActual & MediaHandler::ACCEPT_MASK
+      || maskActual & MediaHandler::READ_MASK) {
+      nOnCall = eleFind.handler_->OnInput(handler);
+    }
+    if ((nOnCall == 0 || nOnCall == -2) && 
+      (maskActual & MediaHandler::CONNECT_MASK
+      || maskActual & MediaHandler::WRITE_MASK)) {
+      nOnCall = eleFind.handler_->OnOutput(handler);
+    }
+  }
+
+  if (nOnCall != 0 && nOnCall != -2) {
+    // maybe the handle is reregiested or removed when doing callbacks. 
+    // so we have to refind it.
+    MediaHandlerRepository::CElement eleFindAgain;
+    err = handler_rep_.Find(handler, eleFindAgain);
+    if (err == srs_success && eleFind.handler_ == eleFindAgain.handler_) {
+      RemoveHandleWithoutFinding_i(handler, eleFindAgain, 
+        MediaHandler::ALL_EVENTS_MASK | MediaHandler::SHOULD_CALL);
+    }
+
+    srs_freep(err);
   }
 }
 

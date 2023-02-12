@@ -199,35 +199,26 @@ bool MediaFlvVideo::Acceptable(MessageChain& mc) {
   return true;
 }
 
-SrsFlvAudio::SrsFlvAudio() = default;
-
-SrsFlvAudio::~SrsFlvAudio() = default;
-
-bool SrsFlvAudio::sh(const char* data, int size) {
-  // sequence header only for aac
-  if (!aac(data, size)) {
+bool MediaFlvAudio::Sh(MessageChain& mc) {
+  // 2bytes required.
+  char data[2];
+  int ret = mc.Peek(data, 2);
+  if (MessageChain::error_part_data == ret) {
+    MA_ASSERT(false);
     return false;
   }
-  
-  // 2bytes required.
-  if (size < 2) {
+
+  // sequence header only for aac
+  if (!Aac(data[0])) {
     return false;
   }
   
   char aac_packet_type = data[1];
-  
   return aac_packet_type == SrsAudioAacFrameTraitSequenceHeader;
 }
 
-bool SrsFlvAudio::aac(const char* data, int size) {
-  // 1bytes required.
-  if (size < 1) {
-    return false;
-  }
-  
-  char sound_format = data[0];
+bool MediaFlvAudio::Aac(char sound_format) {
   sound_format = (sound_format >> 4) & 0x0F;
-  
   return sound_format == SrsAudioCodecIdAAC;
 }
 

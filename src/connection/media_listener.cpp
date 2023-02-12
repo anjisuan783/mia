@@ -130,7 +130,7 @@ void MediaHttpsListener::OnAccept(std::shared_ptr<Transport> t) {
   MLOG_TRACE("new peer:" << t->GetLocalAddr().ToString() << 
              ", from:" << t->GetLocalAddr().ToString());
   auto conn = g_conn_mgr_.CreateConnection(
-      MediaConnMgr::e_http, std::move(CreateHttpProtocalFactory(std::move(t), true)));
+      MediaConnMgr::e_http, CreateHttpProtocalFactory(std::move(t), true));
 
   srs_error_t err = conn->Start();
   if (srs_success != err) {
@@ -206,7 +206,7 @@ void MediaListenerMgr::Close() {
 
 MediaListenerMgr::IMediaListener*
 MediaListenerMgr::CreateListener(std::string_view schema) {
-  IMediaListener* p;
+  IMediaListener* p = nullptr;
   if (schema == "rtmp") {
     p = new MediaRtmpListener;
   }

@@ -102,7 +102,6 @@ srs_error_t ExpFlvLoopReader::ReadTags() {
       // audio
       if (first_audio_pkt) {
         first_audio_pkt = false;
-        assert(ma::SrsFlvAudio::sh(data_buf_, size));
       }
       sink_->OnFlvAudio((const uint8_t*)data_buf_, size, media_ts);
     } else if(type == 18) {

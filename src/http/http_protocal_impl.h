@@ -10,7 +10,6 @@
 #define __MEDIA_HTTP_PROTOCAL_IMPL_H__
 
 #include <memory>
-#include <atomic>
 #include <functional>
 
 #include "utils/media_checker.h"
@@ -19,11 +18,12 @@
 #include "http/h/http_protocal.h"
 #include "http/http_stack.h"
 #include "common/media_consts.h"
+#include "common/media_io.h"
 
 namespace ma {
 
 class HttpRequestReader;
-class HttpResponseWriterProxy;
+class HttpResponseWriterWrapper;
 class HttpResponseReader;
 class MessageChain;
 
@@ -39,7 +39,7 @@ class AsyncSokcetWrapper : public TransportSink {
     req_reader_ = r;
   }
   
-  void SetWriter(HttpResponseWriterProxy* w) {
+  void SetWriter(HttpResponseWriterWrapper* w) {
     writer_ = w;
   }
 
@@ -49,9 +49,9 @@ class AsyncSokcetWrapper : public TransportSink {
 
   srs_error_t Write(MessageChain* data, int* sent);
 
-	int OnRead(MessageChain &msg) override;
-	int OnWrite() override;
-	int OnClose(srs_error_t reason) override;
+	void OnRead(MessageChain &msg) override;
+	void OnWrite() override;
+	void OnClose(srs_error_t reason) override;
 
   std::string Ip();
  private:
@@ -59,7 +59,7 @@ class AsyncSokcetWrapper : public TransportSink {
   bool close_{false};
 
   HttpRequestReader* req_reader_ = nullptr;
-  HttpResponseWriterProxy* writer_ = nullptr;
+  HttpResponseWriterWrapper* writer_ = nullptr;
   HttpResponseReader* res_reader_ = nullptr;
   bool server_{true};
   bool blocked_{false};
@@ -153,7 +153,7 @@ class HttpMessageParser final  : public IHttpMessageParser {
 
 class HttpRequestReader final : public IHttpRequestReader {
  public:
-  HttpRequestReader(std::shared_ptr<AsyncSokcetWrapper> s, CallBack* callback);
+  HttpRequestReader(AsyncSokcetWrapper* s, CallBack* callback);
   ~HttpRequestReader() override = default;
 
   void open() override;
@@ -164,7 +164,7 @@ class HttpRequestReader final : public IHttpRequestReader {
 
   std::string Ip() override;
  private:
-  std::shared_ptr<AsyncSokcetWrapper> socket_;
+  AsyncSokcetWrapper* socket_;
   CallBack* callback_;
 
   SequenceChecker thread_check_;
@@ -211,13 +211,11 @@ class HttpResponseWriter final {
   SequenceChecker thread_check_;
 };
 
-class HttpResponseWriterProxy : public IHttpResponseWriter,
-  public std::enable_shared_from_this<HttpResponseWriterProxy>,
-                                public sigslot::has_slots<> {
+class HttpResponseWriterWrapper : public IHttpResponseWriter {
  public:
-  HttpResponseWriterProxy(std::shared_ptr<AsyncSokcetWrapper> s, bool);
+  HttpResponseWriterWrapper(std::unique_ptr<AsyncSokcetWrapper> s, bool);
   
-  ~HttpResponseWriterProxy() override;
+  ~HttpResponseWriterWrapper() override;
 
   void open() override;
 
@@ -229,44 +227,42 @@ class HttpResponseWriterProxy : public IHttpResponseWriter,
 
   srs_error_t write(MessageChain* data, ssize_t* pnwrite) override;
 
-  srs_error_t writev(const iovec* iov, int iovcnt, ssize_t* pnwrite) override;
-
   void write_header(int code) override;
 
   void OnWriteEvent();
  private:
   srs_error_t send_header();
-
-  srs_error_t write_i(MessageChain*, ssize_t*);
  
-  srs_error_t write2sock(MessageChain*);
-  
-  srs_error_t final_request_i();  
-  
+  srs_error_t iowrite(MessageChain*);
+
   //convert to http format
   MessageChain* internal_write(MessageChain* input);
+
+  void FileWrite(MessageChain* mc);
  private:
   std::unique_ptr<HttpResponseWriter> writer_;
 
   MessageChain* buffer_{nullptr};
   
-  std::atomic<bool> buffer_full_{false};
+  bool buffer_full_{false};
 
-  std::shared_ptr<AsyncSokcetWrapper> socket_;
+  std::unique_ptr<AsyncSokcetWrapper> socket_;
   SequenceChecker thread_check_;
+
+  SrsFileWriter file_;
 };
 
 //TODO not implement
 class HttpResponseReader final : public IHttpResponseReader {
  public:
-  HttpResponseReader(std::shared_ptr<AsyncSokcetWrapper> p)
+  HttpResponseReader(AsyncSokcetWrapper* p)
     : socket_(p) {
   }
   ~HttpResponseReader() override = default;
 
   void open(IHttpResponseReaderSink*) override;
  private:
-  std::shared_ptr<AsyncSokcetWrapper> socket_;
+  AsyncSokcetWrapper* socket_;
   IHttpResponseReaderSink* sink_{nullptr};
 };
 

@@ -74,45 +74,35 @@ srs_error_t MediaTcpIO::Write(MessageChain* msg, int* sent) {
   return err;
 }
 
-int MediaTcpIO::OnRead(MessageChain& msg) {
+void MediaTcpIO::OnRead(MessageChain& msg) {
   srs_error_t err = srs_success;
-  if (!sink_) {
-    return 0;
-  }
+  if (!sink_) return ;
+  
   uint64_t total = 0;
   if (srs_success != (err = sink_->OnRead(&msg))) {
     if (srs_error_code(err) != ERROR_SOCKET_WOULD_BLOCK) {
-      sock_->GetOpt(TP_RECEIVED_BYTES, &total);
-      MLOG_TRACE_THIS("total recv " << total);
       sink_->OnClose(srs_error_wrap(err, "onread failure"));
-      return -1;
     }
     srs_freep(err);
   }
-  return 0;
 }
 
-int MediaTcpIO::OnWrite() {
+void MediaTcpIO::OnWrite() {
   srs_error_t err = srs_success;
-  if (sink_) {
-    return 0;
-  }
+  if (sink_) return;
 
   if (srs_success != (err = sink_->OnWrite())) {
     if (srs_error_code(err) != ERROR_SOCKET_WOULD_BLOCK) {
       sink_->OnClose(srs_error_wrap(err, "onwrite failure"));
-      return -1;
     }
     srs_freep(err);
   }
-  return 0;
 }
 
-int MediaTcpIO::OnClose(srs_error_t reason) {
+void MediaTcpIO::OnClose(srs_error_t reason) {
   if (sink_) {
     sink_->OnClose(srs_error_wrap(reason, "OnClose"));
   }
-  return 0;
 }
 
 void MediaTcpIO::SetRecvTimeout(uint32_t) {

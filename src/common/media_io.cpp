@@ -142,26 +142,6 @@ srs_error_t SrsFileWriter::write(MessageChain* msg, ssize_t* pnwrite) {
   return err;
 }
 
-srs_error_t SrsFileWriter::writev(const iovec* iov, int iovcnt, ssize_t* pnwrite) {
-  srs_error_t err = srs_success;
-  
-  ssize_t nwrite = 0;
-  for (int i = 0; i < iovcnt; i++) {
-    const iovec* piov = iov + i;
-    ssize_t this_nwrite = 0;
-    if ((err = write(piov->iov_base, piov->iov_len, &this_nwrite)) != srs_success) {
-      return srs_error_wrap(err, "write file");
-    }
-    nwrite += this_nwrite;
-  }
-  
-  if (pnwrite) {
-    *pnwrite = nwrite;
-  }
-  
-  return err;
-}
-
 srs_error_t SrsFileWriter::lseek(off_t offset, int whence, off_t* seeked) {
   off_t sk = _srs_lseek_fn(fd, offset, whence);
   if (sk < 0) {
@@ -204,11 +184,6 @@ srs_error_t SrsBufferWriter::write(void* buf, size_t count, ssize_t* pnwrite) {
 
 srs_error_t SrsBufferWriter::write(MessageChain* msg, ssize_t* pnwrite) {
   return writer_->write(msg, pnwrite);
-}
-
-srs_error_t SrsBufferWriter::writev(
-    const iovec* iov, int iovcnt, ssize_t* pnwrite) {
-  return writer_->writev(iov, iovcnt, pnwrite);
 }
 
 // SrsFileReader

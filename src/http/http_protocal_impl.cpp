@@ -44,7 +44,6 @@ void AsyncSokcetWrapper::Close() {
 
 srs_error_t AsyncSokcetWrapper::Write(MessageChain* msg, int* sent) {
   MEDIA_DCHECK_RUN_ON(&thread_check_);
-
   if (close_) {
     return srs_error_new(ERROR_SOCKET_CLOSED, "socket closed");
   }
@@ -68,32 +67,28 @@ srs_error_t AsyncSokcetWrapper::Write(MessageChain* msg, int* sent) {
   return err;
 }
 
-int AsyncSokcetWrapper::OnRead(MessageChain &msg) {
+void AsyncSokcetWrapper::OnRead(MessageChain &msg) {
   MEDIA_DCHECK_RUN_ON(&thread_check_);
   std::string req = msg.FlattenChained();
   std::string_view str_req{req};
   if (server_) {
     req_reader_->OnRequest(str_req);
   }
-  return 0;
 }
 
-int AsyncSokcetWrapper::OnWrite() {
+void AsyncSokcetWrapper::OnWrite() {
   MEDIA_DCHECK_RUN_ON(&thread_check_);
 
-  if (close_) {
-    return 0;
-  }
+  if (close_) return ;
   
   blocked_ = false;
   writer_->OnWriteEvent();
-  return 0;
 }
 
-int AsyncSokcetWrapper::OnClose(srs_error_t reason) {
+void AsyncSokcetWrapper::OnClose(srs_error_t reason) {
   MEDIA_DCHECK_RUN_ON(&thread_check_);
   MLOG_TRACE("code:" << srs_error_desc(reason) << (server_?", server":""));
-  delete reason;
+  srs_freep(reason);
   
   if (!close_) {
     conn_->Close();
@@ -103,7 +98,6 @@ int AsyncSokcetWrapper::OnClose(srs_error_t reason) {
   if (server_) {
     req_reader_->OnDisconnect();
   }
-  return 0;
 }
 
 std::string AsyncSokcetWrapper::Ip() {
@@ -473,7 +467,7 @@ int HttpMessageParser::on_chunk_complete(http_parser* parser) {
 
 //HttpRequestReader
 HttpRequestReader::HttpRequestReader(
-    std::shared_ptr<AsyncSokcetWrapper> s, CallBack* callback) 
+    AsyncSokcetWrapper* s, CallBack* callback) 
   : socket_{s}, callback_{callback} {
 }
 
@@ -702,34 +696,28 @@ MessageChain* HttpResponseWriter::send_header(const char* data, int) {
   return mb.DuplicateChained();
 }
 
-//helper define
-#define IS_CURRENT_THREAD(x) \
-    x==rtc::ThreadManager::Instance()->CurrentThread()
-
-//HttpResponseWriterProxy
-HttpResponseWriterProxy::HttpResponseWriterProxy(
-    std::shared_ptr<AsyncSokcetWrapper> s, bool /*TODO stream=true set nodelay*/)
+//HttpResponseWriterWrapper
+HttpResponseWriterWrapper::HttpResponseWriterWrapper(
+    std::unique_ptr<AsyncSokcetWrapper> s, bool /*TODO stream=true set nodelay*/)
   : writer_{std::move(std::make_unique<HttpResponseWriter>())},
     socket_{std::move(s)} {
 }
 
-HttpResponseWriterProxy::~HttpResponseWriterProxy() {
+HttpResponseWriterWrapper::~HttpResponseWriterWrapper() {
   if (buffer_) {
     buffer_->DestroyChained();
   }
 }
 
-void HttpResponseWriterProxy::open() {
+void HttpResponseWriterWrapper::open() {
   MEDIA_DCHECK_RUN_ON(&thread_check_);
   writer_->open();
   socket_->SetWriter(this);
 }
 
-srs_error_t HttpResponseWriterProxy::final_request_i() {
+srs_error_t HttpResponseWriterWrapper::final_request() {
   MEDIA_DCHECK_RUN_ON(&thread_check_);
-
   srs_error_t err = srs_success;
-
   MessageChain* result = nullptr;
   if ((err = writer_->final_request(result)) == srs_success) {
     // final ok
@@ -738,14 +726,8 @@ srs_error_t HttpResponseWriterProxy::final_request_i() {
       return err;
     }
     
-    if (result && ((err = write2sock(result)) != srs_success)) {
-      if (srs_error_code(err) != ERROR_SOCKET_WOULD_BLOCK) {
-        MLOG_ERROR("proxy write2sock failed, desc:" << srs_error_desc(err));
-      }
-
+    if (result && ((err = iowrite(result)) != srs_success)) {
       //Cached by buffer, so we thought it has been sent successfully
-      delete err;
-      err = srs_success;
       result = nullptr;
     }
   }
@@ -756,116 +738,69 @@ srs_error_t HttpResponseWriterProxy::final_request_i() {
   return err;
 }
 
-srs_error_t HttpResponseWriterProxy::final_request() {
-  return final_request_i();
-}
-
-SrsHttpHeader* HttpResponseWriterProxy::header() {
+SrsHttpHeader* HttpResponseWriterWrapper::header() {
   return writer_->header();
 }
 
-MessageChain* HttpResponseWriterProxy::internal_write(MessageChain* input) {
-  MEDIA_DCHECK_RUN_ON(&thread_check_);
-
+MessageChain* HttpResponseWriterWrapper::internal_write(MessageChain* input) {
   MessageChain* result = nullptr;
   srs_error_t err = srs_success;
 
   if ((err = writer_->write(input, result)) != srs_success) {
     //got header by result
     MLOG_ERROR("proxy internal_write failed, desc:" << srs_error_desc(err));
-    delete err;
+    srs_freep(err);
   }
   return result;
 }
 
-srs_error_t HttpResponseWriterProxy::write(const char* data, int size) {
-  if (buffer_full_) {
-    return srs_error_new(ERROR_SOCKET_WOULD_BLOCK, "need on send");
-  }
-
+srs_error_t HttpResponseWriterWrapper::write(const char* data, int size) {
+  MEDIA_DCHECK_RUN_ON(&thread_check_);
   if (!data || size <= 0) {
     // send header only
     return write(nullptr, nullptr);
   }
-  
-  MessageChain mb(size, data, MessageChain::DONT_DELETE, size);
-  return write(&mb, nullptr);
+
+  MessageChain mc(size, data, MessageChain::DONT_DELETE, size);
+  FileWrite(&mc);
+  return write(&mc, nullptr);
 }
 
-srs_error_t HttpResponseWriterProxy::write(MessageChain* data, ssize_t* pnwrite) {
-  if (pnwrite) {
-    *pnwrite = 0;
-  }
-
-  if (data && data->GetChainedLength() == 0) {
-    return srs_error_new(ERROR_HTTP_PATTERN_EMPTY, "data length is 0");
-  }
-  
-  if (buffer_full_) {
-    return srs_error_new(ERROR_SOCKET_WOULD_BLOCK, "need on send");
-  }
-
-  return write_i(data, pnwrite);
-}
-
-srs_error_t HttpResponseWriterProxy::writev(
-    const iovec* iov, int iovcnt, ssize_t* pnwrite) {
-  if (pnwrite) {
-    *pnwrite = 0;
-  }
-  
-  if (buffer_full_) {
-    return srs_error_new(ERROR_SOCKET_WOULD_BLOCK, "need on send");
-  }
-
-  //TODO need optimizing
-  MessageChain* data = nullptr;  
-  for (int i = 0; i < iovcnt; ++i) {
-    MessageChain part(iov[i].iov_len, 
-                      (const char*)iov[i].iov_base, 
-                      MessageChain::DONT_DELETE, 
-                      iov[i].iov_len);
-
-    if (data) {
-      data->Append(part.DuplicateChained());
-    } else {
-      data = part.DuplicateChained();
-    }
-
-    if (pnwrite) {
-      *pnwrite += iov[i].iov_len;
-    }
-  }
-
-  srs_error_t err = write_i(data, pnwrite);
-  data->DestroyChained();
-  return err;
-}
-
-srs_error_t HttpResponseWriterProxy::write_i(
-    MessageChain* data, ssize_t* pnwrite) {
-  srs_error_t err = srs_success;
-  uint32_t data_len = data ? data->GetChainedLength() : 0;
-
+srs_error_t HttpResponseWriterWrapper::write(MessageChain* data, ssize_t* pnwrite) {
   MEDIA_DCHECK_RUN_ON(&thread_check_);
+
+  srs_error_t err = srs_success;
+  if (pnwrite) {
+    *pnwrite = 0;
+  }
+
+  uint32_t data_len = data ? data->GetChainedLength() : 0;
+  if (0 == data_len) {
+    return srs_error_new(ERROR_HTTP_PATTERN_EMPTY, "data empty");
+  }
+  
+  if (buffer_full_) {
+    return srs_error_new(ERROR_SOCKET_WOULD_BLOCK, "need on send");
+  }
+
+  FileWrite(data);
+
   MA_ASSERT(!buffer_);
+
+  MLOG_TRACE("flv len=" << data_len);
 
   MessageChain* result = internal_write(data);
 
-  if (result && (err = write2sock(result)) != srs_success) {
-    if (srs_error_code(err) != ERROR_SOCKET_WOULD_BLOCK) {
-      MLOG_ERROR("proxy write2sock failed, desc:" << srs_error_desc(err));
-    }
-    delete err;
-    err = srs_success;
+  if (!result) {
+    return err;
+  }
 
+  if ((err = iowrite(result)) != srs_success) {
     //cached by buffer
     result = nullptr;
+    return err;
   }
-
-  if (result) {
-    result->DestroyChained();
-  }
+  result->DestroyChained();
 
   if (pnwrite) {
     *pnwrite = data_len;
@@ -873,19 +808,13 @@ srs_error_t HttpResponseWriterProxy::write_i(
   return err;
 }
 
-srs_error_t HttpResponseWriterProxy::write2sock(MessageChain* data) {
-  MEDIA_DCHECK_RUN_ON(&thread_check_);
+srs_error_t HttpResponseWriterWrapper::iowrite(MessageChain* data) {
   CHECK_MSG_DUPLICATED(data);
   MA_ASSERT(!buffer_);
   
   int sent = 0;
   srs_error_t err = socket_->Write(data, &sent);
   if (err != srs_success) {
-    if (srs_error_code(err) == ERROR_SOCKET_WOULD_BLOCK) {
-      //need on write
-    } else {
-      // unexpect low level error, save data?
-    }
     buffer_ = data;
     buffer_full_ = true;
   }
@@ -895,32 +824,47 @@ srs_error_t HttpResponseWriterProxy::write2sock(MessageChain* data) {
   return err;
 }
 
-void HttpResponseWriterProxy::write_header(int code) {
+void HttpResponseWriterWrapper::write_header(int code) {
   writer_->write_header(code);
 }
 
-void HttpResponseWriterProxy::OnWriteEvent() {
+void HttpResponseWriterWrapper::OnWriteEvent() {
   MEDIA_DCHECK_RUN_ON(&thread_check_);
+  MA_ASSERT(buffer_);
   if (buffer_) {
     MessageChain* send = buffer_;
     buffer_ = nullptr;
-    srs_error_t err = write2sock(send);
+    srs_error_t err = iowrite(send);
     if (err != srs_success) {
       if (srs_error_code(err) != ERROR_SOCKET_WOULD_BLOCK) {
         MLOG_ERROR("OnWriteEvent write error, desc:" << srs_error_desc(err));
       }
 
       //send cached by buffer
-      delete err;
+      srs_freep(err);
+      MA_ASSERT(buffer_);
+      MA_ASSERT(buffer_full_);
       return;
     }
 
     // sent ok
     send->DestroyChained();
   }
-
+  MA_ASSERT(!buffer_);
+  MA_ASSERT(buffer_full_);
   buffer_full_ = false;
   SignalOnWrite_(this);
+}
+
+void HttpResponseWriterWrapper::FileWrite(MessageChain* mc) {
+  if (!file_.is_open()) {
+    file_.open("/tmp/http_ly.flv");
+  }
+  srs_error_t err = file_.write(mc, nullptr);
+  if (srs_success != err) {
+    MLOG_ERROR_THIS("http write file failed, desc:" << srs_error_desc(err));
+    srs_freep(err);
+  }
 }
 
 //HttpResponseReader
@@ -933,34 +877,32 @@ void HttpResponseReader::open(IHttpResponseReaderSink* s) {
 class HttpProtocalImplFactory : public IHttpProtocalFactory {
  public:
   HttpProtocalImplFactory(bool is_server, std::shared_ptr<Transport> t)
-    : socket_{std::make_shared<AsyncSokcetWrapper>(std::move(t))} {
+    : socket_{std::make_unique<AsyncSokcetWrapper>(std::move(t))},
+      psock_(socket_.get()) {
     socket_->Open(true);
   }
 
-  std::shared_ptr<IHttpRequestReader> 
+  IHttpRequestReader* 
   CreateRequestReader(IHttpRequestReader::CallBack* callback) override {
-    return std::dynamic_pointer_cast<IHttpRequestReader>(
-        std::make_shared<HttpRequestReader>(socket_, callback));
+    return new HttpRequestReader(psock_, callback);
   }
   
   std::shared_ptr<IHttpResponseWriter> 
   CreateResponseWriter(bool flag_stream) override {
     return std::dynamic_pointer_cast<IHttpResponseWriter>(
-        std::make_shared<HttpResponseWriterProxy>(socket_, flag_stream));
+        std::make_shared<HttpResponseWriterWrapper>(std::move(socket_), flag_stream));
   }
   
-  std::unique_ptr<IHttpMessageParser> 
-  CreateMessageParser() override {
-    return std::make_unique<HttpMessageParser>();
+  IHttpMessageParser* CreateMessageParser() override {
+    return new HttpMessageParser();
   }
 
-  std::shared_ptr<IHttpResponseReader> 
-  CreateResponseReader() override {
-    return std::dynamic_pointer_cast<IHttpResponseReader>(
-        std::make_shared<HttpResponseReader>(socket_));
+  IHttpResponseReader* CreateResponseReader() override {
+    return new HttpResponseReader(psock_);
   }
  private:
-   std::shared_ptr<AsyncSokcetWrapper> socket_;
+   std::unique_ptr<AsyncSokcetWrapper> socket_;
+   AsyncSokcetWrapper* psock_;
 };
 
 std::unique_ptr<IMediaIOBaseFactory>

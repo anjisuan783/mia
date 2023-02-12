@@ -62,24 +62,19 @@ int MEDIA_IPC_SAP::Disable(int aValue) const {
   }
 }
 
-int MEDIA_IPC_SAP::Control(int aCmd, void* aArg) const {
-  int nRet;
-  nRet = ::ioctl(handler_, aCmd, aArg);
-  return nRet;
+int MEDIA_IPC_SAP::Control(int cmd, void* arg) const {
+  return ::ioctl(handler_, cmd, arg);
 }
 
 // MediaSocketBase
-int MediaSocketBase::Open(int aFamily,
-                          int aType,
-                          int aProtocol,
-                          bool aReuseAddr) {
+int MediaSocketBase::Open(int family, int type, int protocol, bool reuse) {
   int nRet = -1;
   Close();
 
-  handler_ = (MEDIA_HANDLE)::socket(aFamily, aType, aProtocol);
+  handler_ = (MEDIA_HANDLE)::socket(family, type, protocol);
   if (handler_ != MEDIA_INVALID_HANDLE) {
     nRet = 0;
-    if (aFamily != PF_UNIX && aReuseAddr) {
+    if (family != PF_UNIX && reuse) {
       int nReuse = 1;
       nRet = SetOpt(SOL_SOCKET, SO_REUSEADDR, &nReuse, sizeof(nReuse));
     }
@@ -92,20 +87,20 @@ int MediaSocketBase::Open(int aFamily,
   return nRet;
 }
 
-int MediaSocketBase::GetRemoteAddr(MediaAddress& aAddr) const {
-  int nSize = (int)aAddr.GetSize();
+int MediaSocketBase::GetRemoteAddr(MediaAddress& addr) const {
+  int nSize = (int)addr.GetSize();
   int nGet = ::getpeername(
       (MEDIA_HANDLE)handler_,
-      reinterpret_cast<sockaddr*>(const_cast<sockaddr_in*>(aAddr.GetPtr())),
+      reinterpret_cast<sockaddr*>(const_cast<sockaddr_in*>(addr.GetPtr())),
       reinterpret_cast<socklen_t*>(&nSize));
   return nGet;
 }
 
-int MediaSocketBase::GetLocalAddr(MediaAddress& aAddr) const {
-  int nSize = (int)aAddr.GetSize();
+int MediaSocketBase::GetLocalAddr(MediaAddress& addr) const {
+  int nSize = (int)addr.GetSize();
   int nGet = ::getsockname(
       (MEDIA_HANDLE)handler_,
-      reinterpret_cast<sockaddr*>(const_cast<sockaddr_in*>(aAddr.GetPtr())),
+      reinterpret_cast<sockaddr*>(const_cast<sockaddr_in*>(addr.GetPtr())),
       reinterpret_cast<socklen_t*>(&nSize));
 
   return nGet;
@@ -126,60 +121,49 @@ MediaSocketBase::~MediaSocketBase() {
   Close();
 }
 
-int MediaSocketBase::SetOpt(int aLevel,
-                            int aOption,
-                            const void* aOptval,
-                            int aOptlen) const {
-  if (aLevel == SOL_SOCKET && (aOption == SO_SNDBUF || aOption == SO_RCVBUF)) {
+int MediaSocketBase::SetOpt(int level, int opt, const void* val, int len) const {
+  if (level == SOL_SOCKET && (opt == SO_SNDBUF || opt == SO_RCVBUF)) {
     int name[] = {CTL_NET, NET_CORE, NET_CORE_WMEM_MAX};
-    if (aOption == SO_RCVBUF)
+    if (opt == SO_RCVBUF) {
       name[2] = NET_CORE_RMEM_MAX;
+    }
     uint32_t oldval = 0;
     size_t oldlen = sizeof(uint32_t);
-    uint32_t newval = *(uint32_t*)aOptval;
+    uint32_t newval = *(uint32_t*)val;
     size_t newlen = sizeof(uint32_t);
     int rv = sysctl(name, 3, &oldval, &oldlen, 0, 0);
     if (rv == -1) {
-      MLOG_WARN_THIS("set "
-                     << ((aOption == SO_SNDBUF) ? "wmem_max" : "rmem_max")
+      MLOG_WARN_THIS("set " << ((opt == SO_SNDBUF) ? "wmem_max" : "rmem_max")
                      << " fail! errno=" << errno);
     } else if (oldval < newval) {
       rv = sysctl(name, 3, 0, 0, &newval, newlen);
       if (rv == -1) {
-        MLOG_WARN_THIS("set "
-                       << ((aOption == SO_SNDBUF) ? "wmem_max" : "rmem_max")
+        MLOG_WARN_THIS("set " << ((opt == SO_SNDBUF) ? "wmem_max" : "rmem_max")
                        << " fail! errno=" << errno);
       } else {
-        MLOG_INFO_THIS(((aOption == SO_SNDBUF) ? "wmem_max" : "rmem_max")
+        MLOG_INFO_THIS(((opt == SO_SNDBUF) ? "wmem_max" : "rmem_max")
                       << "=" << newval);
       }
     }
   }
-
-  int nRet =
-      ::setsockopt((MEDIA_HANDLE)handler_, aLevel, aOption, aOptval, aOptlen);
-
-  return nRet;
+  return ::setsockopt((MEDIA_HANDLE)handler_, level, opt, val, len);
 }
 
-int MediaSocketBase::GetOpt(int aLevel, int aOption,
-    void* aOptval, int* aOptlen) const {
-  int nRet = ::getsockopt((MEDIA_HANDLE)handler_, aLevel, aOption, aOptval,
-                          reinterpret_cast<socklen_t*>(aOptlen));
-
-  return nRet;
+int MediaSocketBase::GetOpt(int level, int opt, void* val, int* len) const {
+  return ::getsockopt((MEDIA_HANDLE)handler_, level, opt, val,
+      reinterpret_cast<socklen_t*>(len));
 }
 
-int MediaSocketBase::Recv(char* aBuf, uint32_t aLen, int aFlag) const {
-  int nRet = ::recv((MEDIA_HANDLE)handler_, aBuf, aLen, aFlag);
+int MediaSocketBase::Recv(char* buf, uint32_t len, int flag) const {
+  int nRet = ::recv((MEDIA_HANDLE)handler_, buf, len, flag);
   if (nRet == -1 && errno == EAGAIN)
     errno = EWOULDBLOCK;
 
   return nRet;
 }
 
-int MediaSocketBase::RecvV(iovec aIov[], uint32_t aCount) const {
-  return ::readv(handler_, aIov, aCount);
+int MediaSocketBase::RecvV(iovec iov[], uint32_t count) const {
+  return ::readv(handler_, iov, count);
 }
 
 int MediaSocketBase::Send(const char* aBuf, uint32_t aLen, int aFlag) const {

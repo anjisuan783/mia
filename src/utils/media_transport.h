@@ -17,9 +17,9 @@ class MediaThread;
 
 class TransportSink {
  public:
-	virtual int OnRead(MessageChain &msg) = 0;
-	virtual int OnWrite() = 0;
-	virtual int OnClose(srs_error_t reason) = 0;
+	virtual void OnRead(MessageChain &msg) = 0;
+	virtual void OnWrite() = 0;
+	virtual void OnClose(srs_error_t reason) = 0;
 
 protected:
 	virtual ~TransportSink() = default;

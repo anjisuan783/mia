@@ -267,11 +267,11 @@ srs_error_t StreamEntry::serve_http(std::shared_ptr<IHttpResponseWriter> writer,
     if ((err = encoder->initialize(bw.get(), nullptr)) != srs_success) {
       MLOG_CERROR("flv encoder initialize failed, desc:%s", 
                   srs_error_desc(err));
-      delete err;
+      srs_freep(err);
       if ((err = shared_writer->final_request()) != srs_success) {
         MLOG_CERROR("flv encoder initialize failed final request, desc:%s", 
                     srs_error_desc(err));
-        delete err;
+        srs_freep(err);
       }
       return;
     }
@@ -281,11 +281,11 @@ srs_error_t StreamEntry::serve_http(std::shared_ptr<IHttpResponseWriter> writer,
     if ((err = source_->ConsumerDumps(
         consumer.get(), true, true, !encoder->has_cache())) != srs_success) {
       MLOG_CERROR("dumps consumer, desc:%s", srs_error_desc(err));
-      delete err;
+      srs_freep(err);
       if ((err = shared_writer->final_request()) != srs_success) {
         MLOG_CERROR("consumer_dumps final request, desc:%s", 
                     srs_error_desc(err));
-        delete err;
+        srs_freep(err);
       }
       return;
     }
@@ -295,11 +295,11 @@ srs_error_t StreamEntry::serve_http(std::shared_ptr<IHttpResponseWriter> writer,
       if ((err = encoder->dump_cache(consumer.get(), source_->jitter())) 
           != srs_success) {
         MLOG_CERROR("encoder dump cache, desc:%s", srs_error_desc(err));
-        delete err;
+        srs_freep(err);
         if ((err = shared_writer->final_request()) != srs_success) {
           MLOG_CERROR("encoder dump cache final request, desc:%s", 
                       srs_error_desc(err));
-          delete err;
+          srs_freep(err);
         }
         return;
       }

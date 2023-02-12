@@ -195,9 +195,7 @@ void MediaLiveSource::OnAudio_i(
     std::shared_ptr<MediaMessage> shared_audio, bool from_adaptor) {
   srs_error_t err = srs_success;
 
-  bool is_sequence_header = 
-        SrsFlvAudio::sh(shared_audio->payload_->GetFirstMsgReadPtr(),
-                        shared_audio->payload_->GetFirstMsgLength());
+  bool is_sequence_header = MediaFlvAudio::Sh(*shared_audio->payload_);
 
   // whether consumer should drop for the duplicated sequence header.
   bool drop_for_reduce = false;

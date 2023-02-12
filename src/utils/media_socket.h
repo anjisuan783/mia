@@ -23,11 +23,11 @@ class MEDIA_IPC_SAP {
   MEDIA_IPC_SAP() = default;
 
   MEDIA_HANDLE GetHandle() const;
-  void SetHandle(MEDIA_HANDLE aNew);
+  void SetHandle(MEDIA_HANDLE);
 
   int Enable(int aValue) const;
   int Disable(int aValue) const;
-  int Control(int aCmd, void* aArg) const;
+  int Control(int cmd, void* arg) const;
 
  protected:
   MEDIA_HANDLE handler_ = MEDIA_INVALID_HANDLE;
@@ -44,36 +44,33 @@ class MediaSocketBase : public MEDIA_IPC_SAP {
  public:
    MediaSocketBase();
   ~MediaSocketBase();
-  int Open(int aFamily, int aType, int aProtocol, bool aReuseAddr);
+  int Open(int family, int type, int protocol, bool reuse);
   int Close();
 
   /// Wrapper around the <setsockopt> system call.
-  int SetOpt(int aLevel,
-                int aOption,
-                const void* aOptval,
-                int aOptlen) const;
+  int SetOpt(int level, int option, const void* val, int len) const;
 
   /// Wrapper around the <getsockopt> system call.
-  int GetOpt(int aLevel, int aOption, void* aOptval, int* aOptlen) const;
+  int GetOpt(int level, int option, void* val, int* len) const;
 
   /// Return the address of the remotely connected peer (if there is
-  /// one), in the referenced <aAddr>.
-  int GetRemoteAddr(MediaAddress& aAddr) const;
+  /// one), in the referenced <addr>.
+  int GetRemoteAddr(MediaAddress& addr) const;
 
-  /// Return the local endpoint address in the referenced <aAddr>.
-  int GetLocalAddr(MediaAddress& aAddr) const;
+  /// Return the local endpoint address in the referenced <addr>.
+  int GetLocalAddr(MediaAddress& addr) const;
 
-  /// Recv an <aLen> byte buffer from the connected socket.
-  int Recv(char* aBuf, uint32_t aLen, int aFlag = 0) const;
+  /// Recv an <len> byte buffer from the connected socket.
+  int Recv(char* buf, uint32_t len, int flag = 0) const;
 
-  /// Recv an <aIov> of size <aCount> from the connected socket.
-  int RecvV(iovec aIov[], uint32_t aCount) const;
+  /// Recv an <iov> of size <count> from the connected socket.
+  int RecvV(iovec iov[], uint32_t count) const;
 
-  /// Send an <aLen> byte buffer to the connected socket.
-  int Send(const char* aBuf, uint32_t aLen, int aFlag = 0) const;
+  /// Send an <len> byte buffer to the connected socket.
+  int Send(const char* buf, uint32_t len, int flag = 0) const;
 
-  /// Send an <aIov> of size <aCount> from the connected socket.
-  int SendV(const iovec aIov[], uint32_t aCount) const;
+  /// Send an <iov> of size <count> from the connected socket.
+  int SendV(const iovec iov[], uint32_t count) const;
 
  protected:
   int CloseWriter();

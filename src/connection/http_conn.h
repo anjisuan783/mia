@@ -38,7 +38,7 @@ class MediaHttpConn : public IMediaConnection,
   std::string Ip() override;
  
  protected:
-  std::shared_ptr<IHttpRequestReader>  reader_;
+  std::unique_ptr<IHttpRequestReader>  reader_;
   std::unique_ptr<IHttpMessageParser>  parser_;
   IMediaHttpHandler* http_mux_;
   std::unique_ptr<MediaHttpCorsMux> cors_;

@@ -122,8 +122,7 @@ void MessageQueue::shrink() {
       video_sh = msg;
       continue;
     }
-    else if (msg->is_audio() && SrsFlvAudio::sh(
-        msg->payload_->GetFirstMsgReadPtr(), msg->payload_->GetFirstMsgLength())) {
+    else if (msg->is_audio() && MediaFlvAudio::Sh(*msg->payload_)) {
       audio_sh = msg;
       continue;
     }

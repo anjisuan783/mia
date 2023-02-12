@@ -20,7 +20,6 @@ namespace ma {
  */
 class ISrsSeeker {
  public:
-  ISrsSeeker() = default;
   virtual ~ISrsSeeker() = default;
  public:
   /**
@@ -45,19 +44,7 @@ class ISrsStreamWriter {
   ISrsStreamWriter() = default;
   virtual ~ISrsStreamWriter() = default;
  public:
-  /**
-   * write bytes over writer.
-   * @nwrite the actual written bytes. NULL to ignore.
-   */
   virtual srs_error_t write(void* buf, size_t size, ssize_t* nwrite) = 0;
-  
-  /**
-   * write iov over writer.
-   * @nwrite the actual written bytes. NULL to ignore.
-   * @remark for the HTTP FLV, to writev to improve performance.
-   *      @see https://github.com/ossrs/srs/issues/405
-   */
-  virtual srs_error_t writev(const iovec *iov, int iov_size, ssize_t* nwrite) = 0;
   virtual srs_error_t write(MessageChain*, ssize_t* nwrite) = 0; 
 };
 
@@ -66,17 +53,14 @@ class ISrsStreamWriter {
 */
 class ISrsWriter : public ISrsStreamWriter {
  public:
-  ISrsWriter() = default;
   virtual ~ISrsWriter() = default;
 };
-
 
 /**
 * The writer and seeker.
 */
 class ISrsWriteSeeker : public ISrsWriter, public ISrsSeeker {
  public:
-  ISrsWriteSeeker() = default;
   virtual ~ISrsWriteSeeker() = default;
 };
 
@@ -110,7 +94,6 @@ class SrsFileWriter : public ISrsWriteSeeker {
   // Interface ISrsWriteSeeker
   srs_error_t write(void* buf, size_t count, ssize_t* pnwrite) override;
   srs_error_t write(MessageChain*, ssize_t* nwrite) override;
-  srs_error_t writev(const iovec* iov, int iovcnt, ssize_t* pnwrite) override;
   srs_error_t lseek(off_t offset, int whence, off_t* seeked) override;
 };
 
@@ -132,7 +115,6 @@ class SrsBufferWriter : public SrsFileWriter {
  
   srs_error_t write(void* buf, size_t count, ssize_t* pnwrite) override;
   srs_error_t write(MessageChain*, ssize_t* pnwrite) override;
-  srs_error_t writev(const iovec* iov, int iovcnt, ssize_t* pnwrite) override;
 };
 
 /**
