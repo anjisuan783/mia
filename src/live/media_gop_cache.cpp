@@ -46,7 +46,7 @@ srs_error_t SrsGopCache::cache(std::shared_ptr<MediaMessage> msg) {
   // got video, update the video count if acceptable
   if (msg->is_video()) {
     // drop video when not h.264
-    if (!SrsFlvVideo::h264(msg->payload_->GetFirstMsgReadPtr(), msg->size_)) {
+    if (!MediaFlvVideo::H264(*msg->payload_)) {
       return err;
     }
     
@@ -72,8 +72,7 @@ srs_error_t SrsGopCache::cache(std::shared_ptr<MediaMessage> msg) {
   }
   
   // clear gop cache when got key frame
-  if (msg->is_video() && 
-      SrsFlvVideo::keyframe(msg->payload_->GetFirstMsgReadPtr(), msg->size_)) {
+  if (msg->is_video() && MediaFlvVideo::Keyframe(*(msg->payload_))) {
     clear();
     
     // curent msg is video frame, so we set to 1.
@@ -118,7 +117,7 @@ srs_utime_t SrsGopCache::start_time() {
   MediaMessage* msg = gop_cache[0].get();
   srs_assert(msg);
   
-  return srs_utime_t(msg->timestamp_ * SRS_UTIME_MILLISECONDS);
+  return srs_utime_t(msg->timestamp_ * UTIME_MILLISECONDS);
 }
 
 inline bool SrsGopCache::pure_audio() {

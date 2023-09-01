@@ -4,7 +4,7 @@
 
 #include "common/media_define.h"
 #include "common/media_log.h"
-#include "common/media_performance.h"
+#include "common/media_consts.h"
 #include "rtmp/media_req.h"
 #include "common/media_message.h"
 #include "live/media_live_rtc_adaptor_sink.h"
@@ -238,8 +238,7 @@ srs_error_t Videotransform::OnData(std::shared_ptr<MediaMessage> msg) {
 
   // cache the sequence header if h264
   bool is_sequence_header = 
-      SrsFlvVideo::sh(msg->payload_->GetFirstMsgReadPtr(), 
-                      msg->payload_->GetFirstMsgLength());
+      MediaFlvVideo::Sh(*msg->payload_);
   if (is_sequence_header && (err = meta_->update_vsh(msg)) != srs_success) {
     return srs_error_wrap(err, "meta update video");
   }
@@ -407,7 +406,7 @@ srs_error_t MediaLiveRtcAdaptor::Open(wa::Worker* worker,
   rtc_source_ = sink;
   rtc_source_->OnLocalPublish(stream_name_);
 
-  static constexpr auto TIME_OUT = std::chrono::milliseconds(SRS_PERF_MW_SLEEP);
+  static constexpr auto TIME_OUT = std::chrono::milliseconds(PERF_MW_SLEEP);
 
   //TODO timer push need optimizing
   worker->scheduleEvery([weak_this = weak_from_this()]() {
@@ -485,7 +484,7 @@ bool MediaLiveRtcAdaptor::OnTimer() {
   srs_error_t err = srs_success;
   int count;
   std::vector<std::shared_ptr<MediaMessage>> cache;
-  consumer_->fetch_packets(SRS_PERF_MW_MSGS, cache, count);
+  consumer_->fetch_packets(PERF_MW_MSGS, cache, count);
 
   for(int i = 0; i < count; ++i) {
     if (cache[i]->is_audio()) {

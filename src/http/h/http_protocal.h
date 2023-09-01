@@ -7,6 +7,7 @@
 
 #include "utils/sigslot.h"
 #include "common/media_kernel_error.h"
+#include "connection/h/media_io.h"
 
 namespace ma {
 
@@ -44,8 +45,6 @@ public:
   virtual srs_error_t write(const char* data, int size) = 0;
 
   virtual srs_error_t write(MessageChain* data, ssize_t* pnwrite) = 0;
-
-  virtual srs_error_t writev(const iovec* iov, int iovcnt, ssize_t* pnwrite) = 0;
 
   virtual void write_header(int code) = 0;
 
@@ -88,25 +87,23 @@ class IHttpResponseReader {
   virtual void open(IHttpResponseReaderSink*) = 0;
 };
 
-class IHttpProtocalFactory {
+class IHttpProtocalFactory : public IMediaIOBaseFactory {
   public:
-   virtual ~IHttpProtocalFactory() = default;
+   ~IHttpProtocalFactory() override = default;
    
-   virtual std::shared_ptr<IHttpRequestReader> 
+   virtual IHttpRequestReader* 
       CreateRequestReader(IHttpRequestReader::CallBack*) = 0;
 
    virtual std::shared_ptr<IHttpResponseWriter> 
       CreateResponseWriter(bool flag_stream) = 0;
 
-   virtual std::unique_ptr<IHttpMessageParser> 
-      CreateMessageParser() = 0;
+   virtual IHttpMessageParser* CreateMessageParser() = 0;
 
-   virtual std::shared_ptr<IHttpResponseReader> 
-      CreateResponseReader() = 0;
+   virtual IHttpResponseReader* CreateResponseReader() = 0;
 };
 
-std::unique_ptr<IHttpProtocalFactory> 
-CreateDefaultHttpProtocalFactory(void* p1, void* p2);
+std::unique_ptr<IMediaIOBaseFactory>
+CreateHttpProtocalFactory(std::shared_ptr<Transport> t, bool tls);
 
 }
 

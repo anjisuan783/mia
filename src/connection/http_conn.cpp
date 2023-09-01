@@ -2,7 +2,7 @@
 
 #include "common/media_log.h"
 #include "h/media_return_code.h"
-#include "http/http_consts.h"
+#include "common/media_consts.h"
 #include "http/http_stack.h"
 #include "http/h/http_message.h"
 #include "handler/h/media_handler.h"
@@ -87,9 +87,10 @@ MediaHttpConn::MediaHttpConn(std::unique_ptr<IHttpProtocalFactory> fac,
 MediaHttpConn::~MediaHttpConn() {
 }
 
-void MediaHttpConn::Start() {
+srs_error_t MediaHttpConn::Start() {
   this->set_crossdomain_enabled(true);
   reader_->open();
+  return srs_success;
 }
 
 srs_error_t MediaHttpConn::set_crossdomain_enabled(bool v) {

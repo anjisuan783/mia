@@ -29,12 +29,6 @@
 #define ERROR_SOCKET_WAIT                   1010
 #define ERROR_SOCKET_TIMEOUT                1011
 #define ERROR_SOCKET_CONNECT                1012
-#define ERROR_ST_SET_EPOLL                  1013
-#define ERROR_ST_INITIALIZE                 1014
-#define ERROR_ST_OPEN_SOCKET                1015
-#define ERROR_ST_CREATE_LISTEN_THREAD       1016
-#define ERROR_ST_CREATE_CYCLE_THREAD        1017
-#define ERROR_ST_CONNECT                    1018
 #define ERROR_SYSTEM_PACKET_INVALID         1019
 #define ERROR_SYSTEM_CLIENT_INVALID         1020
 #define ERROR_SYSTEM_ASSERT_FAILED          1021
@@ -59,7 +53,7 @@
 #define ERROR_SYSTEM_PID_SET_FILE_INFO      1040
 #define ERROR_SYSTEM_FILE_ALREADY_OPENED    1041
 #define ERROR_SYSTEM_FILE_OPENE             1042
-//#define ERROR_SYSTEM_FILE_CLOSE             1043
+//#define ERROR_SYSTEM_FILE_CLOSE           1043
 #define ERROR_SYSTEM_FILE_READ              1044
 #define ERROR_SYSTEM_FILE_WRITE             1045
 #define ERROR_SYSTEM_FILE_EOF               1046
@@ -67,7 +61,6 @@
 #define ERROR_SYSTEM_CREATE_PIPE            1048
 #define ERROR_SYSTEM_FILE_SEEK              1049
 #define ERROR_SYSTEM_IO_INVALID             1050
-#define ERROR_ST_EXCEED_THREADS             1051
 #define ERROR_SYSTEM_SECURITY               1052
 #define ERROR_SYSTEM_SECURITY_DENY          1053
 #define ERROR_SYSTEM_SECURITY_ALLOW         1054
@@ -100,6 +93,12 @@
 #define ERROR_SOCKET_ACCEPT                 1081
 #define ERROR_SOCKET_WOULD_BLOCK            1082
 #define ERROR_SOCKET_ERROR                  1083
+#define ERROR_INVALID_STATE                 1084
+#define ERROR_NOT_FOUND                     1085
+#define ERROR_EXISTED                       1086
+#define ERROR_INVALID_ARGS                  1087
+#define ERROR_FAILURE                       1088
+#define ERROR_UNEXPECTED                    1089
 
 
 ///////////////////////////////////////////////////////
@@ -161,6 +160,8 @@
 #define ERROR_RTMP_MESSAGE_CREATE           2053
 #define ERROR_RTMP_PROXY_EXCEED             2054
 #define ERROR_RTMP_CREATE_STREAM_DEPTH      2055
+#define ERROR_RTMP_HANDLE_SHAKE_FAILED      2056
+#define ERROR_RTMP_MSG_INVALID_HEADER       2057
 //
 // The system control message,
 // It's not an error, but special control logic.
@@ -361,7 +362,7 @@
 // For user-define error.
 ///////////////////////////////////////////////////////
 #define ERROR_USER_START                    9000
-//#define ERROR_USER_DISCONNECT               9001
+//#define ERROR_USER_DISCONNECT             9001
 #define ERROR_SOURCE_NOT_FOUND              9002
 #define ERROR_USER_END                      9999
 
@@ -427,7 +428,7 @@ extern bool srs_is_server_gracefully_close(srs_error_t err);
     (void)0
 
 // Error helpers, should use these functions to new or wrap an error.
-#define srs_success 0 // SrsCplxError::success()
+#define srs_success nullptr
 #define srs_error_new(ret, fmt, ...) \
   SrsCplxError::create(__FUNCTION__, __FILE__, __LINE__, ret, fmt, ##__VA_ARGS__)
 #define srs_error_wrap(err, fmt, ...) \

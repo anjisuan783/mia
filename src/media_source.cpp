@@ -13,6 +13,8 @@
 #include "rtc/media_rtc_source.h"
 #include "rtc/media_rtc_live_adaptor.h"
 #include "live/media_live_rtc_adaptor.h"
+#include "utils/media_thread.h"
+#include "utils/media_msg_queue.h"
 
 #include "media_source_mgr.h"
 
@@ -32,7 +34,7 @@ MediaSource::~MediaSource() {
 
 void MediaSource::Open(Config& c) {
   config_ = c;
-  worker_ = config_.worker.get();
+  worker_ = config_.worker;
 
   // active rtc source here, avoid using lock 
   // when publisher or subscriber will join
@@ -44,18 +46,25 @@ void MediaSource::Open(Config& c) {
 void MediaSource::Close() {
   closed_ = true; 
   
-  worker_->task([p = shared_from_this()]() {
+  srs_error_t err = worker_->MsgQueue()->Post([p = shared_from_this()]() {
       p->UnactiveRtcSource();
       p->UnactiveLiveSource();
       p->UnactiveRtcAdapter();
       p->UnactiveRtmpAdapter();
-    }, RTC_FROM_HERE);
+      return srs_success;
+    });
+
+  if (srs_success != err) {
+    MLOG_ERROR("post release failed, desc:" << srs_error_desc(err));
+    delete err;
+  }
 
   worker_ = nullptr;
+  //return srs_success;
 }
 
 std::shared_ptr<MediaConsumer> MediaSource::CreateConsumer() {
-  RTC_DCHECK_RUN_ON(&thread_check_);
+  MEDIA_DCHECK_RUN_ON(&thread_check_);
   return live_source_->CreateConsumer();
 }
 
@@ -64,7 +73,7 @@ srs_error_t MediaSource::ConsumerDumps(
     bool dump_seq_header, 
     bool dump_meta, 
     bool dump_gop) {
-  RTC_DCHECK_RUN_ON(&thread_check_);
+  MEDIA_DCHECK_RUN_ON(&thread_check_);
   return live_source_->ConsumerDumps(
       consumer, dump_seq_header, dump_meta, dump_gop);
 }
@@ -132,16 +141,16 @@ void MediaSource::OnPublish(PublisherType t) {
   
   if (worker_->IsCurrent()) {
     // attach checker thread
-    RTC_DCHECK_RUN_ON(&thread_check_);
+    MEDIA_DCHECK_RUN_ON(&thread_check_);
     func(shared_from_this());
   } else {
-   async_task(func, RTC_FROM_HERE);
+   async_task(func);
   }
 }
 
 void MediaSource::OnUnpublish() {
   auto func = [this](std::shared_ptr<MediaSource> p) {
-    RTC_DCHECK_RUN_ON(&thread_check_);
+    MEDIA_DCHECK_RUN_ON(&thread_check_);
     if (!active_) {
       return;
     }
@@ -168,37 +177,37 @@ void MediaSource::OnUnpublish() {
   }
 
   if (worker_->IsCurrent()) {
-    RTC_DCHECK_RUN_ON(&thread_check_);
+    MEDIA_DCHECK_RUN_ON(&thread_check_);
     func(shared_from_this());
   } else {
-   async_task(func, RTC_FROM_HERE);
+   async_task(func);
   }
 }
 
 JitterAlgorithm MediaSource::jitter() {
-  RTC_DCHECK_RUN_ON(&thread_check_);
+  MEDIA_DCHECK_RUN_ON(&thread_check_);
   return live_source_->jitter();
 }
 
 void MediaSource::OnRtcFirstPacket() {
-  RTC_DCHECK_RUN_ON(&thread_check_);
+  MEDIA_DCHECK_RUN_ON(&thread_check_);
 }
 
 void MediaSource::OnRtcPublisherJoin() {
-  RTC_DCHECK_RUN_ON(&thread_check_);
+  MEDIA_DCHECK_RUN_ON(&thread_check_);
   //remote rtc publisher
   OnPublish(eRemoteRtc);
 }
 
 void MediaSource::OnRtcPublisherLeft() {
-  RTC_DCHECK_RUN_ON(&thread_check_);
+  MEDIA_DCHECK_RUN_ON(&thread_check_);
   rtc_publisher_in_ = false;
   //remote rtc publisher
   OnUnpublish();
 }
 
 void MediaSource::OnRtcFirstSubscriber() {
-  RTC_DCHECK_RUN_ON(&thread_check_);
+  MEDIA_DCHECK_RUN_ON(&thread_check_);
   // transform media from rtmp to rtc
   if (isRtmp(publiser_type_)) {
     ActiveRtcAdapter();
@@ -206,7 +215,7 @@ void MediaSource::OnRtcFirstSubscriber() {
 }
 
 void MediaSource::OnRtcNobody() {
-  RTC_DCHECK_RUN_ON(&thread_check_);
+  MEDIA_DCHECK_RUN_ON(&thread_check_);
 
   MLOG_INFO("rtc onbody:" << req_->get_stream_url());
   auto self = shared_from_this();  
@@ -217,7 +226,7 @@ void MediaSource::OnRtcNobody() {
 }
 
 void MediaSource::OnRtmpNoConsumer() {
-  RTC_DCHECK_RUN_ON(&thread_check_);
+  MEDIA_DCHECK_RUN_ON(&thread_check_);
   MLOG_INFO("rtmp onbody:" << req_->get_stream_url());
   // no players destroy rtmp adaptor
   if (isRtc(publiser_type_)) {
@@ -226,7 +235,7 @@ void MediaSource::OnRtmpNoConsumer() {
 }
 
 void MediaSource::OnRtmpFirstConsumer() {
-  RTC_DCHECK_RUN_ON(&thread_check_);
+  MEDIA_DCHECK_RUN_ON(&thread_check_);
   // transform media from rtc to rtmp
   if (isRtc(publiser_type_)) {
     ActiveRtmpAdapter();
@@ -234,14 +243,15 @@ void MediaSource::OnRtmpFirstConsumer() {
 }
 
 void MediaSource::OnRtmpFirstPacket() {
-  RTC_DCHECK_RUN_ON(&thread_check_);
+  MEDIA_DCHECK_RUN_ON(&thread_check_);
 }
 
 void MediaSource::ActiveRtcSource() {
   if (rtc_source_) {
     return;
   }
-  
+
+#if 0
   rtc_source_.reset(new MediaRtcSource(req_->get_stream_url()));
   rtc_source_->Open(config_.rtc_api, worker_);
   rtc_source_->signal_rtc_first_suber_.connect(
@@ -254,6 +264,7 @@ void MediaSource::ActiveRtcSource() {
                    this, &MediaSource::OnRtcPublisherLeft);
   rtc_source_->signal_rtc_publisher_join_.connect( 
                    this, &MediaSource::OnRtcPublisherJoin);
+#endif                
 }
 
 void MediaSource::UnactiveRtcSource() {
@@ -300,7 +311,7 @@ void MediaSource::UnactiveLiveSource() {
 }
 
 void MediaSource::ActiveRtcAdapter() {
-  RTC_DCHECK_RUN_ON(&thread_check_);
+  MEDIA_DCHECK_RUN_ON(&thread_check_);
 
   if (rtc_adapter_) {
     return;
@@ -310,6 +321,7 @@ void MediaSource::ActiveRtcAdapter() {
     return;
   }
 
+#if 0
   rtc_adapter_ = std::make_shared<MediaLiveRtcAdaptor>(req_->get_stream_url());
   srs_error_t err = rtc_adapter_->Open(worker_, live_source_.get(), 
       rtc_source_.get(), config_.enable_rtmp2rtc_debug_);
@@ -320,10 +332,11 @@ void MediaSource::ActiveRtcAdapter() {
     rtc_adapter_->Close();
     rtc_adapter_ = nullptr;
   }
+#endif
 }
 
 void MediaSource::UnactiveRtcAdapter() {
-  RTC_DCHECK_RUN_ON(&thread_check_);
+  MEDIA_DCHECK_RUN_ON(&thread_check_);
 
   if (!rtc_adapter_) {
     return;
@@ -334,7 +347,7 @@ void MediaSource::UnactiveRtcAdapter() {
 }
 
 void MediaSource::ActiveRtmpAdapter() {
-  RTC_DCHECK_RUN_ON(&thread_check_);
+  MEDIA_DCHECK_RUN_ON(&thread_check_);
 
   if (live_adapter_) {
     return;
@@ -370,7 +383,7 @@ void MediaSource::OnMessage(std::shared_ptr<MediaMessage> msg) {
         // TODO support meta 
       }
     }
-  }, RTC_FROM_HERE);
+  });
 }
 
 void MediaSource::OnFrame(std::shared_ptr<owt_base::Frame> msg) {
@@ -378,17 +391,22 @@ void MediaSource::OnFrame(std::shared_ptr<owt_base::Frame> msg) {
     if (p->rtc_source_) {
       p->rtc_source_->OnFrame(std::move(frm));
     }
-  }, RTC_FROM_HERE);
+  });
 }
 
 void MediaSource::async_task(
-    std::function<void(std::shared_ptr<MediaSource>)> f, 
-    const rtc::Location& l) {
-  worker_->task([weak_this = weak_from_this(), f] {
+    std::function<void(std::shared_ptr<MediaSource>)> f) {
+  srs_error_t err = worker_->MsgQueue()->Post([weak_this = weak_from_this(), f] {
     if (auto this_ptr = weak_this.lock()) {
       f(this_ptr);
     }
-  }, l);
+    return srs_success;
+  });
+
+  if (err != srs_success) {
+    MLOG_ERROR("post async task failed, desc:" << srs_error_desc(err));
+    delete err;
+  }
 }
 
 } //namespace ma

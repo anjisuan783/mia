@@ -14,6 +14,7 @@
 #include "encoder/media_codec.h"
 #include "rtmp/media_rtmp_format.h"
 #include "rtmp/media_amf0.h"
+#include "rtmp/media_rtmp_msg.h"
 
 namespace ma {
 
@@ -82,12 +83,12 @@ srs_error_t MediaMetaCache::dumps(MediaConsumer* consumer,
 }
 
 srs_error_t MediaMetaCache::update_data(MessageHeader* header,
-    SrsOnMetaDataPacket* metadata, bool& updated) {
+    RtmpOnMetaDataPacket* metadata, bool& updated) {
   updated = false;
   
   srs_error_t err = srs_success;
   
-  SrsAmf0Any* prop = NULL;
+  RtmpAmf0Any* prop = NULL;
   
   // when exists the duration, remove it to make ExoPlayer happy.
   if (metadata->metadata->get_property("duration") != NULL) {
@@ -113,11 +114,11 @@ srs_error_t MediaMetaCache::update_data(MessageHeader* header,
   MLOG_TRACE("got metadata " << ss.str().c_str());
   
   // add server info to metadata
-  metadata->metadata->set("server", SrsAmf0Any::str(RTMP_SIG_SRS_SERVER));
+  metadata->metadata->set("server", RtmpAmf0Any::str(RTMP_SIG_SERVER));
 
   // version, for example, 1.0.0
   // add version to metadata, please donot remove it, for debug.
-  metadata->metadata->set("server_version", SrsAmf0Any::str(RTMP_SIG_SRS_VERSION));
+  metadata->metadata->set("server_version", RtmpAmf0Any::str(RTMP_SIG_VERSION));
   
   // encode the metadata to payload
   if (metadata->get_size() > 0) {

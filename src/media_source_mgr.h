@@ -21,7 +21,7 @@ namespace ma {
 
 class MediaSourceMgr {
  public:
-  int Init(unsigned int, const std::vector<std::string>&);
+  int Init(int, const std::vector<std::string>&);
   void Close();
   
   std::shared_ptr<MediaSource> 
@@ -34,7 +34,7 @@ class MediaSourceMgr {
   // MediaSource wiil be destroyed on nobody.
   void RemoveSource(std::shared_ptr<MediaRequest> req);
  private:
-  std::shared_ptr<wa::Worker> GetWorker();
+  MediaThread* GetWorker();
  private:
   std::mutex source_lock_;
   std::map<std::string, std::shared_ptr<MediaSource>> sources_;

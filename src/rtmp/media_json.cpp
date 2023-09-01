@@ -1553,23 +1553,23 @@ string SrsJsonAny::dumps()
   }
 }
 
-SrsAmf0Any* SrsJsonAny::to_amf0()
+RtmpAmf0Any* SrsJsonAny::to_amf0()
 {
   switch (marker) {
       case SRS_JSON_String: {
-          return SrsAmf0Any::str(to_str().c_str());
+          return RtmpAmf0Any::str(to_str().c_str());
       }
       case SRS_JSON_Boolean: {
-          return SrsAmf0Any::boolean(to_boolean());
+          return RtmpAmf0Any::boolean(to_boolean());
       }
       case SRS_JSON_Integer: {
-          return SrsAmf0Any::number(to_integer());
+          return RtmpAmf0Any::number(to_integer());
       }
       case SRS_JSON_Number: {
-          return SrsAmf0Any::number(to_number());
+          return RtmpAmf0Any::number(to_number());
       }
       case SRS_JSON_Null: {
-          return SrsAmf0Any::null();
+          return RtmpAmf0Any::null();
       }
       case SRS_JSON_Object: {
           // json object must override this method.
@@ -1580,7 +1580,7 @@ SrsAmf0Any* SrsJsonAny::to_amf0()
           srs_assert(false);
       }
       default: {
-          return SrsAmf0Any::null();
+          return RtmpAmf0Any::null();
       }
   }
 }
@@ -1748,9 +1748,9 @@ string SrsJsonObject::dumps()
   return ss.str();
 }
 
-SrsAmf0Any* SrsJsonObject::to_amf0()
+RtmpAmf0Any* SrsJsonObject::to_amf0()
 {
-  SrsAmf0Object* obj = SrsAmf0Any::object();
+  RtmpAmf0Object* obj = RtmpAmf0Any::object();
   
   for (int i = 0; i < (int)properties.size(); i++) {
       std::string name = this->key_at(i);
@@ -1953,9 +1953,9 @@ string SrsJsonArray::dumps()
   return ss.str();
 }
 
-SrsAmf0Any* SrsJsonArray::to_amf0()
+RtmpAmf0Any* SrsJsonArray::to_amf0()
 {
-  SrsAmf0StrictArray* arr = SrsAmf0Any::strict_array();
+  RtmpAmf0StrictArray* arr = RtmpAmf0Any::strict_array();
   
   for (int i = 0; i < (int)properties.size(); i++) {
       SrsJsonAny* any = properties[i];

@@ -14,11 +14,12 @@
 #include <string>
 
 #include "utils/sigslot.h"
+#include "common/media_kernel_error.h"
 
 namespace ma {
 
 class IMediaConnection;
-class IHttpProtocalFactory;
+class IMediaIOBaseFactory;
 class MediaListenerMgr;
 
 class MediaConnMgr {
@@ -31,12 +32,12 @@ class MediaConnMgr {
     e_rtmp
   };
 
-  int Init(uint32_t, const std::vector<std::string>& addr);
+  srs_error_t Init(const std::vector<std::string>& addr);
 
   void Close();
  
   std::shared_ptr<IMediaConnection>CreateConnection(ConnType, 
-      std::unique_ptr<IHttpProtocalFactory> factory);
+      std::unique_ptr<IMediaIOBaseFactory> factory);
       
   void RemoveConnection(std::shared_ptr<IMediaConnection> p);
 

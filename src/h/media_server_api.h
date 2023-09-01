@@ -25,14 +25,18 @@ enum JitterAlgorithm {
 class MediaServerApi {
  public:
   struct Config {
-    uint32_t workers_{1};               // live workers
-    uint32_t ioworkers_{1};             // TODO multi-theads not implement
+    uint32_t workers_{1};               // io workers
     bool enable_gop_{true};
     bool flv_record_{false};
     int consumer_queue_size_{30000};    // ms
     JitterAlgorithm jitter_algo_{JitterAlgorithmZERO};
     bool mix_correct_{false};           // fix live timestamp by map
  
+    // for rtmp
+    int out_ack_size_{2500000};
+    int in_ack_size_{0};
+    int chunk_size_{60000};
+
     //for rtc
     uint32_t rtc_workers_{1};
     std::vector<std::string> candidates_;  // candidates [ip]

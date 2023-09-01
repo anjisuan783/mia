@@ -16,7 +16,7 @@
 
 namespace ma {
 
-class SrsOnMetaDataPacket;
+class RtmpOnMetaDataPacket;
 class MediaMessage;
 
 /**
@@ -28,7 +28,7 @@ public:
   ~SrsRtmpFormat() override;
 public:
   // Initialize the format from metadata, optional.
-  srs_error_t on_metadata(SrsOnMetaDataPacket* meta);
+  srs_error_t on_metadata(RtmpOnMetaDataPacket* meta);
   // When got a parsed audio packet.
   srs_error_t on_audio(std::shared_ptr<MediaMessage> shared_audio);
   srs_error_t on_audio(int64_t timestamp, char* data, int size) override;

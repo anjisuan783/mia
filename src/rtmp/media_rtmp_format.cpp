@@ -14,7 +14,7 @@ SrsRtmpFormat::SrsRtmpFormat() = default;
 
 SrsRtmpFormat::~SrsRtmpFormat() = default;
 
-srs_error_t SrsRtmpFormat::on_metadata(SrsOnMetaDataPacket*) {
+srs_error_t SrsRtmpFormat::on_metadata(RtmpOnMetaDataPacket*) {
   // TODO: FIXME: Try to initialize format from metadata.
   return srs_success;
 }

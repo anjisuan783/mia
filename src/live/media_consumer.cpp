@@ -46,10 +46,10 @@ void MessageQueue::enqueue(std::shared_ptr<MediaMessage> msg, bool* is_overflow)
 
   if (msg->is_av()) {
     if (av_start_time == -1) {
-      av_start_time = srs_utime_t(msg->timestamp_ * SRS_UTIME_MILLISECONDS);
+      av_start_time = srs_utime_t(msg->timestamp_ * UTIME_MILLISECONDS);
     }
     
-    av_end_time = srs_utime_t(msg->timestamp_ * SRS_UTIME_MILLISECONDS);
+    av_end_time = srs_utime_t(msg->timestamp_ * UTIME_MILLISECONDS);
   }
   
   msgs.emplace_back(std::move(msg));
@@ -80,7 +80,7 @@ void MessageQueue::fetch_packets(int max_count,
   }
   
   std::shared_ptr<MediaMessage> last = msgs[count - 1];
-  av_start_time = srs_utime_t(last->timestamp_ * SRS_UTIME_MILLISECONDS);
+  av_start_time = srs_utime_t(last->timestamp_ * UTIME_MILLISECONDS);
   
   if (count >= nb_msgs) {
     // the pmsgs is big enough and clear msgs at most time.
@@ -88,7 +88,7 @@ void MessageQueue::fetch_packets(int max_count,
   } else {
     // erase some vector elements may cause memory copy,
     // maybe can use more efficient vector.swap to avoid copy.
-    // @remark for the pmsgs is big enough, for instance, SRS_PERF_MW_MSGS 128,
+    // @remark for the pmsgs is big enough, for instance, PERF_MW_MSGS 128,
     //      the rtmp play client will get 128msgs once, so this branch rarely execute.
     msgs.erase(msgs.begin(), msgs.begin() + count);
   }
@@ -118,13 +118,11 @@ void MessageQueue::shrink() {
   for (size_t i = 0; i < msgs.size(); i++) {
     auto& msg = msgs.at(i);
     
-    if (msg->is_video() && SrsFlvVideo::sh(
-        msg->payload_->GetFirstMsgReadPtr(), msg->payload_->GetFirstMsgLength())) {
+    if (msg->is_video() && MediaFlvVideo::Sh(*msg->payload_)) {
       video_sh = msg;
       continue;
     }
-    else if (msg->is_audio() && SrsFlvAudio::sh(
-        msg->payload_->GetFirstMsgReadPtr(), msg->payload_->GetFirstMsgLength())) {
+    else if (msg->is_audio() && MediaFlvAudio::Sh(*msg->payload_)) {
       audio_sh = msg;
       continue;
     }

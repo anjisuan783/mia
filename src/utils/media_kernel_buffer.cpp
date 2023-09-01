@@ -27,20 +27,13 @@ SrsBuffer::SrsBuffer(char* b, int nn) {
   nb_bytes = nn;
 }
 
-SrsBuffer::SrsBuffer(MessageChain& mc) {
-  assert(mc.GetNext() == nullptr);
-  p = bytes = mc.GetFirstMsgWritePtr();
-  nb_bytes = mc.GetFirstMsgSpace();
-  mc.AdvanceChainedWritePtr(nb_bytes);
-}
-
-SrsBuffer::~SrsBuffer() = default;
-
+/*
 SrsBuffer* SrsBuffer::copy() {
   SrsBuffer* cp = new SrsBuffer(bytes, nb_bytes);
   cp->p = p;
   return cp;
 }
+*/
 
 char* SrsBuffer::data() {
   return bytes;
@@ -69,8 +62,8 @@ int SrsBuffer::left() {
 bool SrsBuffer::empty() {
   return !bytes || (p >= bytes + nb_bytes);
 }
-
 bool SrsBuffer::require(int required_size) {
+
   if (required_size < 0) {
       return false;
   }
@@ -84,6 +77,14 @@ void SrsBuffer::skip(int size) {
   srs_assert(p + size <= bytes + nb_bytes);
   
   p += size;
+}
+
+void SrsBuffer::save_reader() {
+  srs_assert(false);
+}
+
+void SrsBuffer::restore_reader() {
+  srs_assert(false);
 }
 
 int8_t SrsBuffer::read_1bytes() {
@@ -305,7 +306,7 @@ void SrsBuffer::write_le8bytes(int64_t value) {
   *p++ = pp[7];
 }
 
-void SrsBuffer::write_string(string value) {
+void SrsBuffer::write_string(const std::string& value) {
   srs_assert(require((int)value.length()));
   
   memcpy(p, value.data(), value.length());

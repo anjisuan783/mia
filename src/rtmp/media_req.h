@@ -8,12 +8,13 @@
 #define __MEDIA_REQUEST_H__
 
 #include <string>
+#include <memory>
 
 #include "common/media_define.h"
 
 namespace ma {
 
-class SrsAmf0Object;
+class RtmpAmf0Object;
 
 // The original request from client.
 class MediaRequest final {
@@ -53,7 +54,7 @@ public:
     // The token in the connect request,
     // used for edge traverse to origin authentication,
     // @see https://github.com/ossrs/srs/issues/104
-    SrsAmf0Object* args;
+    RtmpAmf0Object* args = nullptr;
 public:
     MediaRequest();
     ~MediaRequest();
@@ -61,7 +62,7 @@ public:
     // Deep copy the request, for source to use it to support reload,
     // For when initialize the source, the request is valid,
     // When reload it, the request maybe invalid, so need to copy it.
-    MediaRequest* copy();
+    std::shared_ptr<MediaRequest> copy();
     // update the auth info of request,
     // To keep the current request ptr is ok,
     // For many components use the ptr of request.
@@ -76,5 +77,5 @@ public:
 };
 
 }
-#endif //!__MEDIA_REQUEST_H__
 
+#endif //!__MEDIA_REQUEST_H__

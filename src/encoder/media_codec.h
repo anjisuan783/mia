@@ -215,55 +215,39 @@ enum SrsFrameType {
   SrsFrameTypeScript = 18,
 };
 
-/**
-* Fast tough the codec of FLV video.
-* @doc video_file_format_spec_v10_1.pdf, page 78, E.4.3 Video Tags
-*/
-class SrsFlvVideo {
-public:
-  SrsFlvVideo();
-  virtual ~SrsFlvVideo();
+class MessageChain;
+
+class MediaFlvVideo {
   // the following function used to finger out the flv/rtmp packet detail.
 public:
-  /**
-   * only check the frame_type, not check the codec type.
-   */
-  static bool keyframe(const char* data, int size);
-  /**
-   * check codec h264, keyframe, sequence header
-   */
-  // TODO: FIXME: Remove it, use SrsFormat instead.
-  static bool sh(const char* data, int size);
-  /**
-   * check codec h264.
-   */
-  static bool h264(const char* data, int size);
+  static bool Keyframe(MessageChain&);
+
+  static bool Sh(MessageChain&);
+
+  static bool H264(MessageChain&);
   /**
    * check the video RTMP/flv header info,
    * @return true if video RTMP/flv header is ok.
    * @remark all type of audio is possible, no need to check audio.
    */
-  static bool acceptable(const char* data, int size);
+  static bool Acceptable(MessageChain&);
 };
 
 /**
 * Fast tough the codec of FLV video.
 * @doc video_file_format_spec_v10_1.pdf, page 76, E.4.2 Audio Tags
 */
-class SrsFlvAudio {
-public:
-  SrsFlvAudio();
-  virtual ~SrsFlvAudio();
-  // the following function used to finger out the flv/rtmp packet detail.
-public:
+class MediaFlvAudio {
+ public:
   /**
    * check codec aac, sequence header
    */
-  static bool sh(const char* data, int size);
+  static bool Sh(MessageChain&);
   /**
    * check codec aac.
    */
-  static bool aac(const char* data, int size);
+ private:
+  static bool Aac(char);
 };
 
 /**

@@ -8,17 +8,14 @@
 #ifndef __MEDIA_PROTOCOL_UTILITY_H__
 #define __MEDIA_PROTOCOL_UTILITY_H__
 
-// for srs-librtmp, @see https://github.com/ossrs/srs/issues/213
-#ifndef _WIN32
 #include <sys/uio.h>
-#endif
 
 #include <string>
 #include <vector>
 #include <map>
 #include <sstream>
 
-#include "http/http_consts.h"
+#include "common/media_consts.h"
 
 namespace ma {
 
@@ -87,6 +84,7 @@ bool srs_path_exists(const std::string& path);
 
 std::string srs_path_filext(const std::string& path);
 
+std::string srs_path_dirname(const std::string& path);
 
 void srs_discovery_tc_url(const std::string& tcUrl, 
                           std::string& schema, 
@@ -120,6 +118,25 @@ bool srs_is_ipv4(std::string domain);
 
 std::string srs_int2str(int64_t value);
 
+// random function
+void srs_random_generate(char* bytes, int size);
+std::string srs_random_str(int len);
+long srs_random();
+
+// Generate the c0 chunk header for msg.
+// @param cache, the cache to write header.
+// @param nb_cache, the size of cache.
+// @return The size of header. 0 if cache not enough.
+int srs_chunk_header_c0(int perfer_cid, uint32_t timestamp, 
+    int32_t payload_length, int8_t message_type,
+    int32_t stream_id, char* cache, int nb_cache);
+
+// Generate the c3 chunk header for msg.
+// @param cache, the cache to write header.
+// @param nb_cache, the size of cache.
+// @return the size of header. 0 if cache not enough.
+int srs_chunk_header_c3(int perfer_cid, uint32_t timestamp, 
+    char* cache, int nb_cache);
 } //namespace ma
 
 #endif //!__MEDIA_PROTOCOL_UTILITY_H__

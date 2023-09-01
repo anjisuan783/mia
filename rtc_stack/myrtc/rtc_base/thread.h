@@ -260,6 +260,16 @@ class RTC_EXPORT RTC_LOCKABLE Thread : public MessageQueue {
              std::forward<FunctorT>(functor)));
   }
 
+  template <class FunctorT>
+  void PostDelayTask(const Location& posted_from, FunctorT&& functor, int cms) {
+    // Allocate at first call, never deallocate.
+    static auto* const handler =
+        new rtc_thread_internal::MessageHandlerWithTask;
+    PostDelayed(posted_from, cms, handler, 0,
+         new rtc_thread_internal::MessageWithFunctor<FunctorT>(
+             std::forward<FunctorT>(functor)));
+  }
+
   // From MessageQueue
   bool IsProcessingMessagesForTesting() override;
   void Clear(MessageHandler* phandler,

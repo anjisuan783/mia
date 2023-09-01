@@ -16,6 +16,7 @@
 #include "common/media_message.h"
 #include "rtc/media_rtc_live_adaptor_sink.h"
 #include "rtc/media_rtc_source.h"
+#include "utils/media_serializer_T.h"
 
 namespace ma {
 
@@ -283,8 +284,8 @@ srs_error_t MediaRtcLiveAdaptor::PacketVideoKeyFrame(StapPackage& pkg) {
     int nb_payload = 1 + 1 + 3 + 5 + 1 + 2 + sps->size + 1 + 2 + pps->size;
     //MLOG_DEBUG("PacketVideoKeyFrame, size:" << nb_payload);
     MessageChain mc(nb_payload);
+    MediaStreamLE payload(mc);
 
-    SrsBuffer payload(mc);
     //TODO: call api
     payload.write_1bytes(0x17);// type(4 bits): key frame; code(4bits): avc
     payload.write_1bytes(0x0); // avc_type: sequence header
@@ -319,7 +320,7 @@ srs_error_t MediaRtcLiveAdaptor::PacketVideoRtmp(StapPackage& pkg) {
   //type_codec1 + avc_type + composition time + nalu size + nalu
   int nb_payload = 1 + 1 + 3 + pkg.nb_bytes();
   MessageChain mc(nb_payload);
-  SrsBuffer payload(mc);
+  MediaStreamLE payload(mc);
   if (pkg.key_frame_) {
     payload.write_1bytes(0x17); // type(4 bits): key frame; code(4bits): avc
   } else {
@@ -369,7 +370,7 @@ std::shared_ptr<MediaMessage> MediaRtcLiveAdaptor::PacketAudio(
 
   int rtmp_len = len + 2;
   MessageChain mc(rtmp_len);
-  SrsBuffer stream(mc);
+  MediaStreamLE stream(mc);
   uint8_t aac_flag = (SrsAudioCodecIdAAC << 4) | 
                      (SrsAudioSampleRate44100 << 2) | 
                      (SrsAudioSampleBits16bit << 1) | 

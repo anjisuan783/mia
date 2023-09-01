@@ -195,9 +195,7 @@ void MediaLiveSource::OnAudio_i(
     std::shared_ptr<MediaMessage> shared_audio, bool from_adaptor) {
   srs_error_t err = srs_success;
 
-  bool is_sequence_header = 
-        SrsFlvAudio::sh(shared_audio->payload_->GetFirstMsgReadPtr(),
-                        shared_audio->payload_->GetFirstMsgLength());
+  bool is_sequence_header = MediaFlvAudio::Sh(*shared_audio->payload_);
 
   // whether consumer should drop for the duplicated sequence header.
   bool drop_for_reduce = false;
@@ -298,8 +296,7 @@ void MediaLiveSource::OnVideo_i(
   srs_error_t err = srs_success;
 
   bool is_sequence_header = 
-      SrsFlvVideo::sh(shared_video->payload_->GetFirstMsgReadPtr(), 
-                      shared_video->payload_->GetFirstMsgLength());
+      MediaFlvVideo::Sh(*shared_video->payload_);
 
   // whether consumer should drop for the duplicated sequence header.
   bool drop_for_reduce = false;
@@ -392,15 +389,14 @@ srs_error_t MediaLiveSource::OnVideo(
   if (!mix_correct_ && is_monotonically_increase_) {
     if (last_packet_time_ > 0 && shared_video->timestamp_ < last_packet_time_) {
       is_monotonically_increase_ = false;
-      MLOG_WARN("VIDEO: stream not monotonically increase. idff:" <<
+      MLOG_WARN("VIDEO: stream not monotonically increase. diff:" <<
           last_packet_time_ - shared_video->timestamp_);
     }
   }
   last_packet_time_ = shared_video->timestamp_;
   
   // drop any unknown header video.
-  if (!SrsFlvVideo::acceptable(shared_video->payload_->GetFirstMsgReadPtr(), 
-                               shared_video->payload_->GetFirstMsgLength())) {
+  if (!MediaFlvVideo::Acceptable(*shared_video->payload_)) {
     char b0 = 0x00;
     if (shared_video->size_ > 0) {
       shared_video->payload_->Peek(&b0, 1);
@@ -435,7 +431,7 @@ srs_error_t MediaLiveSource::ConsumerDumps(MediaConsumer* consumer,
 
   srs_error_t err = srs_success;
 
-  srs_utime_t queue_size = consumer_queue_size_ * SRS_UTIME_MILLISECONDS;
+  srs_utime_t queue_size = consumer_queue_size_ * UTIME_MILLISECONDS;
   consumer->set_queue_size(queue_size);
  
   // if atc, update the sequence header to gop cache time.

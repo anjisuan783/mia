@@ -57,10 +57,6 @@ int config(ma::MediaServerApi::Config& _config,
           if (config_setting_lookup_int(sub_item, "workers", &i1)) {
             _config.workers_ = i1;
           }
-
-          if (config_setting_lookup_int(sub_item, "ioworkers", &i1)) {
-            _config.ioworkers_ = i1;
-          }
           
           if (config_setting_lookup_int(sub_item, "queue_length", &i1)) {
             _config.consumer_queue_size_ = i1;
@@ -74,10 +70,10 @@ int config(ma::MediaServerApi::Config& _config,
             _config.mix_correct_ = (std::string(s1) == "on");
           }
           
-          MIA_LOG("gop:%s flv:%s worker:%d ioworker:%d len:%d al:%d correct:%s", 
+          MIA_LOG("gop:%s flv:%s worker:%d len:%d al:%d correct:%s", 
                   _config.enable_gop_?"on":"off", 
                   _config.flv_record_?"on":"off",
-                  _config.workers_, _config.ioworkers_, 
+                  _config.workers_, 
                   _config.consumer_queue_size_,
                   (int)_config.jitter_algo_,
                   _config.mix_correct_?"on":"off");
@@ -115,15 +111,25 @@ int config(ma::MediaServerApi::Config& _config,
             addr.append(s1);
             _config.listen_addr_.emplace_back(std::move(addr));
           }
+
+          if (config_setting_lookup_string(sub_item, "rtmp", &s1)) {
+            std::string addr{"rtmp://"};
+            addr.append(s1);
+            _config.listen_addr_.emplace_back(std::move(addr));
+          }
+
           if (config_setting_lookup_string(sub_item, "key", &s1)) {
             _config.https_key = s1;
           }
+
           if (config_setting_lookup_string(sub_item, "cert", &s1)) {
             _config.https_crt = s1;
           }
+
           if (config_setting_lookup_string(sub_item, "hostname", &s1)) {
             _config.https_hostname = s1;
           }
+
           std::string addrs;
           for(const auto& x :  _config.listen_addr_) {
             addrs.append(x);

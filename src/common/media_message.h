@@ -17,7 +17,7 @@ struct MessageHeader {
   // 3bytes.
   // Three-byte field that contains a timestamp delta of the message.
   // @remark, only used for decoding message from chunk stream.
-  //int32_t timestamp_delta{0};
+  int32_t timestamp_delta{0};
 
   // 3bytes.
   // Three-byte field that represents the size of the payload in bytes.
@@ -28,7 +28,7 @@ struct MessageHeader {
   // One byte field to represent the message type. A range of type IDs
   // (1-7) are reserved for protocol control messages.
   // For example, RTMP_MSG_AudioMessage or RTMP_MSG_VideoMessage.
-  int8_t message_type;
+  int8_t message_type{0};
 
   // Four-byte field that contains a timestamp of the message.
   // The 4 bytes are packed in the big-endian order.
@@ -48,8 +48,21 @@ struct MessageHeader {
 
   bool is_audio();
   bool is_video();
-
+  bool is_amf0_command();
+  bool is_amf0_data();
+  bool is_amf3_command();
+  bool is_amf3_data();
+  bool is_window_ackledgement_size();
+  bool is_ackledgement();
+  bool is_set_chunk_size();
+  bool is_user_control_message();
+  bool is_set_peer_bandwidth();
+  bool is_aggregate();
+  // Create a amf0 script header, set the size and stream_id.
+  void initialize_amf0_script(int size, int stream);
+  // Create a audio header, set the size, timestamp and stream_id.
   void initialize_audio(int size, int64_t time, int stream);
+  // Create a video header, set the size, timestamp and stream_id.
   void initialize_video(int size, int64_t time, int stream);
 };
 
@@ -72,17 +85,18 @@ class MediaMessage final {
 
   void create(MessageHeader* pheader, MessageChain* data);
   std::shared_ptr<MediaMessage> Copy();
+
+  int ChunkHeader(char* cache, int nb_cache, bool c0);
   bool is_av();
   bool is_video();
   bool is_audio();
  public:   
   MessageHeader header_;
   int64_t& timestamp_;
-  int32_t& size_;
+  int32_t size_;
   MessageChain* payload_{nullptr};
 };
 
+} //namespace ma
 
-}
 #endif //!__MEDIA_MESSAGE_DEFINE_H__
-

@@ -15,9 +15,8 @@
 #include "utils/sigslot.h"
 #include "h/rtc_stack_api.h"
 #include "h/media_server_api.h"
-#include "rtc_base/sequence_checker.h"
+#include "utils/media_checker.h"
 #include "common/media_log.h"
-#include "utils/Worker.h"
 #include "common/media_kernel_error.h"
 
 namespace ma {
@@ -30,6 +29,7 @@ class IHttpResponseWriter;
 class MediaLiveRtcAdaptor;
 class MediaRtcLiveAdaptor;
 class MediaMessage;
+class MediaThread;
 
 enum PublisherType {
   eUnknown,
@@ -53,7 +53,7 @@ class MediaSource final : public sigslot::has_slots<>,
 
  public:
   struct Config {
-    std::shared_ptr<wa::Worker> worker;
+    MediaThread* worker;
     bool gop{false};
     JitterAlgorithm jitter_algorithm{JitterAlgorithmZERO};
     wa::RtcApi* rtc_api{nullptr};
@@ -72,7 +72,6 @@ class MediaSource final : public sigslot::has_slots<>,
   // called only once
   void Open(Config&);
 
-
   // carefull call this function may cause crash
   void Close();
 
@@ -84,7 +83,7 @@ class MediaSource final : public sigslot::has_slots<>,
 
   JitterAlgorithm jitter();
   
-  inline std::shared_ptr<wa::Worker> get_worker() {
+  inline MediaThread* GetWorker() {
     return config_.worker;
   }
 
@@ -140,11 +139,10 @@ class MediaSource final : public sigslot::has_slots<>,
   void ActiveRtmpAdapter();
   void UnactiveRtmpAdapter();
 
-  void async_task(std::function<void(std::shared_ptr<MediaSource>)> f, 
-                  const rtc::Location& l);
+  void async_task(std::function<void(std::shared_ptr<MediaSource>)> f);
  private:
   Config config_;
-  wa::Worker* worker_{nullptr};
+  MediaThread* worker_{nullptr};
 
   std::shared_ptr<MediaRequest> req_;
   std::unique_ptr<MediaLiveSource> live_source_;
@@ -161,7 +159,7 @@ class MediaSource final : public sigslot::has_slots<>,
 
   std::atomic<bool> closed_{true};
 
-  webrtc::SequenceChecker thread_check_;
+  SequenceChecker thread_check_;
 };
 
 } //namespace ma

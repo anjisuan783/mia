@@ -1,5 +1,4 @@
-
-#!/bin/bash/sh
+#!/bin/bash
 
 SCRIPT=`pwd`/$0
 FILENAME=`basename $SCRIPT`
@@ -97,6 +96,8 @@ then
   exit 1
 fi
 
+set -e
+
 . ./script/installCommonDeps.sh
 
 install_opus
@@ -163,3 +164,4 @@ g++ -o rtmp_push $DEBUG_FLAG -$COMMON_FLAG $RTMP_PUBLISHER_SRC_FILES $DEPS_INCLU
 	
 echo "build mia done"
 
+set +e

@@ -18,7 +18,6 @@ struct DataBlockDeleter {
   }
 };
 
-
 std::shared_ptr<DataBlock> DataBlock::Create(
     int32_t aSize, const char* inData) {
 
@@ -60,50 +59,50 @@ std::string MessageChain::GetBlockStatics() {
 	return std::string(szBuffer);
 }
 
-MessageChain::MessageChain(uint32_t aSize, 
-                           const char* aData, 
-                           MFlag aFlag, 
-                           uint32_t aAdvanceWritePtrSize)	{
+MessageChain::MessageChain(uint32_t size, 
+                           const char* data, 
+                           MFlag flag, 
+                           uint32_t increase)	{
   ++ s_block_createcount;
-  if (aData && MA_BIT_DISABLED(aFlag, MessageChain::MALLOC_AND_COPY)) {
-    MA_SET_BITS(aFlag, MessageChain::DONT_DELETE);
-    begin_ = aData;
+  if (data && MA_BIT_DISABLED(flag, MessageChain::MALLOC_AND_COPY)) {
+    MA_SET_BITS(flag, MessageChain::DONT_DELETE);
+    begin_ = data;
     read_ = begin_;
     write_ = const_cast<char*>(begin_);
-    end_ = aData + aSize;
+    end_ = data + size;
   } else {
 #ifndef MEDIA_NDEBUG
-    if (aData) {
-      MA_ASSERT(MA_BIT_DISABLED(aFlag, MessageChain::DONT_DELETE));
+    if (data) {
+      MA_ASSERT(MA_BIT_DISABLED(flag, MessageChain::DONT_DELETE));
     }
 #endif // MEDIA_NDEBUG
-		MA_CLR_BITS(aFlag, MessageChain::DONT_DELETE);
-		if (aSize > 0) {
-		  Reset(std::move(DataBlock::Create(aSize, nullptr)));
+		MA_CLR_BITS(flag, MessageChain::DONT_DELETE);
+		if (size > 0) {
+		  Reset(std::move(DataBlock::Create(size, nullptr)));
 	  }
 	}
 	
-	if (aAdvanceWritePtrSize > 0)
-		AdvanceFirstMsgWritePtr(aAdvanceWritePtrSize);
+	if (increase > 0)
+		AdvanceFirstMsgWritePtr(increase);
 	
-	flag_ = aFlag;
+	flag_ = flag;
 	MA_CLR_BITS(flag_, MessageChain::MALLOC_AND_COPY);
 	MA_CLR_BITS(flag_, MessageChain::INTERNAL_MASK);
 }
 
-MessageChain::MessageChain(std::shared_ptr<DataBlock> aDb) {
-  Reset(std::move(aDb));
+MessageChain::MessageChain(std::shared_ptr<DataBlock> db) {
+  Reset(std::move(db));
   write_ = const_cast<char*>(end_);
   MA_SET_BITS(flag_, DUPLICATED);
 }
 
-MessageChain::MessageChain(std::shared_ptr<DataBlock> aDb, MFlag aFlag) {
+MessageChain::MessageChain(std::shared_ptr<DataBlock> db, MFlag flag) {
   ++ s_block_createcount;
-  MA_ASSERT(MA_BIT_DISABLED(aFlag, MessageChain::DONT_DELETE));
-  MA_CLR_BITS(aFlag, MessageChain::DONT_DELETE);
+  MA_ASSERT(MA_BIT_DISABLED(flag, MessageChain::DONT_DELETE));
+  MA_CLR_BITS(flag, MessageChain::DONT_DELETE);
 
-  Reset(std::move(aDb));
-  flag_ = aFlag;
+  Reset(std::move(db));
+  flag_ = flag;
   MA_CLR_BITS(flag_, MessageChain::MALLOC_AND_COPY);
   MA_CLR_BITS(flag_, MessageChain::INTERNAL_MASK);
 }
@@ -123,63 +122,64 @@ MessageChain::~MessageChain() {
   ++ s_block_destoycount;
 }
 
-int MessageChain::Peek(void* aDst, uint32_t aCount, uint32_t aPos, uint32_t* aBytesRead) {
+int MessageChain::Peek(void* dst, uint32_t count, 
+    uint32_t pos, uint32_t* nread) {
   MA_ASSERT(MA_BIT_DISABLED(flag_, READ_LOCKED));
   uint32_t dwLen = GetFirstMsgLength();
   uint32_t dwHaveRead = 0;
 
   MA_ASSERT(write_ >= read_);
-  if(aPos >= dwLen) {
-    aPos -= dwLen;
+  if(pos >= dwLen) {
+    pos -= dwLen;
     if(next_) {
-      return next_->Peek(aDst, aCount, aPos, aBytesRead);
+      return next_->Peek(dst, count, pos, nread);
     }
     return error_part_data;
   }
 
-  if(dwLen >= aCount + aPos) {
-    if (aDst) {
-      ::memcpy((char*)aDst+dwHaveRead, read_ + aPos, aCount);
+  if(dwLen >= count + pos) {
+    if (dst) {
+      ::memcpy((char*)dst+dwHaveRead, read_ + pos, count);
     }
-    dwHaveRead += aCount;
-    if (aBytesRead) {
-      *aBytesRead = dwHaveRead;
+    dwHaveRead += count;
+    if (nread) {
+      *nread = dwHaveRead;
     }
     return error_ok;
   }
   
-  if (aDst) {
-    ::memcpy((char*)aDst+dwHaveRead, read_ + aPos, dwLen - aPos);
+  if (dst) {
+    ::memcpy((char*)dst+dwHaveRead, read_ + pos, dwLen - pos);
   }
   
-  dwHaveRead += (dwLen - aPos);
+  dwHaveRead += (dwLen - pos);
   if (next_) {
     uint32_t dwNextRead;
-    int rv = next_->Read(aDst ? (char*)aDst+dwHaveRead : aDst, 
-                         aCount- dwHaveRead, 
+    int rv = next_->Read(dst ? (char*)dst+dwHaveRead : dst, 
+                         count- dwHaveRead, 
                          &dwNextRead, 
                          false);
     dwHaveRead += dwNextRead;
-    if (aBytesRead) {
-      *aBytesRead = dwHaveRead;
+    if (nread) {
+      *nread = dwHaveRead;
     }
     return rv;
   } 
   
-  if (aBytesRead) {
-    *aBytesRead = dwHaveRead;
+  if (nread) {
+    *nread = dwHaveRead;
 
   }
   return error_part_data;
 }
 
-int MessageChain::Read(void* aDst, uint32_t aCount, uint32_t *aBytesRead, bool aAdvance) {
+int MessageChain::Read(void* aDst, uint32_t aCount, 
+    uint32_t *aBytesRead, bool aAdvance) {
   MessageChain *pMbMove = this;
   uint32_t dwHaveRead = 0;
   bool bPartial = true;
 
-  while(pMbMove)
-  {
+  while(pMbMove) {
     MA_ASSERT(MA_BIT_DISABLED(pMbMove->flag_, READ_LOCKED));
     MA_ASSERT(pMbMove->write_ >= pMbMove->read_);
     uint32_t dwLen = pMbMove->GetFirstMsgLength();
@@ -208,7 +208,8 @@ int MessageChain::Read(void* aDst, uint32_t aCount, uint32_t *aBytesRead, bool a
   return bPartial ? error_part_data : error_ok;
 }
 
-int MessageChain::Write(void* aSrc, uint32_t aCount, uint32_t *aBytesWritten) {
+int MessageChain::Write(const void* aSrc, 
+    uint32_t aCount, uint32_t *aBytesWritten) {
   MA_ASSERT(MA_BIT_DISABLED(flag_, WRITE_LOCKED));
   uint32_t dwSpace = GetFirstMsgSpace();
   uint32_t dwHaveWritten = 0;
@@ -262,14 +263,14 @@ uint32_t MessageChain::GetChainedSpace() const {
   return dwRet;
 }
 
-void MessageChain::Append(MessageChain *aMb) {
-  if (!aMb) {
+void MessageChain::Append(MessageChain *mb) {
+  if (!mb) {
     return;
   }
-  SELFCHECK_MessageChain(aMb);
+  SELFCHECK_MessageChain(mb);
   MessageChain *pMbMove = this;
   while (pMbMove) {
-    MA_ASSERT(aMb != pMbMove);
+    MA_ASSERT(mb != pMbMove);
     
     //find last
     if (pMbMove->next_) {
@@ -278,26 +279,26 @@ void MessageChain::Append(MessageChain *aMb) {
     }
     
     //last
-    pMbMove->next_ = aMb;
+    pMbMove->next_ = mb;
     break;
   }
 }
 
-int MessageChain::AdvanceChainedReadPtr(uint32_t aCount, uint32_t *aBytesRead) {
-  if(!aCount)
+int MessageChain::AdvanceChainedReadPtr(uint32_t count, uint32_t *read) {
+  if(!count)
     return error_ok;
-  int rv = Read(nullptr, aCount, aBytesRead);
+  int rv = Read(nullptr, count, read);
   return rv;
 }
 
 int MessageChain::AdvanceChainedWritePtr(
-    uint32_t aCount, uint32_t *aBytesWritten) {
-  if(!aCount) {
+    uint32_t count, uint32_t *written) {
+  if(!count) {
     return error_ok;
   }
   
   MA_ASSERT(MA_BIT_DISABLED(flag_, WRITE_LOCKED));
-  uint32_t dwNeedWrite = aCount;
+  uint32_t dwNeedWrite = count;
   for (MessageChain *pCurrent = this; 
        nullptr != pCurrent && dwNeedWrite > 0; 
        pCurrent = pCurrent->next_) {
@@ -306,8 +307,8 @@ int MessageChain::AdvanceChainedWritePtr(
         MLOG_ERROR("can't advance."
                    " begin_=" << (void*)pCurrent->begin_ <<
                    " read_=" << (void*)pCurrent->read_);
-      if (aBytesWritten) {
-        *aBytesWritten = aCount - dwNeedWrite;
+      if (written) {
+        *written = count - dwNeedWrite;
       }
       return error_part_data;
     }
@@ -315,8 +316,8 @@ int MessageChain::AdvanceChainedWritePtr(
     uint32_t dwLen = pCurrent->GetFirstMsgSpace();
     if (dwNeedWrite <= dwLen) {
       pCurrent->AdvanceFirstMsgWritePtr(dwNeedWrite);
-      if (aBytesWritten) {
-        *aBytesWritten = aCount;
+      if (written) {
+        *written = count;
 
       }
       return error_ok;
@@ -326,9 +327,9 @@ int MessageChain::AdvanceChainedWritePtr(
     }
   }
 
-  MA_ASSERT(aCount > dwNeedWrite);
-  if (aBytesWritten) {
-    *aBytesWritten = aCount - dwNeedWrite;
+  MA_ASSERT(count > dwNeedWrite);
+  if (written) {
+    *written = count - dwNeedWrite;
   }
   return error_part_data;
 }
@@ -402,9 +403,9 @@ MessageChain* MessageChain::DuplicateFirstMsg() const {
   return pRet;
 }
 
-MessageChain* MessageChain::Disjoint(uint32_t aStart) {
-  if (aStart > GetChainedLength()) {
-    MLOG_WARN("start="<<aStart<<" len="<<GetChainedLength());
+MessageChain* MessageChain::Disjoint(uint32_t start) {
+  if (start > GetChainedLength()) {
+    MLOG_WARN("start="<<start<<" len="<<GetChainedLength());
     return nullptr;
   }
 
@@ -412,19 +413,22 @@ MessageChain* MessageChain::Disjoint(uint32_t aStart) {
   MessageChain *pFind = nullptr;
   for (MessageChain *pCurrent = this; pCurrent; pCurrent = pCurrent->next_) {
     uint32_t dwLen = pCurrent->GetFirstMsgLength();
-    if (aStart == 0 && dwLen == 0) {
-    } else if (aStart == dwLen) {
+    if (start == 0 && dwLen == 0) {
+      continue;
+    }
+    if (start == dwLen) {
       pFind = pCurrent->next_;
       pCurrent->next_ = nullptr;
       break;
-    } else if (aStart < dwLen) {
+    }
+    if (start < dwLen) {
       pFind = pCurrent->DuplicateFirstMsg();
       if (pFind) {
         pFind->next_ = pCurrent->next_;
-        pFind->read_ += aStart;
+        pFind->read_ += start;
         SELFCHECK_MessageChain(pFind);
 
-        pCurrent->write_ -= dwLen - aStart;
+        pCurrent->write_ -= dwLen - start;
         pCurrent->next_ = nullptr;
         SELFCHECK_MessageChain(pCurrent);
       } else {
@@ -432,9 +436,7 @@ MessageChain* MessageChain::Disjoint(uint32_t aStart) {
       }
       break;
     }
-    else {
-      aStart -= dwLen;
-    }
+    start -= dwLen;
   }
 
   // duplicate from <pFind>, if is DUPLICATED, need not duplicate again.
@@ -506,11 +508,11 @@ uint32_t MessageChain::FillIov(iovec* inIov,
   return fillNum;
 }
 
-void MessageChain::RewindChained(bool bRead) {
+void MessageChain::RewindChained(bool bread) {
   // TODO: need record first read ptr
   for (MessageChain *i = this; nullptr != i; i = i->next_) {
     SELFCHECK_MessageChain(i);
-    if(bRead) {
+    if(bread) {
       MA_ASSERT(i->save_read_);
       i->read_ = i->save_read_;
     } else {
@@ -554,12 +556,12 @@ std::string MessageChain::FlattenChained() {
   return std::move(strRet);
 }
 
-void MessageChain::Reset(std::shared_ptr<DataBlock> aDb) {
-  begin_ = (aDb ? aDb->GetBasePtr() : nullptr);
+void MessageChain::Reset(std::shared_ptr<DataBlock> db) {
+  begin_ = (db ? db->GetBasePtr() : nullptr);
   read_ = begin_;
   write_ = const_cast<char*>(begin_);
-  end_ = begin_ + (aDb ? aDb->GetLength() : (uint32_t)0);
-  data_block_ = std::move(aDb);
+  end_ = begin_ + (db ? db->GetLength() : (uint32_t)0);
+  data_block_ = std::move(db);
 }
 
 uint32_t MessageChain::GetFirstMsgLength() const {
@@ -583,17 +585,17 @@ char* MessageChain::GetFirstMsgWritePtr() const {
   return write_;
 }
 
-int MessageChain::AdvanceFirstMsgWritePtr(uint32_t aStep) {
+int MessageChain::AdvanceFirstMsgWritePtr(uint32_t step) {
   MA_ASSERT(MA_BIT_DISABLED(flag_, WRITE_LOCKED));
-  MA_ASSERT_RETURN(write_ + aStep <= end_, error_invalid);
-  write_ += aStep;
+  MA_ASSERT_RETURN(write_ + step <= end_, error_invalid);
+  write_ += step;
   return error_ok;
 }
 
-int MessageChain::AdvanceFirstMsgReadPtr(uint32_t aStep) {
+int MessageChain::AdvanceFirstMsgReadPtr(uint32_t step) {
   MA_ASSERT(MA_BIT_DISABLED(flag_, READ_LOCKED));
-  MA_ASSERT_RETURN(write_ >= read_ + aStep, error_invalid);
-  read_ += aStep;
+  MA_ASSERT_RETURN(write_ >= read_ + step, error_invalid);
+  read_ += step;
   return error_ok;
 }
 

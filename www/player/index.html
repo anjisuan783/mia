@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>video</title>
+</head>
+
+<body>
+<h2 style="text-align: center;">player</h2>
+<h3 id="userId" style="text-align: center;"></h3>
+<center>
+    <div>
+        <video id="localVideo" class="video" autoplay="autoplay"></video>
+        <video id="remoteVideo" class="video" height="500px" autoplay="autoplay"></video>
+    </div>
+</center>
+
+</br>
+<div style="text-align: center;">
+    <button id="callBtn" onclick="requestConnect()">call</button>
+    <button id="hangupBtn" onclick="hangupHandle()">hung up</button>
+</div>
+</br>
+<div style="text-align: center;">
+    peer id: <input id="toUserId">
+    server ip: <input id="serverAddr" value="263cv.net:8443">
+</div>
+</body>
+
+</html>
+<script src="./adapter-latest.js"></script>
+<script src="./sockjs.min.js"></script>
+<script>
+    const localVideo = document.querySelector('#localVideo');
+    const remoteVideo = document.querySelector('#remoteVideo');
+
+    const callBtn = document.getElementById('callBtn')
+    const hangupBtn = document.getElementById('hangupBtn')
+    callBtn.disabled = false;
+    hangupBtn.disabled = true;
+
+    const config = {
+        iceServers: [
+            { urls: 'turn:www.2edge.cn:3874','username': 'jiexun', 'credential': 'jiexun' }
+        ],
+    };
+
+    let peerConnection;
+
+    let socket, userId, toUserId, serverAddr;
+    userId = parseInt(Math.random()*10000);
+    document.getElementById('userId').innerText = 'my id:' + userId;
+    serverAddr = document.getElementById('serverAddr').value
+
+    let localStream, remoteStream;
+
+    function requestConnect() {
+        toUserId = parseInt(document.getElementById('toUserId').value)
+        if(!toUserId){
+            alert('input peer id')
+            return false
+        }else if(!socket){
+            alert('connect signal server first')
+            return false
+        }else if(toUserId == userId){
+            alert('can not call self')
+            return false
+        }
+
+        startDevice().then(() => {
+            //send call
+            socket.send(JSON.stringify({ 
+                'userId': userId, 
+                'toUserId': toUserId, 
+                'message': {'type': 'call'}}))
+            callBtn.disabled = true;
+        })
+    }
+
+    function hangupHandle(bSend = true) {
+        peerConnection.close();
+        peerConnection = null;
+
+        hangupBtn.disabled = true;
+        callBtn.disabled = false;
+
+        localStream.getTracks().forEach((track) => {
+            track.stop()
+        })
+
+        callBtn.disabled = false;
+        hangupBtn.disabled = true;
+
+        if (bSend) {
+            socket.send(JSON.stringify({ 
+                'userId': userId, 
+                'toUserId': toUserId, 
+                'message': {'type': 'hungup'}}))
+        }
+        
+    }
+
+    //open local devices
+    async function startDevice() {
+        // use getUserMedia to get local media streams
+        let constraints = {
+            video: false,
+            audio: false
+        }
+
+        await navigator.mediaDevices.enumerateDevices()
+            .then((devices)=> {
+                devices.forEach((device)=>{
+                    if("audioinput" == device.kind){
+                        console.log('audio true')
+                        constraints.audio = {
+                            noiseSuppression: true,
+                            echoCancellation: true,
+                        }
+                    }
+                    else if("videoinput" == device.kind){
+                        console.log('video true')
+                        constraints.video = true
+                    }
+                });
+            })
+            .catch(function(err) {
+                console.log(err.name + ": " + err.message);
+            });
+        console.log(constraints)
+        await navigator.mediaDevices.getUserMedia(constraints)
+            .then(gotLocalMediaStream)
+            .catch((err) => {
+                console.log('getUserMedia 错误', err);
+            });
+
+        createConnection();
+    }
+
+    function gotLocalMediaStream(mediaStream) {
+        localVideo.srcObject = mediaStream;
+        localStream = mediaStream;
+    }
+
+    // connect signal server
+    function connectServer() {
+        toUserId = document.getElementById('toUserId').value
+        let webSocketUrl = 'wss://' + serverAddr + '/websocket/' + userId
+        console.log(webSocketUrl)
+        if ('WebSocket' in window) {
+            socket = new WebSocket(webSocketUrl);
+        } else if ('MozWebSocket' in window) {
+            socket = new MozWebSocket(webSocketUrl);
+        }else {
+            socket = new SockJS("https://" + location.host + "/sockjs/websocket?userId=" + userId);
+        }
+
+        //signal server connected
+        socket.onopen = function (e) {
+            console.log('signal server connected!')
+        };
+
+        socket.onclose = function (e) {
+            console.log('close')
+            alert(JSON.stringify(e))
+        };
+        //error
+        socket.onerror = function (e) {
+            console.error(e)
+            alert(JSON.stringify(e))
+        };
+        socket.onmessage = onmessage
+    }
+
+    function createConnection() {
+        peerConnection = new RTCPeerConnection(config)
+
+        if (localStream) {
+            const videoTracks = localStream.getVideoTracks();
+            const audioTracks = localStream.getAudioTracks();
+
+            if (videoTracks.length > 0) {
+                console.log(`video device: ${videoTracks[0].label}.`);
+            }
+    
+            if (audioTracks.length > 0) {
+                console.log(`audio device: ${audioTracks[0].label}.`);
+            }
+
+            localStream.getTracks().forEach((track) => {
+                peerConnection.addTrack(track, localStream)
+            })
+        }
+
+        peerConnection.addEventListener('icecandidate', handleCandidata);
+        peerConnection.addEventListener('iceconnectionstatechange',
+            handleIceStatusChange)
+        peerConnection.addEventListener('track', gotRemoteMediaStream);
+    }
+
+    function startConnection() {
+        callBtn.disabled = true;
+        hangupBtn.disabled = false;
+        // send offer
+        peerConnection.createOffer().then(description => {
+            console.log(`offer:\n${description.sdp}`)
+
+            peerConnection.setLocalDescription(description).then(() => {
+                socket.send(JSON.stringify({ 'userId': userId, 'toUserId': toUserId, 'message': description }));
+            }).catch((err) => {
+                console.log('set local sdp failed', err)
+            });
+        })
+            .catch((err) => {
+                console.log('createdOffer failed', err);
+            });
+    }
+
+    function handleCandidata(event) {
+        console.log("handleConnection")
+        const peerConnection = event.target;
+        const icecandidate = event.candidate;
+
+        if (icecandidate) {
+            socket.send(JSON.stringify({
+                'userId': userId,
+                'toUserId': toUserId,
+                'message': {
+                    type: 'icecandidate',
+                    icecandidate: icecandidate
+                }
+            }));
+        }
+    }
+
+    // show remote media streams
+    function gotRemoteMediaStream(event) {
+        console.log('got remote media stream')
+
+        if (event.streams[0]) {
+            remoteVideo.srcObject = event.streams[0];
+            remoteStream = event.streams[0];
+        }
+    }
+
+    function handleIceStatusChange(event) {
+        const peerConnection = event.target;
+        console.log('ICE state change event: ', event);
+        console.log(`ICE state: ` + `${peerConnection.iceConnectionState}.`);
+        if (`${peerConnection.iceConnectionState}` === 'disconnected') {
+            callBtn.disabled = false;
+            hangupBtn.disabled = true;
+        }
+    }
+
+    function onmessage(e) {
+        const json = JSON.parse(e.data)
+        const description = json.message
+        toUserId = json.userId
+
+        switch (description.type) {
+        case 'call':
+            if(confirm(toUserId + ' calling!')){
+                callBtn.disabled = true;
+                hangupBtn.disabled = false;
+                //accept call
+                startDevice().then(() => {
+                    socket.send(JSON.stringify({ 'userId': userId, 'toUserId': toUserId, 'message': {'type': 'accept'} }));
+                })
+            }
+            break;
+        case 'accept':
+            //peer accept this call
+            startConnection()
+            break;
+        case 'hungup':
+            alert('peer hung up')
+            hangupHandle(false)
+            break;
+        case 'offer':
+            peerConnection.setRemoteDescription(new RTCSessionDescription(description)).then(() => {
+
+            }).catch((err) => {
+                console.log('local set remote sdp failed', err);
+            });
+
+            peerConnection.createAnswer().then(function (answer) {
+
+                peerConnection.setLocalDescription(answer).then(() => {
+                }).catch((err) => {
+                    console.error('set local sdp failed', err);
+                });
+
+                socket.send(JSON.stringify({ 'userId': userId, 'toUserId': toUserId, 'message': answer }));
+            }).catch(e => {
+                console.error(e)
+            });
+            break;
+        case 'icecandidate':
+            let newIceCandidate = new RTCIceCandidate(description.icecandidate);
+
+            // add local Candidate to remote RTCPeerConnection
+            peerConnection.addIceCandidate(newIceCandidate).then(() => {
+                console.log(`addIceCandidate succeeded`);
+            }).catch((error) => {
+                console.log(`addIceCandidate failed:\n` + `${error.toString()}.`);
+            });
+            break;
+        case 'answer':
+            peerConnection.setRemoteDescription(new RTCSessionDescription(description)).then(() => {
+            }).catch((err) => {
+                console.log('set remote sdp failed', err);
+            });
+            break;
+        default:
+            break;
+        }
+    }
+
+    connectServer();
+
+</script>
+<style>
+    .video {
+        background-color: black;
+        height: 30vh;
+    }
+</style>

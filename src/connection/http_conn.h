@@ -19,13 +19,14 @@ class IMediaHttpHandler;
 class MediaHttpCorsMux;
 
 class MediaHttpConn : public IMediaConnection,
-                   public IHttpRequestReader::CallBack{
+    public IHttpRequestReader::CallBack{
  public:
-  MediaHttpConn(std::unique_ptr<IHttpProtocalFactory> fac, IMediaHttpHandler* m);
+  MediaHttpConn(std::unique_ptr<IHttpProtocalFactory> fac, 
+                IMediaHttpHandler* m);
   MediaHttpConn() = default;
   virtual ~MediaHttpConn();
 
-  void Start() override;
+  srs_error_t Start() override;
 
   void Disconnect() override;
 
@@ -37,7 +38,7 @@ class MediaHttpConn : public IMediaConnection,
   std::string Ip() override;
  
  protected:
-  std::shared_ptr<IHttpRequestReader>  reader_;
+  std::unique_ptr<IHttpRequestReader>  reader_;
   std::unique_ptr<IHttpMessageParser>  parser_;
   IMediaHttpHandler* http_mux_;
   std::unique_ptr<MediaHttpCorsMux> cors_;
@@ -47,7 +48,8 @@ class MediaHttpConn : public IMediaConnection,
 
 class MediaResponseOnlyHttpConn : public MediaHttpConn {
  public:
-  MediaResponseOnlyHttpConn(std::unique_ptr<IHttpProtocalFactory> fac, IMediaHttpHandler* m);
+  MediaResponseOnlyHttpConn(std::unique_ptr<IHttpProtocalFactory> fac, 
+                            IMediaHttpHandler* m);
   ~MediaResponseOnlyHttpConn() override = default;
  private:
   srs_error_t process_request(std::string_view) override;

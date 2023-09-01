@@ -56,9 +56,13 @@ void ExpRtcPublish::Close() {
 }
 
 void ExpRtcPublish::OnFlvVideo(const uint8_t* data, int32_t len, uint32_t ts) {
-  MessageHeader header{.payload_length = len, 
-      .message_type = RTMP_MSG_VideoMessage, .timestamp = ts, 
-      .stream_id = 0, .perfer_cid = 0};
+  MessageHeader header;
+  header.payload_length = len;
+  header.message_type = RTMP_MSG_VideoMessage;
+  header.timestamp = ts;
+  header.stream_id = 0;
+  header.perfer_cid = 0;
+
   auto msg = MediaMessage::create(&header, (const char*)data);
   srs_error_t err = video_->OnData(std::move(msg));
   if (nullptr != err) {
@@ -69,9 +73,13 @@ void ExpRtcPublish::OnFlvVideo(const uint8_t* data, int32_t len, uint32_t ts) {
 }
 
 void ExpRtcPublish::OnFlvAudio(const uint8_t* data, int32_t len, uint32_t ts) {
-  MessageHeader header{.payload_length = len, 
-      .message_type = RTMP_MSG_AudioMessage, .timestamp = ts, 
-      .stream_id = 0, .perfer_cid = 0};
+  MessageHeader header;
+  header.payload_length = len;
+  header.message_type = RTMP_MSG_AudioMessage;
+  header.timestamp = ts;
+  header.stream_id = 0;
+  header.perfer_cid = 0;
+  
   auto msg = MediaMessage::create(&header, (const char*)data);
   srs_error_t err = audio_->OnData(std::move(msg));
   if (nullptr != err) {
